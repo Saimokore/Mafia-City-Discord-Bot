@@ -3,15 +3,18 @@ import { db } from "./database.js";
 import * as Cargo from "./Player/Cargo.js";
 import { use } from "react";
 import { Carta, Player } from "./Player/Player.js";
+import { PlayerManager } from "./PlayerManager.js";
 
 export class Game {
     private guildId: string;
+    private playerManager: PlayerManager;
     private client: Client;
     private cargoList: string[];
 
     constructor(guildId: string, client: Client) {
         this.guildId = guildId;
         this.client = client;
+        this.playerManager = new PlayerManager(this.guildId, this);
         
         this.cargoList = ["Evangelista", "Atirador de Elite", "Xerife", "Bigode"];
     }
@@ -25,16 +28,19 @@ export class Game {
         await this.sendAnuncio("A partida começou! O lobby está fechado. Que a cidade esteja com vocês! 🌆");
 
         const players = await db.getPlayers(this.guildId);
-        for (const player of players) {
-            this.criarChatPlayer(`chat-${player.username}`, player.userId);
-
+        for (const p of players) {
+            await this.criarChatPlayer(`chat-${p.username}`, p.userId);
+            
             // Adiciona cargos aleatoriamente da lista um por um
             let tempCargoList = this.cargoList;
             const cargo = tempCargoList[Math.floor(Math.random() * tempCargoList.length)];
             tempCargoList = tempCargoList.filter(c => c !== cargo);
-            await db.updatePlayer(player.userId, this.guildId, { cargo: `${cargo}` });
-
-            await this.sendMensagemPlayer(player.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
+            await db.updatePlayer(p.userId, this.guildId, { cargo: `${cargo}` });
+            
+            await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
+            
+            const player = await this.playerManager.loadPlayer(p.userId, p.partidaId)
+            this.sendMensagemPlayer(p.userId, player?.getStatus() || "Erro ao obter status do jogador.");
         }
 
         this.avancarEtapa();
@@ -110,7 +116,7 @@ export class Game {
             const userChat = await db.getPlayerById(userId, this.guildId).then(player => player?.userChat);
             if (userChat) {
                 const channel = await this.client.channels.fetch(userChat) as TextChannel;
-                await channel.send(`**Aviso:** ${mensagem}`);
+                await channel.send(mensagem);
             } else {
                 console.warn(`O jogador ${userId} não tem um canal de chat registrado.`);
             }
@@ -131,6 +137,10 @@ export class Game {
         }
     }
 
+    public getPlayerManager(): PlayerManager {
+        return this.playerManager;
+     }
+
     // ==========================================
     // REGRAS DE NEGÓCIO (O Jogo em Si)
     // ==========================================
@@ -147,43 +157,4 @@ export class Game {
         // await destrancarCanal();
     }
 
-    // ==========================================
-    // FACTORY
-    // ==========================================
-
-    public async loadPlayer(userId: string, guildId: string): Promise<Player | null> {
-        const data = await db.getPlayerById(userId, guildId);
-
-        if (!data) return null;
-
-        const cargoInstance = this.getCargoInstance(data.cargo || "");
-        if (!cargoInstance) throw new Error("Cargo inválido no banco de dados.");
-
-        const cartasInstanciadas = data.cartas.map(c => new Carta(c.destinatario, c.mensagem));
-
-        return new Player(
-            this,
-            data.userId,
-            data.username,
-            data.estaVivo,
-            data.distrito,
-            cartasInstanciadas,
-            data.quantCartas,
-            cargoInstance,
-            data.status.split(",").filter(s => s !== ""),
-            data.marcas.split(",").filter(m => m !== ""),
-            [] // Itens/Habilidades extras
-        );
-    }
-
-    public getCargoInstance(nomeDoCargo: string | null): Cargo.Cargo | null {
-        if (!nomeDoCargo) return null;
-        switch (nomeDoCargo) {
-            case "Evangelista": return new Cargo.Evangelista();
-            case "Atirador de Elite": return new Cargo.AtiradorDeElite();
-            case "Xerife": return new Cargo.Xerife();
-            case "Bigode": return new Cargo.Bigode();
-            default: return null;
-        }
-    }
 }

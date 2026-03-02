@@ -124,6 +124,9 @@ client.on('messageCreate', async (message: Message) => {
         if (!game) {
             message.reply("Nenhuma partida ativa neste servidor.");
             return;
+        } else if (await db.getPartida(serverId).then(partida => partida?.status) === "FINALIZADA") {
+            message.reply("A partida já foi finalizada. Use `!deletegame` para deletar a partida finalizada.");
+            return;
         }
         game.terminarJogo();
         message.reply("Jogo terminado neste servidor!");
@@ -145,7 +148,7 @@ client.on('messageCreate', async (message: Message) => {
 
     if (message.content === prefix +'me') {
         
-        const player = await game.loadPlayer(message.author.id, message.guild.id);
+        const player = await game.getPlayerManager().loadPlayer(message.author.id, message.guild.id);
 
         if (!player) return message.reply("Você não está nesta partida!");
 
@@ -154,6 +157,14 @@ client.on('messageCreate', async (message: Message) => {
 
     if (message.content === prefix +'ping') {
         message.reply('🏓 Pong!');
+    }
+
+    if (message.content === prefix +'restartgame') {
+        game.terminarJogo();
+        game.deletarJogo();
+
+        await db.createPartida(serverId);
+        message.reply("Jogo reiniciado neste servidor! O lobby está aberto. Digitem `!join` para entrar!");
     }
 });
 

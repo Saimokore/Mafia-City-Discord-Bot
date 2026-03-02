@@ -70,6 +70,27 @@ export class Player {
     public getStatus(): string {
         return `Nome: ${this.username}\nCargo: ${this.cargo.getNome()}\nVivo: ${this.isAlive} \nCartas: ${this.quantCartas}\nDistrito: ${this.distrito} \nProteção: ${this.protecao || "Nenhuma"} \nStatus: ${this.status.join(", ") || "Nenhum"} \nMarcas: ${this.marcas.join(", ") || "Nenhuma"} \nItens: ${this.items.map(i => i.getNome()).join(", ") || "Nenhum"} \nHabilidades: ${this.cargo.getHabilidades().map(h => h.getNome()).join(", ") || "Nenhuma"}\nAlertas: `;
     }
+
+    public getId(): string {
+        return this.id;
+    }
+
+    public getUsername(): string {
+        return this.username;
+    }
+
+    public getCargo(): Cargo {
+        return this.cargo;
+    }
+
+    public isPlayerAlive(): boolean {
+        return this.isAlive;
+    }
+
+    public getDistrito(): number {
+        return this.distrito;
+    }
+    
 }
 
 export class Carta {

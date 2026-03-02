@@ -33,12 +33,14 @@ model Partida {
 }
 
 model Player {
+  id       String @id @default(uuid())
+
   partidaId String
   partida   Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
 
   userChat String?
 
-  userId   String @id
+  userId   String
   username String
 
   cargo    String?
@@ -53,10 +55,13 @@ model Player {
   marcas String @default("")
   items  String @default("")
 
+  actions Action[]
+
   @@unique([partidaId, userId])
 }
 
 model Carta {
+  id           String  @id @default(uuid())
   userId       String
   partidaId    String
 
@@ -64,6 +69,18 @@ model Carta {
   mensagem     String
 
   player       Player? @relation(fields: [userId, partidaId], references: [userId, partidaId])
+}
 
-  @@unique([partidaId, userId])
+model Action {
+  id          String   @id @default(uuid())
+  userId      String
+  partidaId   String
+
+  etapa       Int
+  habilidade  String?
+  alvo        String?
+
+  player      Player   @relation(fields: [userId, partidaId], references: [userId, partidaId])
+
+  @@unique([partidaId, userId, etapa])
 }

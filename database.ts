@@ -18,23 +18,41 @@ export const db = {
     },
 
     async updateGuildConfig(guildId: string, dados: Prisma.GuildConfigUpdateInput) {
-        return await prisma.guildConfig.update({
+        return await prisma.guildConfig.upsert({
             where: { guildId },
-            data: dados
+            update: dados,
+            create: { guildId }
         });
     },
 
     async updatePartida(guildId: string, dados: Prisma.PartidaUpdateInput) {
-        return await prisma.partida.update({
+        return await prisma.partida.upsert({
             where: { id: guildId },
-            data: dados
+            update: dados,
+            create: { id: guildId }
         });
     },
 
-    async setPlayerChat(userId: string, canalId: string) {
-        return await prisma.player.update({
-            where: { userId: userId },
-            data: { userChat: canalId }
+    async registrarAction(userId: string, partidaId: string, etapa: number, habilidade: string, alvo?: string) {
+        return await prisma.action.upsert({
+            where: {
+                partidaId_userId_etapa: { 
+                    partidaId: partidaId,
+                    userId: userId,
+                    etapa: etapa
+                }
+            },
+            update: {
+                habilidade: habilidade,
+                alvo: alvo ??  null
+            },
+            create: {
+                userId: userId,
+                partidaId: partidaId,
+                etapa: etapa,
+                habilidade: habilidade,
+                alvo: alvo ?? null
+            }
         });
     },
 
@@ -51,9 +69,19 @@ export const db = {
         });
     },
 
-    async updatePlayer(userId: string, guildId: string, dados: Prisma.PlayerUpdateInput) {
+    async getPlayerId(userId: string, guildId: string) {
+        const player = await prisma.player.findFirst({
+            where: {
+                userId: userId,
+                partidaId: guildId
+            }
+        });
+        return player ? player.userId : null;
+    },
+
+    async updatePlayer(id: string, dados: Prisma.PlayerUpdateInput) {
         return await prisma.player.update({
-            where: { userId, partidaId: guildId },
+            where: { id },
             data: dados
         });
     },
@@ -69,7 +97,7 @@ export const db = {
     },
 
     async getPlayerById(userId: string, guildId: string) {
-        return await prisma.player.findUnique({
+        return await prisma.player.findFirst({
             where: {
                 userId: userId,
                 partidaId: guildId
@@ -86,12 +114,10 @@ export const db = {
         });
     },
 
-    async removePlayer(userId: string) {
+    async removePlayer(id: string) {
         try {
             return await prisma.player.delete({
-                where: {
-                    userId: userId
-                }
+                where: { id }
             });
         } catch (e) {
             console.log("Erro ao remover jogador:", e);
@@ -113,10 +139,9 @@ export const db = {
             await prisma.partida.delete({
                 where: { id: guildId }
             });
+        } catch (e) {
+            console.log("Erro ao terminar partida:", e);
         }
-            catch (e) {
-                console.log("Erro ao terminar partida:", e);
-            }
     },
 
     async getPartida(guildId: string) {
