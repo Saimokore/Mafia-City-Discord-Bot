@@ -77,10 +77,18 @@ model Action {
   partidaId   String
 
   etapa       Int
-  habilidade  String?
+  habilidade  Habilidade[]
   alvo        String?
 
   player      Player   @relation(fields: [userId, partidaId], references: [userId, partidaId])
 
   @@unique([partidaId, userId, etapa])
+}
+
+model Habilidade {
+  id          String   @id @default(uuid())
+  nome        String
+  
+  actionId    String
+  action      Action   @relation(fields: [actionId], references: [id])
 }

@@ -166,6 +166,21 @@ client.on('messageCreate', async (message: Message) => {
         await db.createPartida(serverId);
         message.reply("Jogo reiniciado neste servidor! O lobby está aberto. Digitem `!join` para entrar!");
     }
+
+    if (message.content === prefix +'skill 1') {
+        const player = await game.getPlayerManager().loadPlayer(message.author.id, message.guild.id);
+        if (!player) {
+            message.reply("Você não está nesta partida!");
+            return;
+        }
+        const habilidade = player.getCargo().getHabilidades()[0];
+        if (!habilidade) {
+            message.reply("Habilidade não encontrada para seu cargo.");
+            return;
+        }
+
+        game.getPlayerManager().useHabilidade(message.author.id, [habilidade]);
+    }
 });
 
 client.login(token);

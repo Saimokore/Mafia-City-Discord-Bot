@@ -15,11 +15,22 @@ export class PlayerManager {
         this.guildId = guildId;
     }
 
-    public async useHabilidade(userId: string, habilidade: Hab.Habilidade | Hab.Habilidade[]): Promise<void> {
-        const player = await this.loadPlayer(userId, this.guildId);
-        const action = new Action(userId, habilidade);
-        await db
+    public async useHabilidade(userId: string, habilidade: Hab.Habilidade[]): Promise<void> {
+        // const player = await this.loadPlayer(userId, this.guildId);
+        // const action = new Action(userId, habilidade);
 
+        const partida = await db.getPartida(this.guildId);
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${this.guildId}`);
+            return;
+        }
+        
+        let habilidadeStr = [];
+        for (const hab of habilidade) {
+            habilidadeStr.push(hab.getNome());
+        }
+
+        await db.registrarAction(userId, this.guildId, partida.etapaAtual, habilidadeStr );
 
         console.log(`Jogador ${userId} usou a habilidade: ${habilidade}`);
     }

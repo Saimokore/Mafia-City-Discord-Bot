@@ -35,7 +35,12 @@ export class Game {
             let tempCargoList = this.cargoList;
             const cargo = tempCargoList[Math.floor(Math.random() * tempCargoList.length)];
             tempCargoList = tempCargoList.filter(c => c !== cargo);
-            await db.updatePlayer(p.userId, this.guildId, { cargo: `${cargo}` });
+            const playerId = await db.getPlayerId(p.userId, this.guildId);
+            if (!playerId) {
+                console.error(`Não encontrei o jogador com userId ${p.userId} para atualizar o cargo.`);
+                continue;
+            }
+            await db.updatePlayer(playerId, { cargo: `${cargo}` });
             
             await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
             
@@ -91,8 +96,12 @@ export class Game {
             reason: 'Novo chat privado para o jogo'
         });
 
-        
-        await db.setPlayerChat(userId, canal.id);
+        const playerId = await db.getPlayerId(userId, this.guildId);
+        if (!playerId) {
+            console.error(`Não encontrei o jogador com userId ${userId} para atualizar o userChat.`);
+            return;
+        }
+        await db.updatePlayer(playerId, { userChat: canal.id });
 
         console.log(`Canal ${canal.name} criado com sucesso!`);
     }

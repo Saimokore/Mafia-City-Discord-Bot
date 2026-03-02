@@ -33,7 +33,7 @@ export const db = {
         });
     },
 
-    async registrarAction(userId: string, partidaId: string, etapa: number, habilidade: string, alvo?: string) {
+    async registrarAction(userId: string, partidaId: string, etapa: number, habilidade: string[], alvo?: string) {
         return await prisma.action.upsert({
             where: {
                 partidaId_userId_etapa: { 
@@ -43,15 +43,20 @@ export const db = {
                 }
             },
             update: {
-                habilidade: habilidade,
-                alvo: alvo ??  null
+                alvo: alvo ?? null,
+                habilidade: {
+                    deleteMany: {},
+                    create: habilidade.map(hab => ({ nome: hab }))
+                }
             },
             create: {
                 userId: userId,
                 partidaId: partidaId,
                 etapa: etapa,
-                habilidade: habilidade,
-                alvo: alvo ?? null
+                alvo: alvo ?? null,
+                habilidade: {
+                    create: habilidade.map(hab => ({ nome: hab }))
+                },
             }
         });
     },
