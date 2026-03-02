@@ -1,0 +1,160 @@
+import { ChannelType, Client, PermissionFlagsBits, TextChannel, User } from "discord.js";
+import { db } from "./database.js";
+import * as Cargo from "./Player/Cargo.js";
+import { use } from "react";
+
+export class Game {
+    private guildId: string;
+    private client: Client;
+    private cargoList: string[];
+
+    constructor(guildId: string, client: Client) {
+        this.guildId = guildId;
+        this.client = client;
+        
+        this.cargoList = ["Evangelista", "Atirador de Elite", "Xerife", "Bigode"];
+    }
+
+    // ==========================================
+    // MENSAGERIA (Interação com o Discord)
+    // ==========================================
+
+    public async iniciarJogo(): Promise<void> {
+        await this.sendAnuncio("A partida começou! O lobby está fechado. Que a cidade esteja com vocês! 🌆");
+
+        const players = await db.getPlayers(this.guildId);
+        for (const player of players) {
+            this.criarChatPlayer(`chat-${player.username}`, player.userId);
+
+            // Adiciona cargos aleatoriamente da lista um por um
+            let tempCargoList = this.cargoList;
+            const cargo = tempCargoList[Math.floor(Math.random() * tempCargoList.length)];
+            tempCargoList = tempCargoList.filter(c => c !== cargo);
+            await db.updatePlayer(player.userId, this.guildId, { cargo: `${cargo}` });
+
+            await this.sendMensagemPlayer(player.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
+        }
+    }
+
+    public async terminarJogo(): Promise<void> {
+        await db.updatePartida(this.guildId, { status: "FINALIZADA" });
+        await this.sendAnuncio("A partida terminou! Obrigado por jogar! 🎉");
+    }
+
+    public async deletarJogo() {
+        // deleto os chats privados
+        const players = await db.getPlayers(this.guildId);
+        for (const player of players) {
+            const userChat = await db.getPlayerById(player.userId, this.guildId).then(p => p?.userChat);
+            if (userChat) {
+                try {
+                    const channel = await this.client.channels.fetch(userChat) as TextChannel;
+                    await channel.delete("Partida finalizada, limpando canais privados.");
+                } catch (error) {
+                    console.warn(`Não consegui deletar o canal do jogador ${player.userId}:`, error);
+                }
+            }
+        }
+
+        //deleto a partida em si
+        await db.removePartida(this.guildId);
+    }
+
+    public async criarChatPlayer(nome: string, userId: string): Promise<void> {
+        const guild = await this.client.guilds.fetch(this.guildId);
+
+        const permissoes = [
+            {
+                id: guild.id, // @everyone
+                deny: [PermissionFlagsBits.ViewChannel],
+            },
+            {
+                id: userId,
+                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+            }
+        ];
+
+        const canal = await guild.channels.create({
+            name: nome,
+            type: ChannelType.GuildText,
+            permissionOverwrites: permissoes,
+            reason: 'Novo chat privado para o jogo'
+        });
+
+        
+        await db.setPlayerChat(userId, canal.id);
+
+        console.log(`Canal ${canal.name} criado com sucesso!`);
+    }
+
+    public async sendAnuncio(mensagem: string): Promise<void> {
+        const config = await db.getConfig(this.guildId);
+        if (!config || !config.canalAnuncioId) return;
+
+        try {
+            const canal = await this.client.channels.fetch(config.canalAnuncioId) as TextChannel;
+            if (canal) {
+                await canal.send(`📢 **ANÚNCIO DA CIDADE:**\n${mensagem}`);
+            }
+        } catch (error) {
+            console.error("Erro ao enviar anúncio. O canal ainda existe?", error);
+        }
+    }
+
+    public async sendMensagemPlayer(userId: string, mensagem: string): Promise<void> {
+        try {
+            const userChat = await db.getPlayerById(userId, this.guildId).then(player => player?.userChat);
+            if (userChat) {
+                const channel = await this.client.channels.fetch(userChat) as TextChannel;
+                await channel.send(`**Aviso:** ${mensagem}`);
+            } else {
+                console.warn(`O jogador ${userId} não tem um canal de chat registrado.`);
+            }
+        } catch (error) {
+            console.log(`Não consegui mandar mensagem para o user ${userId}`);
+        }
+    }
+
+    public async avancarEtapa(): Promise<void> {
+        let etapaAtual = await db.getPartida(this.guildId).then(partida => partida?.etapaAtual || 0);
+        etapaAtual++;
+        await db.updatePartida(this.guildId, { etapaAtual });
+
+        if (etapaAtual % 2 === 0) {
+            await this.iniciarNoite(etapaAtual);
+        } else {
+            await this.iniciarDia(etapaAtual);
+        }
+    }
+
+    // ==========================================
+    // REGRAS DE NEGÓCIO (O Jogo em Si)
+    // ==========================================
+
+    public async iniciarNoite(etapa: number): Promise<void> {
+        await this.sendAnuncio(`Noite [${etapa}]. O sol se põe... A cidade vai dormir. Nenhuma mensagem a mais será ouvida aqui.`);
+        
+        // await trancarCanal();
+    }
+
+    public async iniciarDia(etapa: number): Promise<void> {
+        await this.sendAnuncio(`Dia amanhece [${etapa}]`);
+        
+        // await destrancarCanal();
+    }
+
+    // ==========================================
+    // FACTORY
+    // ==========================================
+
+    public instanciarCargo(nomeDoCargo: string | null): Cargo.Cargo | null {
+        if (!nomeDoCargo) return null;
+        switch (nomeDoCargo) {
+            case "Evangelista": return new Cargo.Evangelista();
+            case "Atirador de Elite": return new Cargo.AtiradorDeElite();
+            case "Xerife": return new Cargo.Xerife();
+            case "Bigode": return new Cargo.Bigode();
+            default: return null;
+        }
+    }
+}
