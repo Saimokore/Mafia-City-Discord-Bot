@@ -10,7 +10,7 @@ export class Player {
     private isAlive: boolean;
     private distrito: number;
 
-    private cartas: string[];
+    private cartas: Carta[];
     private quantCartas: number;
     
     private cargo: Cargo;
@@ -22,7 +22,7 @@ export class Player {
     private protecao?: string | null; // invencibilidade > prot poderosa > prot basica
 
     constructor(game: Game, id: string, username: string, isAlive: boolean, distrito: number, 
-                cartas: string[], quantCartas: number, cargo: Cargo, status: string[], marcas: string[], 
+                cartas: Carta[], quantCartas: number, cargo: Cargo, status: string[], marcas: string[], 
                 items: Habilidade[], acao?: Habilidade | Habilidade[] | null, protecao?: string | null) 
                 {
         this.id = id;
@@ -56,7 +56,7 @@ export class Player {
 
     public sendCarta(alvo: Player, mensagem: string): boolean {
         if (this.quantCartas > 0) {
-            this.cartas.push(mensagem);
+            this.cartas.push(new Carta(alvo.id, mensagem));
             this.quantCartas--;
             return true;
         }
@@ -68,6 +68,16 @@ export class Player {
     }
 
     public getStatus(): string {
-        return `Nome: ${this.username} \n Cargo: ${this.cargo.getNome()} \n Vivo: ${this.isAlive} \n Cartas: ${this.quantCartas} \n Distrito: ${this.distrito} \n Proteção: ${this.protecao || "Nenhuma"} \n Status: ${this.status.join(", ") || "Nenhum"} \n Marcas: ${this.marcas.join(", ") || "Nenhuma"} \n Itens: ${this.items.map(i => i.getNome()).join(", ") || "Nenhum"} \n Habilidades: ${this.cargo.getHabilidades().map(h => h.getNome()).join(", ") || "Nenhuma"}, Alertas: `;
+        return `Nome: ${this.username}\nCargo: ${this.cargo.getNome()}\nVivo: ${this.isAlive} \nCartas: ${this.quantCartas}\nDistrito: ${this.distrito} \nProteção: ${this.protecao || "Nenhuma"} \nStatus: ${this.status.join(", ") || "Nenhum"} \nMarcas: ${this.marcas.join(", ") || "Nenhuma"} \nItens: ${this.items.map(i => i.getNome()).join(", ") || "Nenhum"} \nHabilidades: ${this.cargo.getHabilidades().map(h => h.getNome()).join(", ") || "Nenhuma"}\nAlertas: `;
+    }
+}
+
+export class Carta {
+    private destinatario: string;
+    private mensagem: string;
+
+    constructor(destinatario: string, mensagem: string) {
+        this.destinatario = destinatario;
+        this.mensagem = mensagem;
     }
 }

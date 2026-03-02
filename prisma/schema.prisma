@@ -10,46 +10,60 @@ datasource db {
 }
 
 model GuildConfig {
-  guildId         String    @id
-  canalDiurnoId   String?
-  canalAnuncioId  String?
-  prefix          String    @default("!")
-  createdAt       DateTime  @default(now())
-  
-  partida       Partida?
+  guildId        String   @id
+  canalDiurnoId  String?
+  canalAnuncioId String?
+  prefix         String   @default("!")
+  createdAt      DateTime @default(now())
+
+  partida Partida?
 }
 
 model Partida {
-  id          String      @id
-  guild       GuildConfig @relation(fields: [id], references: [guildId])
-  
-  status      String      @default("LOBBY")
-  etapaAtual    Int         @default(1)       // Em qual rodada estamos
-  
-  criadoEm    DateTime    @default(now())
-  finalizadoEm DateTime?  // Preenchido quando o jogo acaba
-  
-  players   Player[]
+  id    String      @id
+  guild GuildConfig @relation(fields: [id], references: [guildId])
+
+  status     String @default("LOBBY")
+  etapaAtual Int    @default(1) // Em qual rodada estamos
+
+  criadoEm     DateTime  @default(now())
+  finalizadoEm DateTime? // Preenchido quando o jogo acaba
+
+  players Player[]
 }
 
 model Player {
-  partidaId   String
-  partida     Partida  @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+  partidaId String
+  partida   Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
 
-  userChat    String?
-  
-  userId      String   @id
-  username    String
-  
-  cargo       String?
-  estaVivo    Boolean  @default(true)
+  userChat String?
+
+  userId   String @id
+  username String
+
+  cargo    String?
+  estaVivo Boolean @default(true)
 
   protecao    String?
-  quantCartas Int      @default(3)
-  distrito    Int      @default(0)
-  
-  status      String   @default("") 
-  marcas      String   @default("")
-  
+  cartas      Carta[]
+  quantCartas Int     @default(3)
+  distrito    Int     @default(0)
+
+  status String @default("")
+  marcas String @default("")
+  items  String @default("")
+
+  @@unique([partidaId, userId])
+}
+
+model Carta {
+  userId       String
+  partidaId    String
+
+  destinatario String
+  mensagem     String
+
+  player       Player? @relation(fields: [userId, partidaId], references: [userId, partidaId])
+
   @@unique([partidaId, userId])
 }

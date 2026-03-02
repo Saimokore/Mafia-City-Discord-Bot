@@ -2,6 +2,7 @@ import { ChannelType, Client, PermissionFlagsBits, TextChannel, User } from "dis
 import { db } from "./database.js";
 import * as Cargo from "./Player/Cargo.js";
 import { use } from "react";
+import { Carta, Player } from "./Player/Player.js";
 
 export class Game {
     private guildId: string;
@@ -20,6 +21,7 @@ export class Game {
     // ==========================================
 
     public async iniciarJogo(): Promise<void> {
+        await db.updatePartida(this.guildId, { status: "ATIVA" });
         await this.sendAnuncio("A partida começou! O lobby está fechado. Que a cidade esteja com vocês! 🌆");
 
         const players = await db.getPlayers(this.guildId);
@@ -34,6 +36,8 @@ export class Game {
 
             await this.sendMensagemPlayer(player.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
         }
+
+        this.avancarEtapa();
     }
 
     public async terminarJogo(): Promise<void> {
@@ -116,14 +120,14 @@ export class Game {
     }
 
     public async avancarEtapa(): Promise<void> {
-        let etapaAtual = await db.getPartida(this.guildId).then(partida => partida?.etapaAtual || 0);
+        let etapaAtual = await db.getPartida(this.guildId).then(partida => partida?.etapaAtual || 1);
         etapaAtual++;
         await db.updatePartida(this.guildId, { etapaAtual });
 
         if (etapaAtual % 2 === 0) {
-            await this.iniciarNoite(etapaAtual);
-        } else {
             await this.iniciarDia(etapaAtual);
+        } else {
+            await this.iniciarNoite(etapaAtual);
         }
     }
 
@@ -132,13 +136,13 @@ export class Game {
     // ==========================================
 
     public async iniciarNoite(etapa: number): Promise<void> {
-        await this.sendAnuncio(`Noite [${etapa}]. O sol se põe... A cidade vai dormir. Nenhuma mensagem a mais será ouvida aqui.`);
+        await this.sendAnuncio(`Noite [${Math.floor(etapa / 2)}]. O sol se põe... A cidade vai dormir. Nenhuma mensagem a mais será ouvida aqui.`);
         
         // await trancarCanal();
     }
 
     public async iniciarDia(etapa: number): Promise<void> {
-        await this.sendAnuncio(`Dia amanhece [${etapa}]`);
+        await this.sendAnuncio(`Dia amanhece [${Math.floor(etapa / 2)}]`);
         
         // await destrancarCanal();
     }
@@ -147,7 +151,32 @@ export class Game {
     // FACTORY
     // ==========================================
 
-    public instanciarCargo(nomeDoCargo: string | null): Cargo.Cargo | null {
+    public async loadPlayer(userId: string, guildId: string): Promise<Player | null> {
+        const data = await db.getPlayerById(userId, guildId);
+
+        if (!data) return null;
+
+        const cargoInstance = this.getCargoInstance(data.cargo || "");
+        if (!cargoInstance) throw new Error("Cargo inválido no banco de dados.");
+
+        const cartasInstanciadas = data.cartas.map(c => new Carta(c.destinatario, c.mensagem));
+
+        return new Player(
+            this,
+            data.userId,
+            data.username,
+            data.estaVivo,
+            data.distrito,
+            cartasInstanciadas,
+            data.quantCartas,
+            cargoInstance,
+            data.status.split(",").filter(s => s !== ""),
+            data.marcas.split(",").filter(m => m !== ""),
+            [] // Itens/Habilidades extras
+        );
+    }
+
+    public getCargoInstance(nomeDoCargo: string | null): Cargo.Cargo | null {
         if (!nomeDoCargo) return null;
         switch (nomeDoCargo) {
             case "Evangelista": return new Cargo.Evangelista();

@@ -69,11 +69,12 @@ export const db = {
     },
 
     async getPlayerById(userId: string, guildId: string) {
-        return await prisma.player.findFirst({
+        return await prisma.player.findUnique({
             where: {
                 userId: userId,
                 partidaId: guildId
-            }
+            },
+            include: { cartas: true }
         });
     },
 
@@ -124,6 +125,15 @@ export const db = {
                 id: guildId
             },
             include: { players: true }
+        });
+    },
+
+    async getCartasById(guildId: string, userId: string) {
+        return await prisma.carta.findMany({
+            where: {
+                partidaId: guildId,
+                userId: userId
+            }
         });
     }
 };
