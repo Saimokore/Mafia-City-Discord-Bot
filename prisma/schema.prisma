@@ -33,7 +33,7 @@ model Partida {
 }
 
 model Player {
-  id       String @id @default(uuid())
+  id String @id @default(uuid())
 
   partidaId String
   partida   Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
@@ -43,8 +43,9 @@ model Player {
   userId   String
   username String
 
-  cargo    String?
-  estaVivo Boolean @default(true)
+  cargo       String?
+  habilidades Habilidade[]
+  estaVivo    Boolean      @default(true)
 
   protecao    String?
   cartas      Carta[]
@@ -61,48 +62,64 @@ model Player {
 }
 
 model Carta {
-  id           String  @id @default(uuid())
-  userId       String
-  partidaId    String
+  id        String @id @default(uuid())
+  userId    String
+  partidaId String
 
   destinatario String
   mensagem     String
 
-  player       Player? @relation(fields: [userId, partidaId], references: [userId, partidaId])
+  player Player? @relation(fields: [userId, partidaId], references: [userId, partidaId])
 }
 
 model Action {
-  id          String   @id @default(uuid())
-  userId      String
-  partidaId   String
+  id        String @id @default(uuid())
+  userId    String
+  partidaId String
 
-  etapa       Int
-  habilidade  Habilidade[]
-  alvo        String?
+  etapa        Int
+  habilidadeId String
+  habilidade   Habilidade @relation(fields: [habilidadeId], references: [id])
+  alvo         Alvo[]
 
-  player      Player   @relation(fields: [userId, partidaId], references: [userId, partidaId])
+  player Player @relation(fields: [userId, partidaId], references: [userId, partidaId])
 
-  @@unique([partidaId, userId, etapa])
+  @@unique([partidaId, userId])
+}
+
+model Alvo {
+  id     String @id @default(uuid())
+  alvoId String
+
+  actionId String
+  action   Action @relation(fields: [actionId], references: [id])
 }
 
 model Habilidade {
-  id          String   @id @default(uuid())
-  nome        String
-  
-  actionId    String
-  action      Action   @relation(fields: [actionId], references: [id])
+  id   String @id @default(uuid())
+  nome String
+  uso  Int
+
+  userId    String
+  partidaId String
+
+  actionId String
+  player   Player   @relation(fields: [userId, partidaId], references: [userId, partidaId])
+  actions  Action[]
+
+  @@unique([partidaId, userId, actionId])
 }
 
 model Oferta {
-  id          String   @id @default(uuid())
-  partidaId   String
-  
-  emissorId   String
-  alvoId      String
-  
-  habilidade  String
-  status      String   @default("PENDENTE") // PENDENTE, ACEITA, RECUSADA
-  etapa       Int
-  
-  criadoEm    DateTime @default(now())
+  id        String @id @default(uuid())
+  partidaId String
+
+  emissorId String
+  alvoId    String
+
+  habilidade String
+  status     String @default("PENDENTE") // PENDENTE, ACEITA, RECUSADA
+  etapa      Int
+
+  criadoEm DateTime @default(now())
 }

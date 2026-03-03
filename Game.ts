@@ -11,6 +11,8 @@ export class Game {
     private client: Client;
     private cargoList: string[];
 
+    private jogadoresBloqueados: Set<string> = new Set();
+
     constructor(guildId: string, client: Client) {
         this.guildId = guildId;
         this.client = client;
@@ -145,6 +147,57 @@ export class Game {
         } else {
             await this.iniciarNoite(etapaAtual);
         }
+    }
+
+    public bloquearJogador(userId: string): void {
+        this.jogadoresBloqueados.add(userId);
+    }
+
+    public isBloqueado(userId: string): boolean {
+        return this.jogadoresBloqueados.has(userId);
+    }
+
+    public async executarActions() {
+        const partida = await db.getPartida(this.guildId);
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${this.guildId}`);
+            return;
+        }
+
+        const actions = await db.getActionsByEtapa(this.guildId, partida.etapaAtual);
+        if (actions.length === 0) {
+            console.log(`Nenhuma ação registrada para a etapa ${partida.etapaAtual}.`);
+            return;
+        }
+
+        this.jogadoresBloqueados.clear();
+
+        for (const action of actions) {
+            const habilidadesDB = action.habilidade.map(h => h.nome);
+            const alvos = action.alvo.map(a => a.alvoId);
+            const player = action.userId;
+
+            const habilidadeInstances = [];
+            habilidadeInstances.push(...await Promise.all(habilidadesDB.map(habNome => this.playerManager.getHabilidadeInstance(habNome))));
+            if (habilidadeInstances.includes(null)) {
+                console.error(`Habilidade não encontrada para um dos nomes: ${habilidadesDB.join(", ")}`);
+                continue;
+            }
+            const habilidades = habilidadeInstances.filter(h => h !== null);
+
+            habilidades.sort((a, b) => b.getPrioridade() - a.getPrioridade());
+            if (alvos.length > 0) {
+                // tem que ter algo que permita não usar habilidade que não sao item ou gratis e tal
+                habilidades.forEach(hab => hab.usarHabilidade(this, player, alvos));
+            } else {
+                habilidades.forEach(hab => hab.usarHabilidade(this, player));
+            }
+
+        }
+    }
+
+    public async executarInstantAction() {
+        // deixar isso pra depois
     }
 
     public getPlayerManager(): PlayerManager {

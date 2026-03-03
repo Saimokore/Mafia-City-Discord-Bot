@@ -77,5 +77,26 @@ export class PlayerManager {
             default: return null;
         }
     }
+
+    public getHabilidadeInstance(nomeDaHabilidade: string | null): Hab.Habilidade | null {
+        if (!nomeDaHabilidade) return null;
+        switch (nomeDaHabilidade) {
+            case "Evangelho": return new Hab.Evangelho();
+            case "Palavra de Deus": return new Hab.PalavraDeDeus();
+
+            case "Snipe": return new Hab.Snipe();
+            case "Execucao Publica": return new Hab.ExecucaoPublica();
+
+            case "Reputacao": return new Hab.Reputacao();
+            case "Prender": return new Hab.Prender();
+            case "Pacificacao": return new Hab.Pacificacao();
+            
+            case "Punho de Ferro": return new Hab.PunhoDeFerro();
+            case "Matar": return new Hab.Matar();
+            case "Massacre": return new Hab.Massacre();
+            
+            default: return null;
+        }
+    }
     
 }

@@ -209,7 +209,7 @@ client.on('interactionCreate', async interaction => {
 
         const oferta = await db.updateOferta(ofertaId, acao === 'aceita' ? "ACEITA" : "RECUSADA");
         
-        const habilidade = game..getHabilidade(oferta.habilidade);
+        // const habilidade = game.getPlayerManager().getHabilidadeInstance(oferta.habilidade);
         // habilidade.resolverOferta(game, emissor, alvo, acao === 'aceita');
     }
 });

@@ -33,7 +33,7 @@ export const db = {
         });
     },
 
-    async registrarAction(userId: string, partidaId: string, etapa: number, habilidade: string[], alvo?: string) {
+    async registrarAction(userId: string, partidaId: string, etapa: number, habilidade: string[], alvoIds?: string[]) {
         return await prisma.action.upsert({
             where: {
                 partidaId_userId_etapa: { 
@@ -43,7 +43,10 @@ export const db = {
                 }
             },
             update: {
-                alvo: alvo ?? null,
+                alvo: {
+                    deleteMany: {},
+                    create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
+                },
                 habilidade: {
                     deleteMany: {},
                     create: habilidade.map(hab => ({ nome: hab }))
@@ -53,7 +56,9 @@ export const db = {
                 userId: userId,
                 partidaId: partidaId,
                 etapa: etapa,
-                alvo: alvo ?? null,
+                alvo: {
+                    create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
+                },
                 habilidade: {
                     create: habilidade.map(hab => ({ nome: hab }))
                 },
@@ -193,4 +198,14 @@ export const db = {
             }
         });
     },
+
+    async getActionsByEtapa(guildId: string, etapa: number) {
+        return await prisma.action.findMany({
+            where: {
+                partidaId: guildId,
+                etapa: etapa
+            },
+            include: { habilidade: true, alvo: true }
+        });
+    }
 } 
