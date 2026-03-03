@@ -160,8 +160,8 @@ client.on('messageCreate', async (message: Message) => {
     }
 
     if (message.content === prefix +'restartgame') {
-        game.terminarJogo();
-        game.deletarJogo();
+        await game.terminarJogo();
+        await game.deletarJogo();
 
         await db.createPartida(serverId);
         message.reply("Jogo reiniciado neste servidor! O lobby está aberto. Digitem `!join` para entrar!");
@@ -180,6 +180,37 @@ client.on('messageCreate', async (message: Message) => {
         }
 
         game.getPlayerManager().useHabilidade(message.author.id, [habilidade]);
+    }
+});
+
+client.on('interactionCreate', async interaction => {
+    const serverId = interaction.guildId;
+    if (!serverId) return;
+    const game = new Game(serverId, client);
+
+    if (!interaction.isButton()) return; 
+
+    const customId = interaction.customId;
+
+    if (customId.startsWith('oferta_')) {
+        const partes = customId.split('_'); // ["oferta", "aceita", "123456"]
+        const acao = partes[1]; // "aceita" ou "recusa"
+        const ofertaId = partes[2]; // "123456"
+
+        await interaction.update({ components: [], content: "Oferta processada..." });
+
+        // Aqui você busca a oferta no banco, instancia a Habilidade usando o nome salvo, 
+        // e chama o método `resolverOferta` passando true ou false!
+
+        if (!ofertaId) {
+            interaction.reply("Oferta inválida.");
+            return;
+        }
+
+        const oferta = await db.updateOferta(ofertaId, acao === 'aceita' ? "ACEITA" : "RECUSADA");
+        
+        const habilidade = game..getHabilidade(oferta.habilidade);
+        // habilidade.resolverOferta(game, emissor, alvo, acao === 'aceita');
     }
 });
 

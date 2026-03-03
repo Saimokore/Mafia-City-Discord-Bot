@@ -81,14 +81,18 @@ export const db = {
                 partidaId: guildId
             }
         });
-        return player ? player.userId : null;
+        return player ? player.id : null;
     },
 
     async updatePlayer(id: string, dados: Prisma.PlayerUpdateInput) {
-        return await prisma.player.update({
-            where: { id },
-            data: dados
-        });
+        try{
+            return await prisma.player.update({
+                where: { id },
+                data: dados
+            });
+        } catch (e) {
+            console.log("Erro ao atualizar jogador:", e);
+        }
     },
 
     async addPlayer(guildId: string, userId: string, username: string) {
@@ -165,5 +169,28 @@ export const db = {
                 userId: userId
             }
         });
-    }
-};
+    },
+
+    async criarOferta(partidaId: string, emissorId: string, alvoId: string, habilidade: string, etapa: number) {
+        return await prisma.oferta.create({
+            data: {
+                partidaId,
+                emissorId,
+                alvoId,
+                habilidade,
+                etapa
+            }
+        });
+    },
+
+    async updateOferta(id: string, status: string) {
+        return await prisma.oferta.update({
+            where: {
+                id
+            },
+            data: {
+                status
+            }
+        });
+    },
+} 

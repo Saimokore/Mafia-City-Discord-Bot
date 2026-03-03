@@ -101,7 +101,8 @@ export class Game {
             console.error(`Não encontrei o jogador com userId ${userId} para atualizar o userChat.`);
             return;
         }
-        await db.updatePlayer(playerId, { userChat: canal.id });
+        const canalId = canal.id;
+        await db.updatePlayer(playerId, { userChat: canalId });
 
         console.log(`Canal ${canal.name} criado com sucesso!`);
     }
@@ -148,7 +149,11 @@ export class Game {
 
     public getPlayerManager(): PlayerManager {
         return this.playerManager;
-     }
+    }
+
+    public getGuildId(): string {
+        return this.guildId;
+    }
 
     // ==========================================
     // REGRAS DE NEGÓCIO (O Jogo em Si)

@@ -1,3 +1,4 @@
+import { db } from '../database.js';
 import { Game } from '../Game.js';
 import { Modificador } from './Modificador.js';
 import type { Player } from './Player.js';
@@ -21,12 +22,19 @@ export abstract class Habilidade {
         }
     }
 
-    public usarHabilidade(game: Game, quemUsou: Player, alvo?: Player): string | void {
+    public async usarHabilidade(game: Game, quemUsou: Player, alvo?: Player): Promise<string | void> {
         
         if (this.modificadores?.includes("Dormente")) {
             // Usa a instância do jogo que foi passada
-            if (game.getEtapa() < 4) {
-                throw new Error("Habilidade não pode ser usada antes do dia 2.");
+            const etapaAtual = await db.getPartida(game.getGuildId()).then(partida => partida?.etapaAtual || 1);
+            if (!etapaAtual) {
+                console.error(`Partida não encontrada para ${game.getGuildId()}`);
+                return;
+            }
+
+            if (etapaAtual < 4) {
+                console.error("Habilidade não pode ser usada antes do dia 2.");
+                return;
             }
         }
         
@@ -39,6 +47,8 @@ export abstract class Habilidade {
 
     // public abstract ativar(quemUsou: Player, alvo?: Player): string | void;
 
+
+    public resolverOferta(game: Game, emissor: Player, alvo: Player, aceitou: boolean): void {}
 
     private visitarPlayer(alvo: Player): void {
         console.log(`${alvo.getStatus()} foi visitado.`);

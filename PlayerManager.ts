@@ -32,9 +32,12 @@ export class PlayerManager {
 
         await db.registrarAction(userId, this.guildId, partida.etapaAtual, habilidadeStr );
 
-        console.log(`Jogador ${userId} usou a habilidade: ${habilidade}`);
+        console.log(`Jogador ${userId} usou a habilidade: ${habilidade[0]?.getNome() || "Desconhecida"}`);
     }
 
+    public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, etapa: number) {
+        const oferta = await db.criarOferta(this.guildId, emissorId, alvoId, habilidadeNome, etapa);
+    }
     // ==========================================
     // FACTORY
     // ==========================================

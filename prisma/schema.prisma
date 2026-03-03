@@ -92,3 +92,17 @@ model Habilidade {
   actionId    String
   action      Action   @relation(fields: [actionId], references: [id])
 }
+
+model Oferta {
+  id          String   @id @default(uuid())
+  partidaId   String
+  
+  emissorId   String
+  alvoId      String
+  
+  habilidade  String
+  status      String   @default("PENDENTE") // PENDENTE, ACEITA, RECUSADA
+  etapa       Int
+  
+  criadoEm    DateTime @default(now())
+}
