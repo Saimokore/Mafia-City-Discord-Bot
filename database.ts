@@ -33,13 +33,13 @@ export const db = {
         });
     },
 
-    async registrarAction(userId: string, partidaId: string, etapa: number, habilidade: string[], alvoIds?: string[]) {
+    async registrarAction(userId: string, partidaId: string, etapa: number, habilidadeId: string, alvoIds?: string[]) {
         return await prisma.action.upsert({
             where: {
-                partidaId_userId_etapa: { 
+                partidaId_userId_habilidadeId: { 
                     partidaId: partidaId,
                     userId: userId,
-                    etapa: etapa
+                    habilidadeId: habilidadeId
                 }
             },
             update: {
@@ -47,10 +47,7 @@ export const db = {
                     deleteMany: {},
                     create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
                 },
-                habilidade: {
-                    deleteMany: {},
-                    create: habilidade.map(hab => ({ nome: hab }))
-                }
+                habilidadeId
             },
             create: {
                 userId: userId,
@@ -59,9 +56,7 @@ export const db = {
                 alvo: {
                     create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
                 },
-                habilidade: {
-                    create: habilidade.map(hab => ({ nome: hab }))
-                },
+                habilidadeId
             }
         });
     },
@@ -206,6 +201,25 @@ export const db = {
                 etapa: etapa
             },
             include: { habilidade: true, alvo: true }
+        });
+    },
+
+    async getHabilidadeId(nome: string, userId: string, guildId: string) {
+        return await prisma.habilidade.findFirst({
+            where: {
+                nome,
+                userId,
+                partidaId: guildId
+            }
+        });
+    },
+
+    async getOfertas(guildId: string, etapa: number) {
+        return await prisma.oferta.findMany({
+            where: {
+                partidaId: guildId,
+                etapa: etapa
+            }
         });
     }
 } 

@@ -164,6 +164,21 @@ export class Game {
             return;
         }
 
+        const ofertas = await db.getOfertas(this.guildId, partida.etapaAtual);
+        for (const oferta of ofertas) {
+            if (oferta.etapa == partida.etapaAtual) {
+                console.log("Oferta da etapa atual, só sera processada próxima rodada");
+                continue;
+            }
+            const habilidade = this.playerManager.getHabilidadeInstance(oferta.habilidade);
+            if (!habilidade) {
+                console.error(`Habilidade ${oferta.habilidade} não encontrada para oferta do jogador ${oferta.emissorId}.`);
+                continue;
+            }
+            habilidade.resolverOferta(this, oferta.emissorId, oferta.alvoId, oferta.status === "ACEITA" ? true : false);
+
+        }
+
         const actions = await db.getActionsByEtapa(this.guildId, partida.etapaAtual);
         if (actions.length === 0) {
             console.log(`Nenhuma ação registrada para a etapa ${partida.etapaAtual}.`);
@@ -173,24 +188,21 @@ export class Game {
         this.jogadoresBloqueados.clear();
 
         for (const action of actions) {
-            const habilidadesDB = action.habilidade.map(h => h.nome);
+            const habilidadeDB = action.habilidade;
+            const habilidade = this.playerManager.getHabilidadeInstance(habilidadeDB.nome);
+            if (!habilidade) {
+                console.error(`Habilidade ${habilidadeDB.nome} não encontrada para ação do jogador ${action.userId}.`);
+                continue;
+            }
+
             const alvos = action.alvo.map(a => a.alvoId);
             const player = action.userId;
 
-            const habilidadeInstances = [];
-            habilidadeInstances.push(...await Promise.all(habilidadesDB.map(habNome => this.playerManager.getHabilidadeInstance(habNome))));
-            if (habilidadeInstances.includes(null)) {
-                console.error(`Habilidade não encontrada para um dos nomes: ${habilidadesDB.join(", ")}`);
-                continue;
-            }
-            const habilidades = habilidadeInstances.filter(h => h !== null);
-
-            habilidades.sort((a, b) => b.getPrioridade() - a.getPrioridade());
             if (alvos.length > 0) {
                 // tem que ter algo que permita não usar habilidade que não sao item ou gratis e tal
-                habilidades.forEach(hab => hab.usarHabilidade(this, player, alvos));
+                habilidade.usarHabilidade(this, player, alvos);
             } else {
-                habilidades.forEach(hab => hab.usarHabilidade(this, player));
+                habilidade.usarHabilidade(this, player);
             }
 
         }

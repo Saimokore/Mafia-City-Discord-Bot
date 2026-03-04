@@ -23,6 +23,21 @@ export abstract class Habilidade {
     }
 
     public async usarHabilidade(game: Game, quemUsou: string, alvo?: string[]): Promise<string | void> {
+        const partida = await db.getPartida(game.getGuildId());
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
+            return;
+        }
+
+        if (this.tipo === "Passiva") {
+            console.error(`Habilidade ${this.getNome()} é passiva e não pode ser usada ativamente.`);
+            return;
+        }
+
+        if (this.etapa != "Atemporal" && this.etapa != partida.etapaAtual.toString()) {
+            console.error(`Habilidade ${this.getNome()} não pode ser usada na etapa ${partida.etapaAtual}.`);
+            return;
+        }
 
         if (game.isBloqueado(quemUsou)) {
             if (this.modificadores?.includes("Imparavel")) {
@@ -65,26 +80,26 @@ export abstract class Habilidade {
     }
 
 
-    public resolverOferta(game: Game, emissor: Player, alvo: Player, aceitou: boolean): void {}
+    public resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean): void {}
 
-    private visitarPlayer(alvo: Player, alertado: boolean): void {
+    private visitarPlayer(alvo: string, alertado: boolean): void {
         if (alertado) {
-            console.log(`${alvo.getStatus()} foi visitado e alertado.`);
+            console.log(`alvo foi visitado e alertado.`);
         }
-        console.log(`${alvo.getStatus()} foi visitado.`);
         // depois avisar player q visitou exceto exceções
     }
 
-    private bloquearPlayer(alvo: Player): void {
-        console.log(`${alvo.getStatus()} foi bloqueado.`);
+    private bloquearPlayer(alvo: string): void {
         // depois avisar player q foi bloqueado exceto exceções
     }
 
-    private atacarPlayer(alvo: Player, poderoso?: boolean): void {
+    private atacarPlayer(alvo: string, poderoso?: boolean): void {
         if (alvo)
-
-        console.log(`${alvo.getStatus()} foi atacado.`);
         // depois avisar player q foi atacado exceto exceções
+    }
+
+    public async criarAction(game: Game, userId: string, habilidade: Habilidade, alvos?: string[]): Promise<void> {
+        game.getPlayerManager().criarAction(userId, habilidade, alvos);
     }
 
     public getNome(): string {
@@ -152,7 +167,33 @@ export class Evangelho extends Habilidade {
     }
 
     public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
-        
+        if (!alvo) {
+            console.error("Habilidade requer um alvo.");
+            return;
+        } else if (alvo.length > 1) {
+            console.error("Habilidade Evangelho só pode ter um alvo.");
+        }
+        this.ofertar(game, quemUsou, alvo);
+        console.log(`Habilidade ${this.getNome()} usada por ${quemUsou} com alvo ${alvo}.`);
+    }
+
+    public override resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean, habilidadePerdida?: string): void {
+        if (aceitou) {
+            const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
+            if (!playerAlvo) {
+                console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
+                return;
+            }
+            const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
+            if (!cargoAlvo) {
+                console.error(`Cargo do player alvo é inválido: ${playerAlvo.cargo}`);
+                return;
+            } 
+            if (cargoAlvo.getAlinhamento() != "Cidade") {
+                console.log(`Alvo ${alvo} aceitou a oferta e é do alinhamento ${cargoAlvo.getAlinhamento()}.`);
+                // db.updatePlayer remover habilidade do alvo que escolher
+            }
+        }
     }
 }
 
@@ -162,19 +203,6 @@ export class PalavraDeDeus extends Habilidade {
     }
 
     public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
-        if (!alvo) {
-            console.error("Habilidade requer um alvo.");
-            return;
-        }
-        this.ofertar(game, quemUsou, alvo);
-        console.log(`Habilidade ${this.getNome()} usada por ${quemUsou} com alvo ${alvo}.`);
-    }
-
-    public override resolverOferta(game: Game, emissor: Player, alvo: Player, aceitou: boolean): void {
-        if (aceitou) {
-            console.log(`${alvo.getStatus()} aceitou a oferta de ${emissor.getStatus()} e foi protegido por Palavra de Deus.`);
-            // aplicar proteção
-        }
     }
 }
 

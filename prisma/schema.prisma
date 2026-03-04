@@ -84,7 +84,7 @@ model Action {
 
   player Player @relation(fields: [userId, partidaId], references: [userId, partidaId])
 
-  @@unique([partidaId, userId])
+  @@unique([partidaId, userId, habilidadeId])
 }
 
 model Alvo {
@@ -99,6 +99,7 @@ model Habilidade {
   id   String @id @default(uuid())
   nome String
   uso  Int
+  impedida  String // isso é mais pro evangelho por enquanto
 
   userId    String
   partidaId String
@@ -118,6 +119,7 @@ model Oferta {
   alvoId    String
 
   habilidade String
+  habilidadePerdida String
   status     String @default("PENDENTE") // PENDENTE, ACEITA, RECUSADA
   etapa      Int
 

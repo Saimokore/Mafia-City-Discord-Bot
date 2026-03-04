@@ -15,7 +15,7 @@ export class PlayerManager {
         this.guildId = guildId;
     }
 
-    public async useHabilidade(userId: string, habilidade: Hab.Habilidade[]): Promise<void> {
+    public async useHabilidade(userId: string, habilidade: Hab.Habilidade): Promise<void> {
         // const player = await this.loadPlayer(userId, this.guildId);
         // const action = new Action(userId, habilidade);
 
@@ -24,15 +24,18 @@ export class PlayerManager {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
         }
-        
-        let habilidadeStr = [];
-        for (const hab of habilidade) {
-            habilidadeStr.push(hab.getNome());
+        await this.criarAction(userId, habilidade);
+
+        console.log(`Jogador ${userId} usou a habilidade: ${habilidade.getNome() || "Desconhecida"}`);
+    }
+
+    public async criarAction(userId: string, habilidade: Hab.Habilidade, alvos?: string[]): Promise<void> {
+        const partida = await db.getPartida(this.guildId);
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${this.guildId}`);
+            return;
         }
-
-        await db.registrarAction(userId, this.guildId, partida.etapaAtual, habilidadeStr );
-
-        console.log(`Jogador ${userId} usou a habilidade: ${habilidade[0]?.getNome() || "Desconhecida"}`);
+        await db.registrarAction(userId, this.guildId, partida.etapaAtual, habilidade.getNome(), alvos);
     }
 
     public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, etapa: number) {

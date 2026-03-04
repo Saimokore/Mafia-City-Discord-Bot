@@ -179,7 +179,7 @@ client.on('messageCreate', async (message: Message) => {
             return;
         }
 
-        game.getPlayerManager().useHabilidade(message.author.id, [habilidade]);
+        game.getPlayerManager().useHabilidade(message.author.id, habilidade);
     }
 });
 
