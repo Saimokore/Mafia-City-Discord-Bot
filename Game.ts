@@ -37,12 +37,7 @@ export class Game {
             let tempCargoList = this.cargoList;
             const cargo = tempCargoList[Math.floor(Math.random() * tempCargoList.length)];
             tempCargoList = tempCargoList.filter(c => c !== cargo);
-            const playerId = await db.getPlayerId(p.userId, this.guildId);
-            if (!playerId) {
-                console.error(`Não encontrei o jogador com userId ${p.userId} para atualizar o cargo.`);
-                continue;
-            }
-            await db.updatePlayer(playerId, { cargo: `${cargo}` });
+            await db.updatePlayer(p.userId, this.guildId, { cargo: `${cargo}` });
             
             await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
             
@@ -98,13 +93,8 @@ export class Game {
             reason: 'Novo chat privado para o jogo'
         });
 
-        const playerId = await db.getPlayerId(userId, this.guildId);
-        if (!playerId) {
-            console.error(`Não encontrei o jogador com userId ${userId} para atualizar o userChat.`);
-            return;
-        }
         const canalId = canal.id;
-        await db.updatePlayer(playerId, { userChat: canalId });
+        await db.updatePlayer(userId, this.guildId, { userChat: canalId });
 
         console.log(`Canal ${canal.name} criado com sucesso!`);
     }
@@ -175,8 +165,8 @@ export class Game {
                 console.error(`Habilidade ${oferta.habilidade} não encontrada para oferta do jogador ${oferta.emissorId}.`);
                 continue;
             }
-            habilidade.resolverOferta(this, oferta.emissorId, oferta.alvoId, oferta.status === "ACEITA" ? true : false);
-
+            await habilidade.resolverOferta(this, oferta.emissorId, oferta.alvoId, oferta.status === "ACEITA" ? true : false);
+            await db.deleteOferta(oferta.id);
         }
 
         const actions = await db.getActionsByEtapa(this.guildId, partida.etapaAtual);
@@ -189,14 +179,19 @@ export class Game {
 
         for (const action of actions) {
             const habilidadeDB = action.habilidade;
+            const alvos = action.alvo.map(a => a.alvoId);
+            const player = action.userId;
+
+            if (habilidadeDB.status === "IMPEDIDA") {
+                console.log(`Habilidade ${habilidadeDB.nome} do jogador ${player} está impedida e não pode ser usada.`);
+                continue;
+            }
+
             const habilidade = this.playerManager.getHabilidadeInstance(habilidadeDB.nome);
             if (!habilidade) {
                 console.error(`Habilidade ${habilidadeDB.nome} não encontrada para ação do jogador ${action.userId}.`);
                 continue;
             }
-
-            const alvos = action.alvo.map(a => a.alvoId);
-            const player = action.userId;
 
             if (alvos.length > 0) {
                 // tem que ter algo que permita não usar habilidade que não sao item ou gratis e tal

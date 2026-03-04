@@ -84,10 +84,10 @@ export const db = {
         return player ? player.id : null;
     },
 
-    async updatePlayer(id: string, dados: Prisma.PlayerUpdateInput) {
+    async updatePlayer(userId: string, guildId: string, dados: Prisma.PlayerUpdateInput) {
         try{
             return await prisma.player.update({
-                where: { id },
+                where: { partidaId_userId: { userId, partidaId: guildId } },
                 data: dados
             });
         } catch (e) {
@@ -106,12 +106,14 @@ export const db = {
     },
 
     async getPlayerById(userId: string, guildId: string) {
-        return await prisma.player.findFirst({
+        return await prisma.player.findUnique({
             where: {
-                userId: userId,
-                partidaId: guildId
+                partidaId_userId: { 
+                    userId: userId,
+                    partidaId: guildId
+                }
             },
-            include: { cartas: true }
+            include: { cartas: true, habilidades: true }
         });
     },
 
@@ -119,7 +121,8 @@ export const db = {
         return await prisma.player.findMany({
             where: {
                 partidaId: guildId
-            }
+            },
+            include: { cartas: true, habilidades: true }
         });
     },
 
@@ -205,13 +208,17 @@ export const db = {
     },
 
     async getHabilidadeId(nome: string, userId: string, guildId: string) {
-        return await prisma.habilidade.findFirst({
-            where: {
-                nome,
-                userId,
-                partidaId: guildId
-            }
-        });
+        try {
+            return await prisma.habilidade.findFirst({
+                where: {
+                    nome,
+                    userId,
+                    partidaId: guildId
+                }
+            });
+        } catch (error) {
+            console.error(`Erro ao buscar habilidadeId para ${nome} do player ${userId} na guild ${guildId}: ${error}`);
+        }
     },
 
     async getOfertas(guildId: string, etapa: number) {
@@ -221,5 +228,26 @@ export const db = {
                 etapa: etapa
             }
         });
+    },
+
+    async updateHabilidade(id: string, dados: Prisma.PlayerUpdateInput) {
+        try{
+            return await prisma.player.update({
+                where: { id },
+                data: dados
+            });
+        } catch (e) {
+            console.log("Erro ao atualizar habilidade:", e);
+        }
+    },
+
+    async deleteOferta(id: string) {
+        try {
+            return await prisma.oferta.delete({
+                where: { id }
+            });
+        } catch (error) {
+            console.error(`Erro ao deletar oferta com id ${id}: ${error}`);
+        }
     }
 } 

@@ -1,3 +1,4 @@
+import { platform } from 'node:os';
 import { db } from '../database.js';
 import { Game } from '../Game.js';
 import { Modificador } from './Modificador.js';
@@ -79,22 +80,21 @@ export abstract class Habilidade {
         }
     }
 
+    public async resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean): Promise<void> {}
 
-    public resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean): void {}
-
-    private visitarPlayer(alvo: string, alertado: boolean): void {
+    protected visitarPlayer(alvo: string, alertado: boolean): void {
         if (alertado) {
             console.log(`alvo foi visitado e alertado.`);
         }
         // depois avisar player q visitou exceto exceções
     }
 
-    private bloquearPlayer(alvo: string): void {
+    protected bloquearPlayer(alvo: string): void {
         // depois avisar player q foi bloqueado exceto exceções
     }
 
-    private atacarPlayer(alvo: string, poderoso?: boolean): void {
-        if (alvo)
+    protected atacarPlayer(alvo: string, poderoso?: boolean): void {
+        // if (alvo)
         // depois avisar player q foi atacado exceto exceções
     }
 
@@ -177,13 +177,16 @@ export class Evangelho extends Habilidade {
         console.log(`Habilidade ${this.getNome()} usada por ${quemUsou} com alvo ${alvo}.`);
     }
 
-    public override resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean, habilidadePerdida?: string): void {
+    public override async resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean, habilidadePerdida?: string): Promise<void> {
+        // Criar alerta para o emissor sobre a resposta do alvo
+        game.sendMensagemPlayer(emissor, `Sua oferta para ${alvo} foi ${aceitou ? "ACEITA" : "RECUSADA"}.`);
+        // por enquanto msg para debug
+        const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
+        if (!playerAlvo) {
+            console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
+            return;
+        }
         if (aceitou) {
-            const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
-            if (!playerAlvo) {
-                console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
-                return;
-            }
             const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
             if (!cargoAlvo) {
                 console.error(`Cargo do player alvo é inválido: ${playerAlvo.cargo}`);
@@ -191,8 +194,31 @@ export class Evangelho extends Habilidade {
             } 
             if (cargoAlvo.getAlinhamento() != "Cidade") {
                 console.log(`Alvo ${alvo} aceitou a oferta e é do alinhamento ${cargoAlvo.getAlinhamento()}.`);
-                // db.updatePlayer remover habilidade do alvo que escolher
+                try {
+                    const habilidadeId = await db.getHabilidadeId(this.getNome(), alvo, game.getGuildId());
+                } catch (e) {
+                    console.error(`Erro ao buscar habilidadeId para ${this.getNome()} do player ${alvo} na guild ${game.getGuildId()}: ${e}`);
+                    return;
+                }
+                try {
+                    const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
+                } catch (e) {
+                    console.error(`Erro ao buscar player alvo após aceitar oferta: ${e}`);
+                    return;
+                }
+                const habilidadeRemovida = playerAlvo.habilidades.find(h => h.nome === habilidadePerdida);
+                if (!habilidadeRemovida) {
+                    console.error(`Habilidade a ser perdida ${habilidadePerdida} não encontrada entre as habilidades do player alvo.`);
+                    return;
+                }
+
+                await db.updateHabilidade(habilidadeRemovida.id, { status: "IMPEDIDA" });
+            } else {
+                console.log(`Alvo ${alvo} aceitou a oferta e é do alinhamento Cidade.`);
+                this.bloquearPlayer(alvo);
             }
+        } else {
+            await db.updatePlayer(alvo, game.getGuildId(), { marcas: playerAlvo.marcas + ", Arrependimento" });
         }
     }
 }

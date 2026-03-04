@@ -96,17 +96,17 @@ model Alvo {
 }
 
 model Habilidade {
-  id   String @id @default(uuid())
-  nome String
-  uso  Int
-  impedida  String // isso é mais pro evangelho por enquanto
+  id        String @id @default(uuid())
+  nome      String
+  uso       Int
+  status    String @default("DISPONIVEL") // por enquanto "IMPEDIDA" ou "DISPONIVEL"
 
   userId    String
   partidaId String
 
-  actionId String
-  player   Player   @relation(fields: [userId, partidaId], references: [userId, partidaId])
-  actions  Action[]
+  actionId  String
+  player    Player   @relation(fields: [userId, partidaId], references: [userId, partidaId])
+  actions   Action[]
 
   @@unique([partidaId, userId, actionId])
 }
@@ -119,9 +119,10 @@ model Oferta {
   alvoId    String
 
   habilidade String
-  habilidadePerdida String
   status     String @default("PENDENTE") // PENDENTE, ACEITA, RECUSADA
   etapa      Int
 
   criadoEm DateTime @default(now())
+
+  @@unique([partidaId, emissorId, alvoId, habilidade])
 }
