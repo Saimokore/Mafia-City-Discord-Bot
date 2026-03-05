@@ -71,7 +71,7 @@ export abstract class Habilidade {
         this.ativar(game, quemUsou, alvo);
     }
 
-    public abstract ativar(game: Game, quemUsou: string, alvos?: string[]): string | void;
+    public async ativar(game: Game, quemUsou: string, alvos?: string[]): Promise<string | void> {}
 
     public ofertar(game: Game, quemOfertou: string, alvos: string[]): void {
         // depois tem que ter um jeito de limitar isso pra certas habilidades e tal
@@ -166,7 +166,7 @@ export class Evangelho extends Habilidade {
         super("Evangelho", "Dia", 10000, "Comunicacao");
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
         if (!alvo) {
             console.error("Habilidade requer um alvo.");
             return;
@@ -191,7 +191,7 @@ export class Evangelho extends Habilidade {
             if (!cargoAlvo) {
                 console.error(`Cargo do player alvo é inválido: ${playerAlvo.cargo}`);
                 return;
-            } 
+            }
             if (cargoAlvo.getAlinhamento() != "Cidade") {
                 console.log(`Alvo ${alvo} aceitou a oferta e é do alinhamento ${cargoAlvo.getAlinhamento()}.`);
                 try {
@@ -228,7 +228,27 @@ export class PalavraDeDeus extends Habilidade {
         super("Palavra de Deus", "Ofensiva", 10000, "Noite");
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
+        if (!alvo) {
+            console.error("Habilidade requer um alvo.");
+            return;
+        }
+        const alvoId = alvo[0];
+        if (!alvoId) {
+            console.error("Habilidade requer um alvo válido.");
+            return;
+        }
+        const player = await db.getPlayerById(alvoId, game.getGuildId());
+        if (!player) {
+            console.error(`Nenhum player encontrado para guildId ${game.getGuildId()}`);
+            return;
+        }
+
+        const marcas = player.marcas ? player.marcas.split(",").filter(m => m !== "") : [];
+        if (marcas.includes("Arrependimento")) {
+            // ataque forte no player
+            this.atacarPlayer(alvoId, true);
+        }
     }
 }
 
@@ -237,7 +257,7 @@ export class Snipe extends Habilidade {
         super("Snipe", "Ofensiva", 2, "Noite", ["Dormente"]);
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
         
     }
 }
@@ -247,7 +267,7 @@ export class ExecucaoPublica extends Habilidade {
         super("Execução Pública", "Instantânea", 1, "Dia", ["Astral", "Instantânea", "Especial"]);
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
 
     }
 }
@@ -257,7 +277,7 @@ export class Reputacao extends Habilidade {
         super("Reputação", "Passiva");
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
 
     }
 }
@@ -267,7 +287,7 @@ export class Prender extends Habilidade {
         super("Prender", "Prioridade", 10000, "Noite", ["Imparavel"]);
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
 
     }
 }
@@ -277,7 +297,7 @@ export class Pacificacao extends Habilidade {
         super("Pacificacao", "Prioridade", 3, "Noite", ["Dormente", "Imparavel"]);
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
 
     }
 }
@@ -413,7 +433,7 @@ export class PunhoDeFerro extends Habilidade {
         super("Punho de Ferro", "Passiva", 0, undefined, ["Especial"]);
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
 
     }
 }
@@ -423,7 +443,7 @@ export class Matar extends Habilidade {
         super("Matar", "Ofensiva", 10000, "Noite", ["Dormente"]);
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
 
     }
 }
@@ -433,7 +453,7 @@ export class Massacre extends Habilidade {
         super("Massacre", "Ofensiva", 1, "Noite", ["Especial"]);
     }
 
-    public ativar(game: Game, quemUsou: string, alvo?: string[]): void {
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
 
     }
 }

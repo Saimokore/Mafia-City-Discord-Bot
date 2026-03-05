@@ -29,14 +29,14 @@ export class Game {
         await db.updatePartida(this.guildId, { status: "ATIVA" });
         await this.sendAnuncio("A partida começou! O lobby está fechado. Que a cidade esteja com vocês! 🌆");
 
+        const cargosDistribuidos = [...this.cargoList].sort(() => Math.random() - 0.5);
+
         const players = await db.getPlayers(this.guildId);
         for (const p of players) {
             await this.criarChatPlayer(`chat-${p.username}`, p.userId);
             
-            // Adiciona cargos aleatoriamente da lista um por um
-            let tempCargoList = this.cargoList;
-            const cargo = tempCargoList[Math.floor(Math.random() * tempCargoList.length)];
-            tempCargoList = tempCargoList.filter(c => c !== cargo);
+            const cargo = cargosDistribuidos.pop();
+
             await db.updatePlayer(p.userId, this.guildId, { cargo: `${cargo}` });
             
             await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
@@ -176,6 +176,12 @@ export class Game {
         }
 
         this.jogadoresBloqueados.clear();
+
+        actions.sort((a, b) => {
+            const habA = this.playerManager.getHabilidadeInstance(a.habilidade.nome)?.getPrioridade() || 0;
+            const habB = this.playerManager.getHabilidadeInstance(b.habilidade.nome)?.getPrioridade() || 0;
+            return habB - habA;
+        });
 
         for (const action of actions) {
             const habilidadeDB = action.habilidade;
