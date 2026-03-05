@@ -27,19 +27,19 @@ export const db = {
 
     async updatePartida(guildId: string, dados: Prisma.PartidaUpdateInput) {
         return await prisma.partida.upsert({
-            where: { id: guildId },
+            where: { guildId },
             update: dados,
-            create: { id: guildId }
+            create: { guildId }
         });
     },
 
-    async registrarAction(userId: string, partidaId: string, etapa: number, habilidadeId: string, alvoIds?: string[]) {
+    async registrarAction(userId: string, guildId: string, etapa: number, habilidadeId: string, alvoIds?: string[]) {
         return await prisma.action.upsert({
             where: {
-                partidaId_userId_habilidadeId: { 
-                    partidaId: partidaId,
-                    userId: userId,
-                    habilidadeId: habilidadeId
+                guildId_userId_habilidadeId: { 
+                    guildId,
+                    userId,
+                    habilidadeId
                 }
             },
             update: {
@@ -50,8 +50,8 @@ export const db = {
                 habilidadeId
             },
             create: {
-                userId: userId,
-                partidaId: partidaId,
+                userId,
+                guildId,
                 etapa: etapa,
                 alvo: {
                     create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
@@ -77,8 +77,8 @@ export const db = {
     async getPlayerId(userId: string, guildId: string) {
         const player = await prisma.player.findFirst({
             where: {
-                userId: userId,
-                partidaId: guildId
+                userId,
+                guildId
             }
         });
         return player ? player.id : null;
@@ -87,7 +87,7 @@ export const db = {
     async updatePlayer(userId: string, guildId: string, dados: Prisma.PlayerUpdateInput) {
         try{
             return await prisma.player.update({
-                where: { partidaId_userId: { userId, partidaId: guildId } },
+                where: { guildId_userId: { userId, guildId } },
                 data: dados
             });
         } catch (e) {
@@ -98,9 +98,9 @@ export const db = {
     async addPlayer(guildId: string, userId: string, username: string) {
         return await prisma.player.create({
             data: {
-                partidaId: guildId,
-                userId: userId,
-                username: username
+                guildId,
+                userId,
+                username
             }
         });
     },
@@ -108,9 +108,9 @@ export const db = {
     async getPlayerById(userId: string, guildId: string) {
         return await prisma.player.findUnique({
             where: {
-                partidaId_userId: { 
-                    userId: userId,
-                    partidaId: guildId
+                guildId_userId: { 
+                    userId,
+                    guildId
                 }
             },
             include: { cartas: true, habilidades: true }
@@ -120,7 +120,7 @@ export const db = {
     async getPlayers(guildId: string) {
         return await prisma.player.findMany({
             where: {
-                partidaId: guildId
+                guildId
             },
             include: { cartas: true, habilidades: true }
         });
@@ -139,7 +139,7 @@ export const db = {
     async createPartida(guildId: string) {
         return await prisma.partida.create({
             data: {
-                id: guildId,
+                guildId,
                 status: "LOBBY",
                 etapaAtual: 0
             }
@@ -168,16 +168,16 @@ export const db = {
     async getCartasById(guildId: string, userId: string) {
         return await prisma.carta.findMany({
             where: {
-                partidaId: guildId,
-                userId: userId
+                guildId,
+                userId
             }
         });
     },
 
-    async criarOferta(partidaId: string, emissorId: string, alvoId: string, habilidade: string, etapa: number) {
+    async criarOferta(guildId: string, emissorId: string, alvoId: string, habilidade: string, etapa: number) {
         return await prisma.oferta.create({
             data: {
-                partidaId,
+                guildId,
                 emissorId,
                 alvoId,
                 habilidade,
@@ -200,7 +200,7 @@ export const db = {
     async getActionsByEtapa(guildId: string, etapa: number) {
         return await prisma.action.findMany({
             where: {
-                partidaId: guildId,
+                guildId,
                 etapa: etapa
             },
             include: { habilidade: true, alvo: true }
@@ -213,7 +213,7 @@ export const db = {
                 where: {
                     nome,
                     userId,
-                    partidaId: guildId
+                    guildId
                 }
             });
         } catch (error) {
@@ -224,7 +224,7 @@ export const db = {
     async getOfertas(guildId: string, etapa: number) {
         return await prisma.oferta.findMany({
             where: {
-                partidaId: guildId,
+                guildId,
                 etapa: etapa
             }
         });
@@ -249,5 +249,16 @@ export const db = {
         } catch (error) {
             console.error(`Erro ao deletar oferta com id ${id}: ${error}`);
         }
+    },
+
+    async criarAlerta(guildId: string, userId: string, etapa: number, alerta: string) {
+        return await prisma.alerta.create({
+            data: {
+                guildId,
+                userId,
+                etapa,
+                alerta
+            }
+        });
     }
 } 

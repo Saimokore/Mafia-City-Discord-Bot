@@ -2,7 +2,8 @@ import { platform } from 'node:os';
 import { db } from '../database.js';
 import { Game } from '../Game.js';
 import { Modificador } from './Modificador.js';
-import type { Player } from './Player.js';
+import { Player } from './Player.js';
+import { Partida } from './Partida.js';
 
 export abstract class Habilidade {
     private nome: string;
@@ -82,20 +83,36 @@ export abstract class Habilidade {
 
     public async resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean): Promise<void> {}
 
-    protected visitarPlayer(alvo: string, alertado: boolean): void {
+    protected async visitarPlayer(game: Game, alvo: string, alertado: boolean): Promise<void> {
         if (alertado) {
             console.log(`alvo foi visitado e alertado.`);
         }
         // depois avisar player q visitou exceto exceções
+        const partida = await game.getPartida();
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
+            return;
+        }
+        if (alertado) {
+            await db.criarAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você foi visitado essa noite!`);
+        }
     }
 
     protected bloquearPlayer(alvo: string): void {
         // depois avisar player q foi bloqueado exceto exceções
     }
 
-    protected atacarPlayer(alvo: string, poderoso?: boolean): void {
-        // if (alvo)
-        // depois avisar player q foi atacado exceto exceções
+    protected async atacarPlayer(game: Game, alvo: string, ataque: number): Promise<void> {
+        // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
+        const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
+        if (!playerAlvo) {
+            console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
+            return;
+        }
+        if (ataque > playerAlvo.protecao) {
+            console.log(`Alvo ${alvo} tem proteção e não pode ser atacado.`);
+            return;
+        }
     }
 
     public async criarAction(game: Game, userId: string, habilidade: Habilidade, alvos?: string[]): Promise<void> {
@@ -247,7 +264,7 @@ export class PalavraDeDeus extends Habilidade {
         const marcas = player.marcas ? player.marcas.split(",").filter(m => m !== "") : [];
         if (marcas.includes("Arrependimento")) {
             // ataque forte no player
-            this.atacarPlayer(alvoId, true);
+            this.atacarPlayer(game, alvoId, 2);
         }
     }
 }

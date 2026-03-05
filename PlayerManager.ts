@@ -54,6 +54,7 @@ export class PlayerManager {
         if (!cargoInstance) throw new Error("Cargo inválido no banco de dados.");
 
         const cartasInstanciadas = data.cartas.map(c => new Carta(c.destinatario, c.mensagem));
+        const itensInstanciados = data.habilidades.map(h => this.getHabilidadeInstance(h.nome)).filter(h => h !== null) as Hab.Habilidade[];
 
         return new Player(
             this.game,
@@ -66,6 +67,8 @@ export class PlayerManager {
             cargoInstance,
             data.status.split(",").filter(s => s !== ""),
             data.marcas.split(",").filter(m => m !== ""),
+            itensInstanciados,
+            data.protecao
             [] // Itens/Habilidades extras
         );
     }

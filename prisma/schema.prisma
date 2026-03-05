@@ -20,8 +20,10 @@ model GuildConfig {
 }
 
 model Partida {
-  id    String      @id
-  guild GuildConfig @relation(fields: [id], references: [guildId])
+  id    String      @id @default(uuid())
+
+  guildId String    @unique
+  guild GuildConfig @relation(fields: [guildId], references: [guildId])
 
   status     String @default("LOBBY")
   etapaAtual Int    @default(1) // Em qual rodada estamos
@@ -30,13 +32,15 @@ model Partida {
   finalizadoEm DateTime? // Preenchido quando o jogo acaba
 
   players Player[]
+
+  @@unique([guildId, id])
 }
 
 model Player {
   id String @id @default(uuid())
 
-  partidaId String
-  partida   Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+  guildId String
+  partida   Partida @relation(fields: [guildId], references: [id], onDelete: Cascade)
 
   userChat String?
 
@@ -44,11 +48,13 @@ model Player {
   username String
 
   cargo       String?
-  habilidades Habilidade[]
   estaVivo    Boolean      @default(true)
 
-  protecao    String?
+  habilidades Habilidade[]
+  alertas     Alerta[]
   cartas      Carta[]
+
+  protecao    Int     @default(0) // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
   quantCartas Int     @default(3)
   distrito    Int     @default(0)
 
@@ -58,33 +64,46 @@ model Player {
 
   actions Action[]
 
-  @@unique([partidaId, userId])
+  @@unique([guildId, userId])
+}
+
+model Alerta {
+  id        String @id @default(uuid())
+  guildId String
+  userId    String?
+  etapa     Int
+
+  alerta   String
+
+  criadoEm DateTime @default(now())
+
+  player   Player?  @relation(fields: [userId], references: [id])
 }
 
 model Carta {
   id        String @id @default(uuid())
   userId    String
-  partidaId String
+  guildId String
 
   destinatario String
   mensagem     String
 
-  player Player? @relation(fields: [userId, partidaId], references: [userId, partidaId])
+  player Player? @relation(fields: [userId, guildId], references: [userId, guildId])
 }
 
 model Action {
   id        String @id @default(uuid())
   userId    String
-  partidaId String
+  guildId String
 
   etapa        Int
   habilidadeId String
   habilidade   Habilidade @relation(fields: [habilidadeId], references: [id])
   alvo         Alvo[]
 
-  player Player @relation(fields: [userId, partidaId], references: [userId, partidaId])
+  player Player @relation(fields: [userId, guildId], references: [userId, guildId])
 
-  @@unique([partidaId, userId, habilidadeId])
+  @@unique([guildId, userId, habilidadeId])
 }
 
 model Alvo {
@@ -96,24 +115,24 @@ model Alvo {
 }
 
 model Habilidade {
-  id        String @id @default(uuid())
-  nome      String
-  uso       Int
-  status    String @default("DISPONIVEL") // por enquanto "IMPEDIDA" ou "DISPONIVEL"
+  id     String @id @default(uuid())
+  nome   String
+  uso    Int
+  status String @default("DISPONIVEL") // por enquanto "IMPEDIDA" ou "DISPONIVEL"
 
   userId    String
-  partidaId String
+  guildId String
 
-  actionId  String
-  player    Player   @relation(fields: [userId, partidaId], references: [userId, partidaId])
-  actions   Action[]
+  actionId String
+  player   Player   @relation(fields: [userId, guildId], references: [userId, guildId])
+  actions  Action[]
 
-  @@unique([partidaId, userId, actionId])
+  @@unique([guildId, userId, actionId])
 }
 
 model Oferta {
   id        String @id @default(uuid())
-  partidaId String
+  guildId String
 
   emissorId String
   alvoId    String
@@ -124,5 +143,5 @@ model Oferta {
 
   criadoEm DateTime @default(now())
 
-  @@unique([partidaId, emissorId, alvoId, habilidade])
+  @@unique([guildId, emissorId, alvoId, habilidade])
 }

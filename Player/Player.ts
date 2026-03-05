@@ -19,18 +19,18 @@ export class Player {
     private items: Habilidade[];
     
     private acao?: Habilidade | Habilidade[] | null;
-    private protecao?: string | null; // invencibilidade > prot poderosa > prot basica
+    private protecao: number; // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
 
     constructor(game: Game, id: string, username: string, isAlive: boolean, distrito: number, 
                 cartas: Carta[], quantCartas: number, cargo: Cargo, status: string[], marcas: string[], 
-                items: Habilidade[], acao?: Habilidade | Habilidade[] | null, protecao?: string | null) 
+                items: Habilidade[], protecao: number, acao?: Habilidade | Habilidade[] | null) 
                 {
         this.id = id;
         this.game = game;
         this.username = username;
 
         this.cargo = cargo;
-        this.protecao = protecao || null;
+        this.protecao = protecao;
         this.isAlive = isAlive;
         this.quantCartas = quantCartas;
         this.distrito = distrito;

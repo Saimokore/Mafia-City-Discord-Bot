@@ -4,6 +4,7 @@ import * as Cargo from "./Player/Cargo.js";
 import { use } from "react";
 import { Carta, Player } from "./Player/Player.js";
 import { PlayerManager } from "./PlayerManager.js";
+import { Partida } from "./Player/Partida.js";
 
 export class Game {
     private guildId: string;
@@ -207,6 +208,16 @@ export class Game {
             }
 
         }
+    }
+
+    public async getPartida(): Promise<Partida | null> {
+        const partida = await db.getPartida(this.guildId);
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${this.guildId}`);
+            return null;
+        }
+        const partidaObj = new Partida(partida.id, this.guildId, partida.status, partida.etapaAtual);
+        return partidaObj;
     }
 
     public async executarInstantAction() {
