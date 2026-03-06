@@ -1,12 +1,12 @@
 import { REST, Routes, SlashCommandBuilder } from 'discord.js';
-// Você vai precisar do seu Token e do ID do Bot. Se estiverem num .env, importe aqui!
-// import 'dotenv/config'; 
+import * as dotenv from 'dotenv';
 
-const token = "SEU_TOKEN_AQUI"; // Coloque o token do seu bot
-const clientId = "ID_DO_SEU_BOT"; // Pegue no Discord Developer Portal
-const guildId = "ID_DO_SEU_SERVIDOR"; // ID do servidor de testes
+dotenv.config();
 
-// 1. Construímos a "casca" do comando
+const token = process.env.BOT_TOKEN!;
+const clientId = process.env.CLIENT_ID!;
+const guildId = process.env.GUILD_ID!;
+
 const comandos = [
     new SlashCommandBuilder()
         .setName('action')
@@ -15,7 +15,6 @@ const comandos = [
 
 const rest = new REST({ version: '10' }).setToken(token);
 
-// 2. Enviamos para a API do Discord
 async function deploy() {
     try {
         console.log(`Iniciando o deploy de ${comandos.length} comandos (/) ...`);

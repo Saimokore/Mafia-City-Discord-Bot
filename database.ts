@@ -33,23 +33,9 @@ export const db = {
         });
     },
 
-    async registrarAction(userId: string, guildId: string, etapa: number, habilidadeId: string, alvoIds?: string[]) {
-        return await prisma.action.upsert({
-            where: {
-                guildId_userId_habilidadeId: { 
-                    guildId,
-                    userId,
-                    habilidadeId
-                }
-            },
-            update: {
-                alvo: {
-                    deleteMany: {},
-                    create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
-                },
-                habilidadeId
-            },
-            create: {
+    async createAction(userId: string, guildId: string, etapa: number, habilidadeId: string, alvoIds?: string[]) {
+        return await prisma.action.create({
+            data: {
                 userId,
                 guildId,
                 etapa: etapa,
@@ -132,9 +118,7 @@ export const db = {
     async createPartida(guildId: string) {
         return await prisma.partida.create({
             data: {
-                guildId,
-                status: "LOBBY",
-                etapaAtual: 0
+                guildId
             }
         });
     },
@@ -142,7 +126,7 @@ export const db = {
     async removePartida(guildId: string) {
         try {
             await prisma.partida.delete({
-                where: { id: guildId }
+                where: { guildId }
             });
         } catch (e) {
             console.log("Erro ao terminar partida:", e);
@@ -200,7 +184,7 @@ export const db = {
         });
     },
 
-    async getHabilidadeId(nome: string, userId: string, guildId: string) {
+    async getHabilidade(nome: string, userId: string, guildId: string) {
         try {
             return await prisma.habilidade.findFirst({
                 where: {
@@ -212,6 +196,18 @@ export const db = {
         } catch (error) {
             console.error(`Erro ao buscar habilidadeId para ${nome} do player ${userId} na guild ${guildId}: ${error}`);
         }
+    },
+
+    async createHabilidade(nome: string, userId: string, guildId: string, uso: number, etapa: string) {
+        return await prisma.habilidade.create({
+            data: {
+                nome,
+                userId,
+                guildId,
+                uso,
+                etapa
+            }
+        })
     },
 
     async getOfertas(guildId: string, etapa: number) {

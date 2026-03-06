@@ -35,7 +35,7 @@ export class PlayerManager {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
         }
-        await db.registrarAction(userId, this.guildId, partida.etapaAtual, habilidade.getNome(), alvos);
+        await db.createAction(userId, this.guildId, partida.etapaAtual, habilidade.getNome(), alvos);
     }
 
     public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, etapa: number) {
@@ -69,6 +69,7 @@ export class PlayerManager {
             data.marcas.split(",").filter(m => m !== ""),
             itensInstanciados,
             data.protecao || 0,
+            data.userChat || "",
             [] // Itens/Habilidades extras
         );
     }

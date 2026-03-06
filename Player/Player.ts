@@ -17,13 +17,15 @@ export class Player {
     private status: string[];
     private marcas: string[];
     private items: Habilidade[];
+
+    private userChat: string;
     
     private acao?: Habilidade | Habilidade[] | null;
     private protecao: number; // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
 
     constructor(game: Game, id: string, username: string, isAlive: boolean, distrito: number, 
                 cartas: Carta[], quantCartas: number, cargo: Cargo, status: string[], marcas: string[], 
-                items: Habilidade[], protecao: number, acao?: Habilidade | Habilidade[] | null) 
+                items: Habilidade[], protecao: number, userChat: string, acao?: Habilidade | Habilidade[] | null) 
                 {
         this.id = id;
         this.game = game;
@@ -34,6 +36,8 @@ export class Player {
         this.isAlive = isAlive;
         this.quantCartas = quantCartas;
         this.distrito = distrito;
+
+        this.userChat = userChat;
         
         this.cartas = cartas;
         this.status = status;
@@ -77,6 +81,10 @@ export class Player {
 
     public estaVivo(): boolean {
         return this.isAlive;
+    }
+
+    public getUserChat(): string {
+        return this.userChat;
     }
 
     public getUsername(): string {

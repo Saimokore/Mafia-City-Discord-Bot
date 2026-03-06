@@ -26,4 +26,8 @@ export class Partida {
     public getEtapaAtual(): number {
         return this.etapaAtual;
     }
+
+    public getTempoEtapa(): string {
+        return this.etapaAtual % 2 === 0 ? "Dia" : "Noite"
+    }
 }

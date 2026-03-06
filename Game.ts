@@ -36,9 +36,20 @@ export class Game {
         for (const p of players) {
             await this.criarChatPlayer(`chat-${p.username}`, p.userId);
             
-            const cargo = cargosDistribuidos.pop();
+            // const cargo = cargosDistribuidos.pop();
+            const cargo = "Evangelista";
+            if (!cargo) {
+                console.error("Cargo não encontrado (IniciarJogo)")
+                return;
+            }
+            const cargoObj = await this.playerManager.getCargoInstance(cargo);
+            const habilidades = cargoObj!.getHabilidades();
 
             await db.updatePlayer(p.userId, this.guildId, { cargo: `${cargo}` });
+            
+            for (const hab of habilidades) {
+                await db.createHabilidade(hab.getNome(), p.userId, this.guildId, hab.getUso(), hab.getEtapa());
+            }
             
             await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
             
@@ -170,7 +181,7 @@ export class Game {
             await db.deleteOferta(oferta.id);
         }
 
-        const actions = await db.getActionsByEtapa(this.guildId, partida.etapaAtual);
+        const actions = await db.getActionsByEtapa(this.guildId, partida.etapaAtual - 1);
         if (actions.length === 0) {
             console.log(`Nenhuma ação registrada para a etapa ${partida.etapaAtual}.`);
             return;
@@ -238,13 +249,13 @@ export class Game {
 
     public async iniciarNoite(etapa: number): Promise<void> {
         await this.sendAnuncio(`Noite [${Math.floor(etapa / 2)}]. O sol se põe... A cidade vai dormir. Nenhuma mensagem a mais será ouvida aqui.`);
-        
+        await this.executarActions();
         // await trancarCanal();
     }
 
     public async iniciarDia(etapa: number): Promise<void> {
         await this.sendAnuncio(`Dia amanhece [${Math.floor(etapa / 2)}]`);
-        
+        await this.executarActions();
         // await destrancarCanal();
     }
 

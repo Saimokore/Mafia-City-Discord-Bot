@@ -1,7 +1,12 @@
-import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder } from 'discord.js';
-import 'dotenv/config';
+import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder, MessageFlags } from 'discord.js';
 import { Game } from './Game.js';
 import { db } from './database.js';
+import * as dotenv from 'dotenv';
+import { channel } from 'node:diagnostics_channel';
+
+dotenv.config();
+
+const token = process.env.BOT_TOKEN!;
 
 const client = new Client({
     intents: [
@@ -205,21 +210,38 @@ client.on('interactionCreate', async interaction => {
 
 client.on('interactionCreate', async interaction => {
 
+    const serverId = interaction.guildId;
+    if (!serverId) {
+        console.log("Id do servidor não encontrado!");
+        return;
+    }
+    const game = new Game(serverId, client);
+
     if (interaction.isChatInputCommand() && interaction.commandName === 'action') {
-        const game = new Game(interaction.guildId!, client);
-        const player = await game.getPlayerManager().loadPlayer(interaction.user.id, interaction.guildId!);
+        const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
+        const partida = await game.getPartida();
+        if (!partida) {
+            console.log("Partida não encontrada, interação falhou");
+            return;
+        }
         
         if (!player || !player.estaVivo()) {
-            return interaction.reply({ content: "Você não pode agir agora.", ephemeral: true });
+            return interaction.reply({ content: "Você não pode agir agora." });
         }
+
+        if (player.getUserChat() != interaction.channelId) {
+            return interaction.reply({ content: `Use o comando no seu chat privado <#${player.getUserChat()}>`, flags: MessageFlags.Ephemeral })
+        } 
 
         // Pega as habilidades da classe dele
         const habilidades = player.getCargo().getHabilidades();
+        const habilidadesFiltradas = habilidades.filter(hab => hab.getTipo() === "Passiva" || 
+            hab.getEtapa() != "Atemporal" || hab.getEtapa() != partida.getTempoEtapa());
 
-        const opcoes = habilidades.map(hab => ({
+        const opcoes = habilidadesFiltradas.map(hab => ({
             label: hab.getNome(),
             description: `Tipo: ${hab.getTipo()}`,
-            value: hab.getNome() // O valor que o Discord vai nos devolver quando ele clicar
+            value: hab.getNome()
         }));
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -229,19 +251,17 @@ client.on('interactionCreate', async interaction => {
 
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
-        await interaction.reply({ components: [row], ephemeral: true });
+        await interaction.reply({ components: [row] });
         return;
     }
 
-    // 2. O Jogador selecionou uma habilidade no menu acima
     if (interaction.isStringSelectMenu() && interaction.customId === 'select_habilidade_inicial') {
-        const nomeHabilidade = interaction.values[0]; // Ex: "Evangelho"
+        const nomeHabilidade = interaction.values[0];
         if (!nomeHabilidade) {
             await interaction.update({ content: "Habilidade inválida selecionada.", components: [] });
             return;
         }
         
-        const game = new Game(interaction.guildId!, client);
         const habilidadeInstance = game.getPlayerManager().getHabilidadeInstance(nomeHabilidade);
 
         if (habilidadeInstance) {
@@ -250,16 +270,32 @@ client.on('interactionCreate', async interaction => {
         }
     }
     
-    // 3. Interceptando as respostas (Alvo Selecionado ou Modal preenchido)
     if (interaction.isStringSelectMenu() && interaction.customId.startsWith('alvo_')) {
         const nomeHabilidade = interaction.customId.replace('alvo_', '');
         const alvoId = interaction.values[0];
+        const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
+        if (!player || !player.estaVivo()) {
+            return interaction.reply({ content: "Você não pode agir agora." });
+        }
+        if (!alvoId) {
+            console.log("Alvo não encontrado, interação falhou");
+            return;
+        }
+        const partida = await game.getPartida();
+        if (!partida) {
+            console.log("Partida não encontrada, interação falhou");
+            return;
+        }
+        const habilidade = await db.getHabilidade(nomeHabilidade, interaction.user.id, serverId);
+        if (!habilidade) {
+            console.log("Id da habilidade não encontrado, interação falhou");
+            return;
+        }
         
-        // Aqui você finaliza! Salva a Ação no Prisma usando o seu método registrarAction
-        // await db.registrarAction(interaction.user.id, interaction.guildId, etapa, nomeHabilidade, alvoId);
+        await db.createAction(interaction.user.id, serverId, partida.getEtapaAtual(), habilidade.id, [alvoId]);
         
         await interaction.update({ content: `✅ Ação registrada: **${nomeHabilidade}** no jogador selecionado!`, components: [] });
     }
 });
 
-client.login(TOKEN);
+client.login(token);

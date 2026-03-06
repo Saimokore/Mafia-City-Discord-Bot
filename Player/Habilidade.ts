@@ -32,16 +32,6 @@ export abstract class Habilidade {
             return;
         }
 
-        if (this.tipo === "Passiva") {
-            console.error(`Habilidade ${this.getNome()} é passiva e não pode ser usada ativamente.`);
-            return;
-        }
-
-        if (this.etapa != "Atemporal" && this.etapa != partida.etapaAtual.toString()) {
-            console.error(`Habilidade ${this.getNome()} não pode ser usada na etapa ${partida.etapaAtual}.`);
-            return;
-        }
-
         if (game.isBloqueado(quemUsou)) {
             if (this.modificadores?.includes("Imparavel")) {
                 console.log(`${quemUsou} estava bloqueado, mas a habilidade ${this.getNome()} é Imparável!`);
@@ -85,12 +75,12 @@ export abstract class Habilidade {
     public async resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean): Promise<void> {}
 
     public async construirInterfaceParams(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<void> {
-        // Exemplo Padrão: Buscar jogadores vivos na partida para ser o alvo
+        // padrão: buscar jogadores vivos na partida para ser o alvo
         const jogadores = await db.getPlayers(game.getGuildId());
-        const alvosValidos = jogadores.filter(p => p.estaVivo && p.userId !== quemUsouId);
+        const alvosValidos = jogadores//.filter(p => p.estaVivo && p.userId !== quemUsouId);
 
         if (alvosValidos.length === 0) {
-            await interaction.reply({ content: "Não há alvos válidos para esta habilidade.", ephemeral: true });
+            await interaction.reply({ content: "Não há alvos válidos para esta habilidade." });
             return;
         }
 
@@ -255,7 +245,7 @@ export class Evangelho extends Habilidade {
             if (cargoAlvo.getAlinhamento() != "Cidade") {
                 console.log(`Alvo ${alvo} aceitou a oferta e é do alinhamento ${cargoAlvo.getAlinhamento()}.`);
                 try {
-                    const habilidadeId = await db.getHabilidadeId(this.getNome(), alvo, game.getGuildId());
+                    const habilidade = await db.getHabilidade(this.getNome(), alvo, game.getGuildId());
                 } catch (e) {
                     console.error(`Erro ao buscar habilidadeId para ${this.getNome()} do player ${alvo} na guild ${game.getGuildId()}: ${e}`);
                     return;
