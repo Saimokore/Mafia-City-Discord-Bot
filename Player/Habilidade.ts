@@ -1,3 +1,4 @@
+import { StringSelectMenuInteraction, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { platform } from 'node:os';
 import { db } from '../database.js';
 import { Game } from '../Game.js';
@@ -83,6 +84,32 @@ export abstract class Habilidade {
 
     public async resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean): Promise<void> {}
 
+    public async construirInterfaceParams(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<void> {
+        // Exemplo Padrão: Buscar jogadores vivos na partida para ser o alvo
+        const jogadores = await db.getPlayers(game.getGuildId());
+        const alvosValidos = jogadores.filter(p => p.estaVivo && p.userId !== quemUsouId);
+
+        if (alvosValidos.length === 0) {
+            await interaction.reply({ content: "Não há alvos válidos para esta habilidade.", ephemeral: true });
+            return;
+        }
+
+        const selectAlvo = new StringSelectMenuBuilder()
+            .setCustomId(`alvo_${this.getNome()}`) // Ex: alvo_Matar
+            .setPlaceholder('Selecione o seu alvo...')
+            .addOptions(
+                alvosValidos.map(p => ({
+                    label: p.username,
+                    value: p.userId
+                }))
+            );
+
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectAlvo);
+        
+        // Atualiza a mensagem original trocando o menu de habilidades pelo menu de alvos
+        await interaction.update({ content: `Você escolheu **${this.getNome()}**. Agora, escolha o alvo:`, components: [row] });
+    }
+
     protected async visitarPlayer(game: Game, alvo: string, alertado: boolean): Promise<void> {
         if (alertado) {
             console.log(`alvo foi visitado e alertado.`);
@@ -98,20 +125,35 @@ export abstract class Habilidade {
         }
     }
 
-    protected bloquearPlayer(alvo: string): void {
+    protected async bloquearPlayer(game: Game, alvo: string): Promise<void> {
         // depois avisar player q foi bloqueado exceto exceções
+        const partida = await game.getPartida();
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
+            return;
+        }
+        await db.updatePlayer(alvo, game.getGuildId(), { status: "BLOQUEADO" });
+        await db.criarAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você foi bloqueado essa noite!`);
     }
 
-    protected async atacarPlayer(game: Game, alvo: string, ataque: number): Promise<void> {
+    protected async atacarPlayer(game: Game, alvo: string, poderAtaque: number): Promise<void> {
         // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
         const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
         if (!playerAlvo) {
             console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
             return;
         }
-        if (ataque > playerAlvo.protecao) {
-            console.log(`Alvo ${alvo} tem proteção e não pode ser atacado.`);
+        if (poderAtaque > playerAlvo.protecao) {
+            console.log(`Alvo ${alvo} tem proteção inferior e pode ser atacado.`);
+            await db.updatePlayer(alvo, playerAlvo.guildId, { estaVivo: false })
             return;
+        } else {
+            console.log(`Alvo ${alvo} tem proteção suficiente para resistir ao ataque.`);
+            await db.updatePlayer(alvo, playerAlvo.guildId, { protecao: 0 });
+            if (playerAlvo.cargo === "Bigode") {
+                console.log(`Alvo ${alvo} é um Bigode e tem proteção especial.`);
+                await db.updatePlayer(alvo, playerAlvo.guildId, { protecao: 1 });
+            }
         }
     }
 
@@ -154,9 +196,10 @@ export abstract class Habilidade {
         }
     }
 
-    public getModificadores(): string[] {
+    public getModificadores(): string[] | null {
         if (!this.modificadores) {
-            throw new Error("Habilidade não possui modificadores.");
+            console.log(`Habilidade ${this.getNome()} não possui modificadores.`);
+            return null;
         }
         return this.modificadores;
     }
@@ -232,7 +275,7 @@ export class Evangelho extends Habilidade {
                 await db.updateHabilidade(habilidadeRemovida.id, { status: "IMPEDIDA" });
             } else {
                 console.log(`Alvo ${alvo} aceitou a oferta e é do alinhamento Cidade.`);
-                this.bloquearPlayer(alvo);
+                await this.bloquearPlayer(game, alvo);
             }
         } else {
             await db.updatePlayer(alvo, game.getGuildId(), { marcas: playerAlvo.marcas + ", Arrependimento" });

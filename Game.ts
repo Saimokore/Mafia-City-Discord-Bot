@@ -42,7 +42,7 @@ export class Game {
             
             await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
             
-            const player = await this.playerManager.loadPlayer(p.userId, p.partidaId)
+            const player = await this.playerManager.loadPlayer(p.userId, p.guildId)
             this.sendMensagemPlayer(p.userId, player?.getStatus() || "Erro ao obter status do jogador.");
         }
 
@@ -201,7 +201,7 @@ export class Game {
             }
 
             if (alvos.length > 0) {
-                // tem que ter algo que permita não usar habilidade que não sao item ou gratis e tal
+                // tem que ter algo que permita não usar mais de uma habilidade que não sao item ou gratis e tal
                 habilidade.usarHabilidade(this, player, alvos);
             } else {
                 habilidade.usarHabilidade(this, player);

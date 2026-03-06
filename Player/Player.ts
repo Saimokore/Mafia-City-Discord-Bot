@@ -75,6 +75,10 @@ export class Player {
         return this.id;
     }
 
+    public estaVivo(): boolean {
+        return this.isAlive;
+    }
+
     public getUsername(): string {
         return this.username;
     }

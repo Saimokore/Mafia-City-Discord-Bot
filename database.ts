@@ -63,14 +63,7 @@ export const db = {
 
     async getPartidaById(guildId: string) {
         return await prisma.partida.findUnique({
-            where: { id: guildId }
-        });
-    },
-
-    async setEtapa(guildId: string, etapa: number) {
-        return await prisma.partida.update({
-            where: { id: guildId },
-            data: { etapaAtual: etapa }
+            where: { guildId }
         });
     },
 
@@ -159,7 +152,7 @@ export const db = {
     async getPartida(guildId: string) {
         return await prisma.partida.findUnique({
             where: {
-                id: guildId
+                guildId
             },
             include: { players: true }
         });

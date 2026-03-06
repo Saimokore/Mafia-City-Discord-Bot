@@ -68,7 +68,7 @@ export class PlayerManager {
             data.status.split(",").filter(s => s !== ""),
             data.marcas.split(",").filter(m => m !== ""),
             itensInstanciados,
-            data.protecao
+            data.protecao || 0,
             [] // Itens/Habilidades extras
         );
     }

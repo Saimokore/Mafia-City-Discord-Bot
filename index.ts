@@ -1,12 +1,7 @@
-import { Client, Collection, GatewayIntentBits, Message } from 'discord.js';
-import tokenData from './config.json' with { type: 'json' };
+import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder } from 'discord.js';
+import 'dotenv/config';
 import { Game } from './Game.js';
 import { db } from './database.js';
-import { Player, Carta } from './Player/Player.js';
-import * as Cargo from './Player/Cargo.js';
-import * as Hab from './Player/Habilidade.js';
-import { platform } from 'node:os';
-const { token } = tokenData;
 
 const client = new Client({
     intents: [
@@ -199,19 +194,72 @@ client.on('interactionCreate', async interaction => {
 
         await interaction.update({ components: [], content: "Oferta processada..." });
 
-        // Aqui você busca a oferta no banco, instancia a Habilidade usando o nome salvo, 
-        // e chama o método `resolverOferta` passando true ou false!
-
         if (!ofertaId) {
             interaction.reply("Oferta inválida.");
             return;
         }
 
         const oferta = await db.updateOferta(ofertaId, acao === 'aceita' ? "ACEITA" : "RECUSADA");
-        
-        // const habilidade = game.getPlayerManager().getHabilidadeInstance(oferta.habilidade);
-        // habilidade.resolverOferta(game, emissor, alvo, acao === 'aceita');
     }
 });
 
-client.login(token);
+client.on('interactionCreate', async interaction => {
+
+    if (interaction.isChatInputCommand() && interaction.commandName === 'action') {
+        const game = new Game(interaction.guildId!, client);
+        const player = await game.getPlayerManager().loadPlayer(interaction.user.id, interaction.guildId!);
+        
+        if (!player || !player.estaVivo()) {
+            return interaction.reply({ content: "Você não pode agir agora.", ephemeral: true });
+        }
+
+        // Pega as habilidades da classe dele
+        const habilidades = player.getCargo().getHabilidades();
+
+        const opcoes = habilidades.map(hab => ({
+            label: hab.getNome(),
+            description: `Tipo: ${hab.getTipo()}`,
+            value: hab.getNome() // O valor que o Discord vai nos devolver quando ele clicar
+        }));
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('select_habilidade_inicial')
+            .setPlaceholder('Escolha uma habilidade para usar hoje')
+            .addOptions(opcoes);
+
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+        await interaction.reply({ components: [row], ephemeral: true });
+        return;
+    }
+
+    // 2. O Jogador selecionou uma habilidade no menu acima
+    if (interaction.isStringSelectMenu() && interaction.customId === 'select_habilidade_inicial') {
+        const nomeHabilidade = interaction.values[0]; // Ex: "Evangelho"
+        if (!nomeHabilidade) {
+            await interaction.update({ content: "Habilidade inválida selecionada.", components: [] });
+            return;
+        }
+        
+        const game = new Game(interaction.guildId!, client);
+        const habilidadeInstance = game.getPlayerManager().getHabilidadeInstance(nomeHabilidade);
+
+        if (habilidadeInstance) {
+            // A mágica acontece aqui! Deixamos a classe decidir o que mostrar em seguida
+            await habilidadeInstance.construirInterfaceParams(interaction, game, interaction.user.id);
+        }
+    }
+    
+    // 3. Interceptando as respostas (Alvo Selecionado ou Modal preenchido)
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('alvo_')) {
+        const nomeHabilidade = interaction.customId.replace('alvo_', '');
+        const alvoId = interaction.values[0];
+        
+        // Aqui você finaliza! Salva a Ação no Prisma usando o seu método registrarAction
+        // await db.registrarAction(interaction.user.id, interaction.guildId, etapa, nomeHabilidade, alvoId);
+        
+        await interaction.update({ content: `✅ Ação registrada: **${nomeHabilidade}** no jogador selecionado!`, components: [] });
+    }
+});
+
+client.login(TOKEN);
