@@ -48,7 +48,7 @@ export class Game {
             await db.updatePlayer(p.userId, this.guildId, { cargo: `${cargo}` });
             
             for (const hab of habilidades) {
-                await db.createHabilidade(hab.getNome(), p.userId, this.guildId, hab.getUso(), hab.getEtapa());
+                await db.createHabilidade(hab.getNome(), p.userId, this.guildId, hab.getUso(), hab.getTipo(), hab.getEtapa());
             }
             
             await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
@@ -76,8 +76,10 @@ export class Game {
                     await channel.delete("Partida finalizada, limpando canais privados.");
                 } catch (error) {
                     console.warn(`Não consegui deletar o canal do jogador ${player.userId}:`, error);
+                    await db.updatePlayer(player.userId, player.guildId, { userChat: null })
                 }
             }
+            await db.removePlayer(player.id);
         }
 
         //deleto a partida em si
@@ -241,6 +243,14 @@ export class Game {
 
     public getGuildId(): string {
         return this.guildId;
+    }
+
+    public getCargos() {
+        const cargos = [];
+        for (const cargo of this.cargoList) {
+            cargos.push(this.playerManager.getCargoInstance(cargo))
+        }
+        return cargos;
     }
 
     // ==========================================

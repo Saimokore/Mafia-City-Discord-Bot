@@ -1,4 +1,5 @@
-import { StringSelectMenuInteraction, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import { StringSelectMenuInteraction, ActionRowBuilder, StringSelectMenuBuilder, 
+    ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle} from 'discord.js';
 import { platform } from 'node:os';
 import { db } from '../database.js';
 import { Game } from '../Game.js';
@@ -85,7 +86,7 @@ export abstract class Habilidade {
         }
 
         const selectAlvo = new StringSelectMenuBuilder()
-            .setCustomId(`alvo_${this.getNome()}`) // Ex: alvo_Matar
+            .setCustomId(`skill_alvo_${this.getNome()}`) // Ex: alvo_Matar
             .setPlaceholder('Selecione o seu alvo...')
             .addOptions(
                 alvosValidos.map(p => ({
@@ -93,11 +94,44 @@ export abstract class Habilidade {
                     value: p.userId
                 }))
             );
+        const btnConfirmar = new ButtonBuilder()
+            .setCustomId(`skill_confirmar_${this.getNome()}`)
+            .setLabel('Confirmar Ação')
+            .setStyle(ButtonStyle.Success);
 
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectAlvo);
+        const rowSelectAlvo = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectAlvo);
+        const rowBtnConfirmar = new ActionRowBuilder<ButtonBuilder>().addComponents(btnConfirmar);
         
         // Atualiza a mensagem original trocando o menu de habilidades pelo menu de alvos
-        await interaction.update({ content: `Você escolheu **${this.getNome()}**. Agora, escolha o alvo:`, components: [row] });
+        await interaction.update({ content: `Você escolheu **${this.getNome()}**. Agora, escolha o alvo:`, components: [rowSelectAlvo, rowBtnConfirmar] });
+    }
+
+    public async resolverInterface(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<void> {
+        const nomeHabilidade = this.getNome();
+        const alvoId = interaction.values[0];
+        const serverId = game.getGuildId()
+        const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
+        if (!player || !player.estaVivo()) {
+            interaction.reply({ content: "Você não pode agir agora." });
+        }
+        if (!alvoId) {
+            console.log("Alvo não encontrado, interação falhou");
+            return;
+        }
+        const partida = await game.getPartida();
+        if (!partida) {
+            console.log("Partida não encontrada, interação falhou");
+            return;
+        }
+        const habilidade = await db.getHabilidade(nomeHabilidade, interaction.user.id, serverId);
+        if (!habilidade) {
+            console.log("Id da habilidade não encontrado, interação falhou");
+            return;
+        }
+        
+        await db.createAction(interaction.user.id, serverId, partida.getEtapaAtual(), habilidade.id, [alvoId]);
+        
+        await interaction.update({ content: `✅ Ação registrada: **${nomeHabilidade}** no jogador selecionado!`, components: [] });
     }
 
     protected async visitarPlayer(game: Game, alvo: string, alertado: boolean): Promise<void> {
@@ -213,7 +247,7 @@ export abstract class Habilidade {
 
 export class Evangelho extends Habilidade {
     constructor() {
-        super("Evangelho", "Dia", 10000, "Comunicacao");
+        super("Evangelho", "Comunicacao", 10000, "Dia");
     }
 
     public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
@@ -278,7 +312,7 @@ export class PalavraDeDeus extends Habilidade {
         super("Palavra de Deus", "Ofensiva", 10000, "Noite");
     }
 
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
+    public override async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
         if (!alvo) {
             console.error("Habilidade requer um alvo.");
             return;
@@ -300,6 +334,82 @@ export class PalavraDeDeus extends Habilidade {
             this.atacarPlayer(game, alvoId, 2);
         }
     }
+
+    public override async construirInterfaceParams(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<void> {
+        // padrão: buscar jogadores vivos na partida para ser o alvo
+        const jogadores = await db.getPlayers(game.getGuildId());
+        const cargos = game.getCargos();
+        const alvosValidos = jogadores//.filter(p => p.estaVivo && p.userId !== quemUsouId);
+
+        if (!cargos || cargos.length === 0) {
+            await interaction.reply({ content: "Não há cargos válidos para esta habilidade." });
+            return;
+        }
+
+        if (alvosValidos.length === 0) {
+            await interaction.reply({ content: "Não há alvos válidos para esta habilidade." });
+            return;
+        }
+
+        const selectAlvo = new StringSelectMenuBuilder()
+            .setCustomId(`skill_alvo_${this.getNome()}`) // Ex: alvo_Matar
+            .setPlaceholder('Selecione o seu alvo...')
+            .addOptions(
+                alvosValidos.map(p => ({
+                    label: p.username,
+                    value: p.userId
+                }))
+            );
+        const selectCargo = new StringSelectMenuBuilder()
+            .setCustomId(`skill_cargos_${this.getNome()}`) // Ex: alvo_Matar
+            .setPlaceholder('Adivinhe o cargo de seu alvo...')
+            .addOptions(
+                cargos.map(c => ({
+                    label: c!.getNome(),
+                    value: c!.getNome()
+                }))
+            );
+
+
+        const rowSelectAlvo = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectAlvo);
+        const rowSelectCargo = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectCargo);
+        
+        // Atualiza a mensagem original trocando o menu de habilidades pelo menu de alvos
+        await interaction.update({ content: `Você escolheu **${this.getNome()}**. Agora, escolha o alvo:`, components: [rowSelectAlvo, rowSelectCargo] });
+    }
+
+    public override async resolverInterface(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<void> {
+        const interactionSplit = interaction.customId.split("_");
+        const parte = interactionSplit[1];
+        if (parte === "alvo") {
+            const nomeHabilidade = this.getNome();
+            const alvoId = interaction.values[0];
+            const serverId = game.getGuildId()
+            const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
+            if (!player || !player.estaVivo()) {
+                interaction.reply({ content: "Você não pode agir agora." });
+            }
+            if (!alvoId) {
+                console.log("Alvo não encontrado, interação falhou");
+                return;
+            }
+            const partida = await game.getPartida();
+            if (!partida) {
+                console.log("Partida não encontrada, interação falhou");
+                return;
+            }
+            const habilidade = await db.getHabilidade(nomeHabilidade, interaction.user.id, serverId);
+            if (!habilidade) {
+                console.log("Id da habilidade não encontrado, interação falhou");
+                return;
+            }
+            await db.createAction(interaction.user.id, serverId, partida.getEtapaAtual(), habilidade.id, [alvoId]);
+            
+            await interaction.update({ content: `✅ Ação registrada: **${nomeHabilidade}** no jogador selecionado!`, components: [] });
+        }
+
+        if (parte === "adivinhar") {}
+    } 
 }
 
 export class Snipe extends Habilidade {

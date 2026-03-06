@@ -87,7 +87,7 @@ export const db = {
     async getPlayerById(userId: string, guildId: string) {
         return await prisma.player.findUnique({
             where: {
-                guildId_userId: { 
+                guildId_userId: {
                     userId,
                     guildId
                 }
@@ -129,7 +129,7 @@ export const db = {
                 where: { guildId }
             });
         } catch (e) {
-            console.log("Erro ao terminar partida:", e);
+            console.log(`Erro ao terminar partida ${guildId}:`, e);
         }
     },
 
@@ -198,13 +198,14 @@ export const db = {
         }
     },
 
-    async createHabilidade(nome: string, userId: string, guildId: string, uso: number, etapa: string) {
+    async createHabilidade(nome: string, userId: string, guildId: string, uso: number, tipo: string, etapa: string) {
         return await prisma.habilidade.create({
             data: {
                 nome,
                 userId,
                 guildId,
                 uso,
+                tipo,
                 etapa
             }
         })

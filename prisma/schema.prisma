@@ -16,14 +16,14 @@ model GuildConfig {
   prefix         String   @default("!")
   createdAt      DateTime @default(now())
 
-  partida Partida?
+  partida Partida[]
 }
 
 model Partida {
   id String @id @default(uuid())
 
   guildId String
-  guild   GuildConfig @relation(fields: [guildId], references: [guildId])
+  guild   GuildConfig @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
 
   status     String @default("LOBBY")
   etapaAtual Int    @default(0) // Em qual rodada estamos
@@ -115,10 +115,12 @@ model Alvo {
 }
 
 model Habilidade {
-  id     String @id @default(uuid())
-  nome   String
-  uso    Int
+  id   String @id @default(uuid())
+  nome String
+
   etapa  String
+  tipo   String
+  uso    Int    @default(10000)
   status String @default("DISPONIVEL") // por enquanto "IMPEDIDA" ou "DISPONIVEL"
 
   userId  String
