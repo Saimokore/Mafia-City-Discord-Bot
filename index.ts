@@ -255,6 +255,27 @@ client.on('interactionCreate', async interaction => {
         return;
     }
 
+    if (interaction.isChatInputCommand() && interaction.commandName === 'offer') {
+        
+        const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
+        const partida = await game.getPartida();
+        if (!partida) {
+            console.log("Partida não encontrada, interação falhou");
+            return;
+        }
+        
+        if (!player || !player.estaVivo()) {
+            return interaction.reply({ content: "Você não pode agir agora." });
+        }
+        
+        if (player.getUserChat() != interaction.channelId) {
+            return interaction.reply({ content: `Use o comando no seu chat privado <#${player.getUserChat()}>`, flags: MessageFlags.Ephemeral })
+        }
+        
+        const oferta = await db.getOfertasByPlayerId(player.getId(), partida.getGuildId()).then(ofertas => ofertas.find(o => o.status === "PENDENTE"));
+        game.getPlayerManager().sendOferta()
+    }
+
     if (interaction.isStringSelectMenu() && interaction.customId === 'select_habilidade_inicial') {
         const nomeHabilidade = interaction.values[0];
         if (!nomeHabilidade) {

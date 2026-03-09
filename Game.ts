@@ -168,19 +168,19 @@ export class Game {
             return;
         }
 
-        const ofertas = await db.getOfertas(this.guildId, partida.etapaAtual);
+        const ofertas = await db.getOfertas(this.guildId);
         for (const oferta of ofertas) {
-            if (oferta.etapa == partida.etapaAtual) {
-                console.log("Oferta da etapa atual, só sera processada próxima rodada");
+            if (oferta.etapa == partida.etapaAtual - 1) {
+                const habilidade = this.playerManager.getHabilidadeInstance(oferta.habilidade);
+                if (!habilidade) {
+                    console.error(`Habilidade ${oferta.habilidade} não encontrada para oferta do jogador ${oferta.emissorId}.`);
+                    continue;
+                }
+                await habilidade.resolverOferta(this, oferta.id);
                 continue;
+            } else if (oferta.etapa == partida.etapaAtual) {
+                this.playerManager.sendOferta(oferta);
             }
-            const habilidade = this.playerManager.getHabilidadeInstance(oferta.habilidade);
-            if (!habilidade) {
-                console.error(`Habilidade ${oferta.habilidade} não encontrada para oferta do jogador ${oferta.emissorId}.`);
-                continue;
-            }
-            await habilidade.resolverOferta(this, oferta.emissorId, oferta.alvoId, oferta.status === "ACEITA" ? true : false);
-            await db.deleteOferta(oferta.id);
         }
 
         const actions = await db.getActionsByEtapa(this.guildId, partida.etapaAtual - 1);

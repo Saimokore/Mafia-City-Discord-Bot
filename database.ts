@@ -75,12 +75,13 @@ export const db = {
         }
     },
 
-    async addPlayer(guildId: string, userId: string, username: string) {
+    async addPlayer(guildId: string, userId: string, username: string, dadosCargo?: string) {
         return await prisma.player.create({
             data: {
                 guildId,
                 userId,
-                username
+                username,
+                dadosCargo: dadosCargo || null
             }
         });
     },
@@ -93,7 +94,7 @@ export const db = {
                     guildId
                 }
             },
-            include: { cartas: true, habilidades: true }
+            include: { cartas: true, habilidades: true, ofertas: true, alertas: true, actions: true }
         });
     },
 
@@ -152,14 +153,17 @@ export const db = {
         });
     },
 
-    async criarOferta(guildId: string, emissorId: string, alvoId: string, habilidade: string, etapa: number) {
+    async criarOferta(guildId: string, emissorId: string, alvoId: string, habilidade: string, etapa: number, nomeOferta: string, item?: string, parametros?: string) {
         return await prisma.oferta.create({
             data: {
                 guildId,
                 emissorId,
                 alvoId,
                 habilidade,
-                etapa
+                etapa,
+                nomeOferta,
+                item: item || null,
+                parametros: parametros || null
             }
         });
     },
@@ -212,11 +216,27 @@ export const db = {
         })
     },
 
-    async getOfertas(guildId: string, etapa: number) {
+    async getOfertas(guildId: string) {
+        return await prisma.oferta.findMany({
+            where: {
+                guildId
+            }
+        });
+    },
+
+    async getOfertasByPlayerId(guildId: string, userId: string) {
         return await prisma.oferta.findMany({
             where: {
                 guildId,
-                etapa: etapa
+                emissorId: userId
+            }
+        });
+    },
+
+    async getOfertaById(id: string) {
+        return await prisma.oferta.findUnique({
+            where: {
+                id
             }
         });
     },

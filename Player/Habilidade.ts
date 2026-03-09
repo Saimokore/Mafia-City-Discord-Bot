@@ -71,14 +71,14 @@ export abstract class Habilidade {
 
     public async ativar(game: Game, quemUsou: string, alvos?: string[]): Promise<string | void> {}
 
-    public ofertar(game: Game, quemOfertou: string, alvos: string[]): void {
+    public ofertar(game: Game, quemOfertou: string, alvos: string[], nomeOferta: string, item?: string, parametros?: string): void {
         // depois tem que ter um jeito de limitar isso pra certas habilidades e tal
         for (const alvo of alvos) {
-            game.getPlayerManager().criarOferta(quemOfertou, alvo, this.getNome(), 0);
+            game.getPlayerManager().criarOferta(quemOfertou, alvo, this.getNome(), nomeOferta, item, parametros);
         }
     }
 
-    public async resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean): Promise<void> {}
+    public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
 
     public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
         const jogadores = await db.getPlayers(game.getGuildId());
@@ -244,20 +244,33 @@ export class Evangelho extends Habilidade {
         } else if (alvo.length > 1) {
             console.error("Habilidade Evangelho só pode ter um alvo.");
         }
-        this.ofertar(game, quemUsou, alvo);
+        this.ofertar(game, quemUsou, alvo, "Arrependimento");
         console.log(`Habilidade ${this.getNome()} usada por ${quemUsou} com alvo ${alvo}.`);
     }
 
-    public override async resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean, habilidadePerdida?: string): Promise<void> {
+    public override async resolverOferta(game: Game, ofertaId: string): Promise<void> {
+        const oferta = await db.getOfertaById(ofertaId);
+        const alvo = oferta!.alvoId;
+        const emissor = oferta!.emissorId;
+        const status = oferta!.status === "ACEITA" ? true : false;
+
+        const parametros = oferta!.parametros ? JSON.parse(oferta!.parametros) : null;
+        const habilidadePerdida = parametros?.habilidadePerdida;
+
         // Criar alerta para o emissor sobre a resposta do alvo
-        game.sendMensagemPlayer(emissor, `Sua oferta para ${alvo} foi ${aceitou ? "ACEITA" : "RECUSADA"}.`);
+        game.sendMensagemPlayer(emissor, `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`);
         // por enquanto msg para debug
         const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
+        const partida = await game.getPartida();
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
+            return;
+        }
         if (!playerAlvo) {
             console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
             return;
         }
-        if (aceitou) {
+        if (status) {
             const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
             if (!cargoAlvo) {
                 console.error(`Cargo do player alvo é inválido: ${playerAlvo.cargo}`);
@@ -289,7 +302,7 @@ export class Evangelho extends Habilidade {
                 await this.bloquearPlayer(game, alvo);
             }
         } else {
-            await db.updatePlayer(alvo, game.getGuildId(), { marcas: playerAlvo.marcas + ", Arrependimento" });
+            await db.updateOferta(ofertaId, "RECUSADO");
         }
     }
 }
@@ -299,37 +312,47 @@ export class PalavraDeDeus extends Habilidade {
         super("Palavra de Deus", "Ofensiva", 10000, "Noite");
     }
 
-    public override async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-        if (!alvo) {
+    public override async ativar(game: Game, emissor: string, alvo?: string[]): Promise<void> {
+        if (!alvo || alvo.length === 0) {
             console.error("Habilidade requer um alvo.");
+            return;
+        } else if (alvo.length > 1) {
+            console.error("Habilidade Palavra de Deus só pode ter um alvo.");
             return;
         }
         const alvoId = alvo[0];
-        if (!alvoId) {
-            console.error("Habilidade requer um alvo válido.");
-            return;
-        }
-        const player = await db.getPlayerById(alvoId, game.getGuildId());
+        const player = await db.getPlayerById(alvoId!, game.getGuildId());
         if (!player) {
             console.error(`Nenhum player encontrado para guildId ${game.getGuildId()}`);
             return;
         }
-
-        const marcas = player.marcas ? player.marcas.split(",").filter(m => m !== "") : [];
-        if (marcas.includes("Arrependimento")) {
-            // ataque forte no player
-            this.atacarPlayer(game, alvoId, 2);
+        
+        const oferta = player.ofertas.find(o => o.habilidade === this.getNome() && o.emissorId === emissor); // isso deve dar problema depois
+        if (!oferta) {
+            console.error(`Nenhuma oferta encontrada para habilidade ${this.getNome()} do emissor ${emissor} para o alvo ${alvoId}.`);
+            return;
         }
+
+
     }
 
-    public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
-        const jogadores = await db.getPlayers(game.getGuildId());
-        const alvosValidos = []
-        for (const p of jogadores) {
-            const marcas = p.marcas ? p.marcas.split(",").filter(m => m !== "") : [];
-            if (marcas.includes("Arrependimento") && p.userId !== quemUsouId) {
-                alvosValidos.push(p);
+    public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, emissor: string): Promise<ModalBuilder | void> {
+        const emissorPlayer = await db.getPlayerById(game.getGuildId(), emissor);
+        const alvosValidos = [];
+        if (!emissorPlayer) {
+            console.error(`Player emissor não encontrado para id ${emissor} e guildId ${game.getGuildId()}`);
+            await interaction.reply({ content: "Ocorreu um erro ao buscar suas ofertas. Tente novamente mais tarde.", flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const ofertas = emissorPlayer.ofertas.filter(o => o.habilidade === this.getNome() && o.status === "RECUSADA");
+        for (const oferta of ofertas) {
+            const playerAlvo = await db.getPlayerById(oferta.alvoId, game.getGuildId());
+            if (!playerAlvo) {
+                console.error(`Player alvo não encontrado para id ${oferta.alvoId} e guildId ${game.getGuildId()}`);
+                continue;
             }
+            alvosValidos.push(playerAlvo);
         }
 
         if (alvosValidos.length === 0) {

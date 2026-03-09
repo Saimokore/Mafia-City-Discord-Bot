@@ -11,6 +11,10 @@ const comandos = [
     new SlashCommandBuilder()
         .setName('action')
         .setDescription('Abre o menu para você usar sua habilidade da rodada.')
+    ,
+    new SlashCommandBuilder()
+        .setName('offer')
+        .setDescription('Permite aceitar ou recusar uma oferta [accept/refuse]')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);

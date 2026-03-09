@@ -54,6 +54,7 @@ model Player {
   alertas     Alerta[]
   cartas      Carta[]
   actions     Action[]
+  ofertas     Oferta[]
 
   dadosCargo String? // JSON string com dados específicos do cargo (ex: número de vezes que usou a habilidade) extremamente importante
 
@@ -61,9 +62,9 @@ model Player {
   quantCartas Int @default(3)
   distrito    Int @default(0)
 
-  status String @default("")
-  marcas String @default("")
-  items  String @default("")
+  status String @default("") // JSON string
+  marcas String @default("") // JSON string
+  items  String @default("") // JSON string
 
   @@unique([guildId, userId])
 }
@@ -143,11 +144,15 @@ model Oferta {
   emissorId String
   alvoId    String
 
+  nomeOferta String
+  item       String?
   habilidade String
+  parametros String? // JSON string com parâmetros específicos da oferta (ex: número de vezes que usou a habilidade) mt importante
   status     String @default("PENDENTE") // PENDENTE, ACEITA, RECUSADA
   etapa      Int
 
   criadoEm DateTime @default(now())
+  player   Player?  @relation(fields: [emissorId], references: [id])
 
   @@unique([guildId, emissorId, alvoId])
 }

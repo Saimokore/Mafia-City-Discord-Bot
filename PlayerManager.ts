@@ -1,5 +1,5 @@
+import { ButtonStyle, Client, TextChannel, ActionRowBuilder, ButtonBuilder, EmbedBuilder } from "discord.js";
 import { Game } from "./Game.js";
-import { Client, TextChannel } from "discord.js";
 import { db } from "./database.js";
 import { Carta, Player } from "./Player/Player.js";
 import * as Cargo from "./Player/Cargo.js";
@@ -38,9 +38,43 @@ export class PlayerManager {
         await db.createAction(userId, this.guildId, partida.etapaAtual, habilidade.getNome(), alvos);
     }
 
-    public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, etapa: number) {
-        const oferta = await db.criarOferta(this.guildId, emissorId, alvoId, habilidadeNome, etapa);
+    public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+        const partida = await db.getPartida(this.guildId);
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${this.guildId}`);
+            return;
+        }
+        const oferta = await db.criarOferta(this.guildId, emissorId, alvoId, habilidadeNome, partida.etapaAtual, nomeOferta, item, parametros);
     }
+
+    public sendOferta(oferta: any) {
+        const embed = new EmbedBuilder()
+            .setTitle(`Uma Oferta foi feita para você!`)
+            .setDescription(`**${oferta.emissorNome}** está te oferecendo **${oferta.nomeOferta}**.`)
+            .setColor('#2b2d31')
+            // .addFields(
+            //     { name: '⚠️ O que acontece se aceitar?', value: this.getEfeitoAceitar(oferta.habilidadeNome) },
+            //     { name: '🚫 O que acontece se recusar?', value: this.getEfeitoRecusar(oferta.habilidadeNome) }
+            // )
+            .setFooter({ text: 'Escolha com sabedoria. Esta decisão é permanente para esta etapa.' });
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`offer_accept_${oferta.habilidadeNome}_${oferta.alvoId}`)
+                .setLabel('Aceitar')
+                .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+                .setCustomId(`offer_deny_${oferta.habilidadeNome}_${oferta.alvoId}`)
+                .setLabel('Recusar')
+                .setStyle(ButtonStyle.Danger)
+        );
+
+        return {
+            embeds: [embed],
+            components: [row]
+        };
+    }
+
     // ==========================================
     // FACTORY
     // ==========================================
