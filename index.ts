@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder, MessageFlags } from 'discord.js';
+import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder, MessageFlags, ButtonBuilder } from 'discord.js';
 import { Game } from './Game.js';
 import { db } from './database.js';
 import * as dotenv from 'dotenv';
@@ -7,8 +7,6 @@ import { channel } from 'node:diagnostics_channel';
 dotenv.config();
 
 const token = process.env.BOT_TOKEN!;
-
-const cacheAcoes = new Map<string, { alvoId?: string, cargoAlvo?: string }>();
 
 const client = new Client({
     intents: [
@@ -220,7 +218,6 @@ client.on('interactionCreate', async interaction => {
     const game = new Game(serverId, client);
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'action') {
-        cacheAcoes.delete(interaction.user.id);
         const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
         const partida = await game.getPartida();
         if (!partida) {
@@ -258,31 +255,6 @@ client.on('interactionCreate', async interaction => {
         return;
     }
 
-    if (interaction.isStringSelectMenu()) {
-        const userId = interaction.user.id;
-        
-        if (!cacheAcoes.has(userId)) {
-            cacheAcoes.set(userId, {});
-        }
-        
-        const escolhasDoJogador = cacheAcoes.get(userId)!;
-        if (escolhasDoJogador.alvoId === undefined) {
-            return;
-        }
-
-        // Ele escolheu o alvo? Salva no cache!
-        if (interaction.customId.startsWith('skill_alvo_')) {
-            escolhasDoJogador.alvoId = interaction.values[0];
-            await interaction.deferUpdate(); // deferUpdate() faz o Discord parar de carregar sem mandar mensagem nova
-        } 
-        
-        // Ele escolheu o cargo? Salva no cache!
-        else if (interaction.customId.startsWith('skill_cargos_')) {
-            escolhasDoJogador.cargoAlvo = interaction.values[0];
-            await interaction.deferUpdate(); 
-        }
-    }
-
     if (interaction.isStringSelectMenu() && interaction.customId === 'select_habilidade_inicial') {
         const nomeHabilidade = interaction.values[0];
         if (!nomeHabilidade) {
@@ -293,59 +265,32 @@ client.on('interactionCreate', async interaction => {
         const habilidadeInstance = game.getPlayerManager().getHabilidadeInstance(nomeHabilidade);
 
         if (habilidadeInstance) {
-            await habilidadeInstance.construirInterfaceParams(interaction, game, interaction.user.id);
+            const modal = await habilidadeInstance.buildModal(interaction, game, interaction.user.id);
+            if (!modal) {
+                console.error("Erro ao construir o modal para a habilidade:", nomeHabilidade);
+                return;
+            }
+            await interaction.showModal(modal);
         }
     }
-    
-    // if (interaction.isStringSelectMenu() && interaction.customId.startsWith('skill_')) {
-    //     const interactionSplit = interaction.customId.split("_");
-    //     console.log(interactionSplit);
-    //     const nomeHabilidade = interactionSplit[2];
-    //     if (!nomeHabilidade) {
-    //         await interaction.update({ content: "Habilidade inválida selecionada.", components: [] });
-    //         return;
-    //     }
-        
-    //     const habilidadeInstance = game.getPlayerManager().getHabilidadeInstance(nomeHabilidade);
 
-    //     if (habilidadeInstance) {
-    //         await habilidadeInstance.resolverInterface(interaction, game, interaction.user.id);
-    //     }
-    // }
-
-    if (interaction.isButton() && interaction.customId.startsWith('skill_confirmar_')) {
-        const userId = interaction.user.id;
-        const nomeHabilidade = interaction.customId.replace('skill_confirmar_', '');
-        const escolhasDoJogador = cacheAcoes.get(userId);
-
-        // Validação: Ele selecionou os dois menus?
-        if (!escolhasDoJogador || !escolhasDoJogador.alvoId || !escolhasDoJogador.cargoAlvo) {
-            await interaction.reply({ 
-                content: "⚠️ Você precisa selecionar tanto o alvo quanto o cargo antes de confirmar!", 
-                flags: [MessageFlags.Ephemeral] 
-            });
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('skill_modal_')) {
+        const partes = interaction.customId.split('_'); // ["skill", "modal", "NomeHabilidade", "userId"]
+        const nomeHabilidade = partes[2];
+        if (!nomeHabilidade) {
+            console.error("Nome da habilidade não encontrado no customId do modal:", interaction.customId);
+            await interaction.reply({ content: "Habilidade inválida. Tente novamente.", flags: MessageFlags.Ephemeral });
             return;
         }
 
-        const { alvoId, cargoAlvo } = escolhasDoJogador;
+        const habilidadeInstance = game.getPlayerManager().getHabilidadeInstance(nomeHabilidade);
+        if (!habilidadeInstance) {
+            console.error("Habilidade não encontrada para o modal submetido:", nomeHabilidade);
+            await interaction.reply({ content: "Habilidade não encontrada. Tente novamente.", flags: MessageFlags.Ephemeral });
+            return;
+        }
 
-        // ==========================================
-        // AQUI VOCÊ SALVA NO BANCO DE DADOS!
-        // ==========================================
-        // Dica: Como o seu banco aceita só um ID de alvo na Action, para habilidades 
-        // como "Adivinhar Cargo", você pode passar as duas informações concatenadas 
-        // (ex: `${alvoId}:${cargoAlvo}`) e dar um .split(':') na hora de processar a noite!
-        
-        // await db.registrarAction(userId, interaction.guildId!, etapaAtual, nomeHabilidade, [`${alvoId}:${cargoAlvo}`]);
-
-        // Limpa a memória pra não vazar RAM
-        cacheAcoes.delete(userId);
-
-        // Dá o feedback final pro jogador, apagando os botões da tela
-        await interaction.update({ 
-            content: `✅ Ação confirmada! Você vai usar **${nomeHabilidade}** no alvo e adivinhou o cargo **${cargoAlvo}**. A cidade não perde por esperar.`, 
-            components: [] 
-        });
+        await habilidadeInstance.resolverModal(interaction, game, interaction.user.id);
     }
 });
 

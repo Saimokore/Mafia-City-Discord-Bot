@@ -55,6 +55,8 @@ model Player {
   cartas      Carta[]
   actions     Action[]
 
+  dadosCargo String? // JSON string com dados específicos do cargo (ex: número de vezes que usou a habilidade) extremamente importante
+
   protecao    Int @default(0) // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
   quantCartas Int @default(3)
   distrito    Int @default(0)
@@ -101,6 +103,8 @@ model Action {
   habilidade   Habilidade @relation(fields: [habilidadeId], references: [id])
   alvo         Alvo[]
 
+  parametrosAcao String? // JSON string com parâmetros específicos da ação (ex: número de vezes que usou a habilidade) mt importante
+
   player Player @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
 
   @@unique([guildId, userId, habilidadeId])
@@ -146,4 +150,20 @@ model Oferta {
   criadoEm DateTime @default(now())
 
   @@unique([guildId, emissorId, alvoId])
+}
+
+model Visita {
+  id      String @id @default(uuid())
+  guildId String
+  etapa   Int
+
+  visitanteId String
+  visitadoId  String
+
+  distritoVisitante Int?
+  distritoVisitado  Int?
+
+  criadoEm DateTime @default(now())
+
+  @@unique([guildId, visitanteId, visitadoId])
 }

@@ -33,7 +33,7 @@ export const db = {
         });
     },
 
-    async createAction(userId: string, guildId: string, etapa: number, habilidadeId: string, alvoIds?: string[]) {
+    async createAction(userId: string, guildId: string, etapa: number, habilidadeId: string, alvoIds?: string[], parametrosAcao?: string) {
         return await prisma.action.create({
             data: {
                 userId,
@@ -42,7 +42,8 @@ export const db = {
                 alvo: {
                     create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
                 },
-                habilidadeId
+                habilidadeId,
+                parametrosAcao: parametrosAcao || null
             }
         });
     },
@@ -250,5 +251,38 @@ export const db = {
                 alerta
             }
         });
+    },
+
+    async createVisita(guildId: string, visitanteId: string, visitadoId: string, etapa: number, distritoVisitado: number, distritoVisitante: number) {
+        return await prisma.visita.create({
+            data: {
+                guildId,
+                visitanteId,
+                visitadoId,
+                etapa,
+                distritoVisitado,
+                distritoVisitante
+            }
+        });
+    },
+
+    async getVisitas(guildId: string, etapa: number) {
+        return await prisma.visita.findMany({
+            where: {
+                guildId,
+                etapa
+            }
+        });
+    },
+
+    async getVisitasByPlayer(guildId: string, userId: string, etapa: number) {
+        return await prisma.visita.findMany({
+            where: {
+                guildId,
+                visitanteId: userId,
+                etapa
+            }
+        });
     }
+
 } 

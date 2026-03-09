@@ -1,5 +1,10 @@
 import { StringSelectMenuInteraction, ActionRowBuilder, StringSelectMenuBuilder, 
-    ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle} from 'discord.js';
+    ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle,
+    ButtonInteraction,
+    MessageFlags,
+    type ModalActionRowComponentBuilder,
+    LabelBuilder,
+    ModalSubmitInteraction} from 'discord.js';
 import { platform } from 'node:os';
 import { db } from '../database.js';
 import { Game } from '../Game.js';
@@ -75,8 +80,7 @@ export abstract class Habilidade {
 
     public async resolverOferta(game: Game, emissor: string, alvo: string, aceitou: boolean): Promise<void> {}
 
-    public async construirInterfaceParams(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<void> {
-        // padrão: buscar jogadores vivos na partida para ser o alvo
+    public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
         const jogadores = await db.getPlayers(game.getGuildId());
         const alvosValidos = jogadores//.filter(p => p.estaVivo && p.userId !== quemUsouId);
 
@@ -85,53 +89,36 @@ export abstract class Habilidade {
             return;
         }
 
-        const selectAlvo = new StringSelectMenuBuilder()
-            .setCustomId(`skill_alvo_${this.getNome()}`) // Ex: alvo_Matar
-            .setPlaceholder('Selecione o seu alvo...')
-            .addOptions(
-                alvosValidos.map(p => ({
-                    label: p.username,
-                    value: p.userId
-                }))
-            );
-        const btnConfirmar = new ButtonBuilder()
-            .setCustomId(`skill_confirmar_${this.getNome()}`)
-            .setLabel('Confirmar Ação')
-            .setStyle(ButtonStyle.Success);
+       const modal = new ModalBuilder()
+            .setCustomId('skill_modal_' + this.getNome())
+            .setTitle('Usando habilidade: ' + this.getNome());
 
-        const rowSelectAlvo = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectAlvo);
-        const rowBtnConfirmar = new ActionRowBuilder<ButtonBuilder>().addComponents(btnConfirmar);
+        const targetLabel = new LabelBuilder()
+            .setLabel('Quem é o alvo?')
+            .setStringSelectMenuComponent(
+                new StringSelectMenuBuilder()
+                    .setCustomId('select')
+                    .setPlaceholder('Selecione o seu alvo...')
+                    .addOptions(
+                        alvosValidos.map(p => ({
+                            label: p.username,
+                            value: p.userId
+                        })
+                    )
+            )   
+        )
+
+        modal.addLabelComponents(targetLabel);
         
-        // Atualiza a mensagem original trocando o menu de habilidades pelo menu de alvos
-        await interaction.update({ content: `Você escolheu **${this.getNome()}**. Agora, escolha o alvo:`, components: [rowSelectAlvo, rowBtnConfirmar] });
+        return modal;
     }
 
-    public async resolverInterface(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<void> {
-        const nomeHabilidade = this.getNome();
-        const alvoId = interaction.values[0];
-        const serverId = game.getGuildId()
-        const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
-        if (!player || !player.estaVivo()) {
-            interaction.reply({ content: "Você não pode agir agora." });
-        }
-        if (!alvoId) {
-            console.log("Alvo não encontrado, interação falhou");
-            return;
-        }
-        const partida = await game.getPartida();
-        if (!partida) {
-            console.log("Partida não encontrada, interação falhou");
-            return;
-        }
-        const habilidade = await db.getHabilidade(nomeHabilidade, interaction.user.id, serverId);
-        if (!habilidade) {
-            console.log("Id da habilidade não encontrado, interação falhou");
-            return;
-        }
-        
-        await db.createAction(interaction.user.id, serverId, partida.getEtapaAtual(), habilidade.id, [alvoId]);
-        
-        await interaction.update({ content: `✅ Ação registrada: **${nomeHabilidade}** no jogador selecionado!`, components: [] });
+    public async resolverModal(interaction: ModalSubmitInteraction, game: Game, quemUsouId: string): Promise<void> {
+        const selectValues = interaction.fields.getStringSelectValues('select');
+        // const inputValues = interaction.fields.getTextInputValue('input');
+
+        console.log("Modal submetido:", selectValues);
+        await interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }
 
     protected async visitarPlayer(game: Game, alvo: string, alertado: boolean): Promise<void> {
@@ -335,81 +322,53 @@ export class PalavraDeDeus extends Habilidade {
         }
     }
 
-    public override async construirInterfaceParams(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<void> {
-        // padrão: buscar jogadores vivos na partida para ser o alvo
+    public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
         const jogadores = await db.getPlayers(game.getGuildId());
-        const cargos = game.getCargos();
-        const alvosValidos = jogadores//.filter(p => p.estaVivo && p.userId !== quemUsouId);
-
-        if (!cargos || cargos.length === 0) {
-            await interaction.reply({ content: "Não há cargos válidos para esta habilidade." });
-            return;
+        const alvosValidos = []
+        for (const p of jogadores) {
+            const marcas = p.marcas ? p.marcas.split(",").filter(m => m !== "") : [];
+            if (marcas.includes("Arrependimento") && p.userId !== quemUsouId) {
+                alvosValidos.push(p);
+            }
         }
 
         if (alvosValidos.length === 0) {
-            await interaction.reply({ content: "Não há alvos válidos para esta habilidade." });
+            await interaction.reply({ content: "Não há alvos vivos com marca \"Arrependimento\" para esta habilidade." });
             return;
         }
 
-        const selectAlvo = new StringSelectMenuBuilder()
-            .setCustomId(`skill_alvo_${this.getNome()}`) // Ex: alvo_Matar
-            .setPlaceholder('Selecione o seu alvo...')
-            .addOptions(
-                alvosValidos.map(p => ({
-                    label: p.username,
-                    value: p.userId
-                }))
-            );
-        const selectCargo = new StringSelectMenuBuilder()
-            .setCustomId(`skill_cargos_${this.getNome()}`) // Ex: alvo_Matar
-            .setPlaceholder('Adivinhe o cargo de seu alvo...')
-            .addOptions(
-                cargos.map(c => ({
-                    label: c!.getNome(),
-                    value: c!.getNome()
-                }))
-            );
+       const modal = new ModalBuilder()
+            .setCustomId('skill_modal_' + this.getNome())
+            .setTitle('Usando habilidade: ' + this.getNome());
 
+        const targetLabel = new LabelBuilder()
+            .setLabel('Quem é o alvo?')
+            .setStringSelectMenuComponent(
+                new StringSelectMenuBuilder()
+                    .setCustomId('select')
+                    .setPlaceholder('Selecione o seu alvo...')
+                    .addOptions(
+                        alvosValidos.map(p => ({
+                            label: p.username,
+                            value: p.userId
+                        })
+                    )
+            )   
+        )
 
-        const rowSelectAlvo = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectAlvo);
-        const rowSelectCargo = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectCargo);
+        modal.addLabelComponents(targetLabel);
         
-        // Atualiza a mensagem original trocando o menu de habilidades pelo menu de alvos
-        await interaction.update({ content: `Você escolheu **${this.getNome()}**. Agora, escolha o alvo:`, components: [rowSelectAlvo, rowSelectCargo] });
+        return modal;
     }
 
-    public override async resolverInterface(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<void> {
-        const interactionSplit = interaction.customId.split("_");
-        const parte = interactionSplit[1];
-        if (parte === "alvo") {
-            const nomeHabilidade = this.getNome();
-            const alvoId = interaction.values[0];
-            const serverId = game.getGuildId()
-            const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
-            if (!player || !player.estaVivo()) {
-                interaction.reply({ content: "Você não pode agir agora." });
-            }
-            if (!alvoId) {
-                console.log("Alvo não encontrado, interação falhou");
-                return;
-            }
-            const partida = await game.getPartida();
-            if (!partida) {
-                console.log("Partida não encontrada, interação falhou");
-                return;
-            }
-            const habilidade = await db.getHabilidade(nomeHabilidade, interaction.user.id, serverId);
-            if (!habilidade) {
-                console.log("Id da habilidade não encontrado, interação falhou");
-                return;
-            }
-            await db.createAction(interaction.user.id, serverId, partida.getEtapaAtual(), habilidade.id, [alvoId]);
-            
-            await interaction.update({ content: `✅ Ação registrada: **${nomeHabilidade}** no jogador selecionado!`, components: [] });
-        }
+    public override async resolverModal(interaction: ModalSubmitInteraction, game: Game, quemUsouId: string): Promise<void> {
+        const selectValues = interaction.fields.getStringSelectValues('select');
+        // const inputValues = interaction.fields.getTextInputValue('input');
 
-        if (parte === "adivinhar") {}
-    } 
+        console.log("Modal submetido:", selectValues);
+        await interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
+    }
+
 }
 
 export class Snipe extends Habilidade {
@@ -429,6 +388,54 @@ export class ExecucaoPublica extends Habilidade {
 
     public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
 
+    }
+
+    public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
+        const jogadores = await db.getPlayers(game.getGuildId());
+        const alvosValidos = jogadores//.filter(p => p.estaVivo && p.userId !== quemUsouId);
+
+        if (alvosValidos.length === 0) {
+            await interaction.reply({ content: "Não há alvos válidos para esta habilidade." });
+            return;
+        }
+
+       const modal = new ModalBuilder()
+            .setCustomId('skill_modal_' + this.getNome())
+            .setTitle('Usando habilidade: ' + this.getNome());
+
+        const targetLabel = new LabelBuilder()
+            .setLabel('Quem é o alvo?')
+            .setStringSelectMenuComponent(
+                new StringSelectMenuBuilder()
+                    .setCustomId('select')
+                    .setPlaceholder('Selecione o seu alvo...')
+                    .addOptions(
+                        alvosValidos.map(p => ({
+                            label: p.username,
+                            value: p.userId
+                        })
+                    )
+            )   
+        )
+
+        const targetCargoLabel = new LabelBuilder()
+            .setLabel('Qual o cargo do alvo?')
+            .setStringSelectMenuComponent(
+                new StringSelectMenuBuilder()
+                    .setCustomId('select')
+                    .setPlaceholder('Selecione o seu alvo...')
+                    .addOptions(
+                        alvosValidos.map(p => ({
+                            label: p.username,
+                            value: p.userId
+                        })
+                    )
+            )   
+        )
+
+        modal.addLabelComponents(targetLabel);
+        
+        return modal;
     }
 }
 
