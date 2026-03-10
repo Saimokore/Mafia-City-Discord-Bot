@@ -1,4 +1,4 @@
-import type { Habilidade } from "./Habilidade.js";
+import { Habilidade } from "./Habilidade.js";
 
 export class Action {
     private userId: string;

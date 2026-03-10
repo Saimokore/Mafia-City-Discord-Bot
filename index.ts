@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder, MessageFlags, ButtonBuilder } from 'discord.js';
+import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder, MessageFlags, ButtonBuilder, EmbedBuilder } from 'discord.js';
 import { Game } from './Game.js';
 import { db } from './database.js';
 import * as dotenv from 'dotenv';
@@ -181,30 +181,35 @@ client.on('messageCreate', async (message: Message) => {
 
         game.getPlayerManager().useHabilidade(message.author.id, habilidade);
     }
-});
 
-client.on('interactionCreate', async interaction => {
-    const serverId = interaction.guildId;
-    if (!serverId) return;
-    const game = new Game(serverId, client);
-
-    if (!interaction.isButton()) return; 
-
-    const customId = interaction.customId;
-
-    if (customId.startsWith('oferta_')) {
-        const partes = customId.split('_'); // ["oferta", "aceita", "123456"]
-        const acao = partes[1]; // "aceita" ou "recusa"
-        const ofertaId = partes[2]; // "123456"
-
-        await interaction.update({ components: [], content: "Oferta processada..." });
-
-        if (!ofertaId) {
-            interaction.reply("Oferta inválida.");
+    if (message.content === prefix +'oferta') {
+        const player = await game.getPlayerManager().loadPlayer(message.author.id, message.guild.id);
+        if (!player) {
+            message.reply("Você não está nesta partida!");
+            return;
+        }
+        const habilidade = player.getCargo().getHabilidades()[0];
+        if (!habilidade) {
+            message.reply("Habilidade não encontrada para seu cargo.");
             return;
         }
 
-        const oferta = await db.updateOferta(ofertaId, acao === 'aceita' ? "ACEITA" : "RECUSADA");
+        habilidade.ofertar(game, message.author.id, [message.author.id], "Evalhosla");
+    }
+
+    if (message.content.startsWith(prefix +'newplayer')) {
+        const fakeId = message.content.replace(prefix +'newplayer', "");
+        console.log("id: " + fakeId);
+
+        const existingPlayer = await db.getPlayerById(fakeId, serverId);
+        if (existingPlayer) {
+            message.reply("Você já está no jogo!");
+            return;
+        }
+
+        await db.addPlayer(serverId, fakeId, "testbro");
+
+        message.reply("Você entrou no jogo!");
     }
 });
 
@@ -272,8 +277,35 @@ client.on('interactionCreate', async interaction => {
             return interaction.reply({ content: `Use o comando no seu chat privado <#${player.getUserChat()}>`, flags: MessageFlags.Ephemeral })
         }
         
-        const oferta = await db.getOfertasByPlayerId(player.getId(), partida.getGuildId()).then(ofertas => ofertas.find(o => o.status === "PENDENTE"));
-        game.getPlayerManager().sendOferta()
+        const ofertas = await db.getOfertasForPlayerId(partida.getGuildId(), player.getId());
+        if (!ofertas || ofertas.length === 0) {
+            console.error("Oferta não encontrada");
+            return interaction.reply({ content: "Você não possui nenhuma oferta!"});
+        }
+
+        if (ofertas.length > 1) {
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('offer_select')
+                .setPlaceholder('Escolha uma oferta')
+                .addOptions(
+                    ofertas.map(of => ({
+                        label: of.nomeOferta,
+                        value: of.id
+                    }))
+                );
+
+            const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+            return interaction.reply({ components: [row]});
+        }
+
+        const oferta = ofertas[0];
+        if (!oferta) {
+            console.error("seila mano nao acho a oferta");
+            return;
+        }
+        
+        return interaction.reply(await game.getPlayerManager().buildOferta(oferta.id, oferta.emissorId, oferta.nomeOferta, oferta.habilidade));
     }
 
     if (interaction.isStringSelectMenu() && interaction.customId === 'select_habilidade_inicial') {
@@ -293,6 +325,33 @@ client.on('interactionCreate', async interaction => {
             }
             await interaction.showModal(modal);
         }
+    }
+
+    if (interaction.isButton() && interaction.customId.startsWith('offer_button')) {
+        // `offer_button_accept_${nomeOferta}_${ofertaId}`)
+        const partes = interaction.customId.split('_');
+        const accept = partes[2] === "accept" ? true : false;
+        const nomeOferta = partes[3]
+        const offerId = partes[4];
+
+        await db.updateOferta(offerId!, accept)
+
+        const embed = new EmbedBuilder()
+            .setTitle(`A Oferta ${nomeOferta} foi ${accept ? "aceita" : "recusada"}!`)
+            .setColor(accept ? '#36a121' : '#b92626')
+
+        await interaction.update({embeds: [embed], components: []})
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('offer_select')) {
+        const ofertaId = interaction.values[0];
+        const oferta = await db.getOfertaById(ofertaId!);
+         if (!oferta) {
+            console.error("seila mano nao acho a oferta");
+            return;
+        }
+        
+        return interaction.reply(await game.getPlayerManager().buildOferta(oferta.id, oferta.emissorId, oferta.nomeOferta, oferta.habilidade));
     }
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith('skill_modal_')) {

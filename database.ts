@@ -94,7 +94,7 @@ export const db = {
                     guildId
                 }
             },
-            include: { cartas: true, habilidades: true, ofertas: true, alertas: true, actions: true }
+            include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, actions: true }
         });
     },
 
@@ -103,7 +103,7 @@ export const db = {
             where: {
                 guildId
             },
-            include: { cartas: true, habilidades: true }
+            include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, actions: true }
         });
     },
 
@@ -153,7 +153,7 @@ export const db = {
         });
     },
 
-    async criarOferta(guildId: string, emissorId: string, alvoId: string, habilidade: string, etapa: number, nomeOferta: string, item?: string, parametros?: string) {
+    async createOferta(guildId: string, emissorId: string, alvoId: string, habilidade: string, etapa: number, nomeOferta: string, item?: string, parametros?: string) {
         return await prisma.oferta.create({
             data: {
                 guildId,
@@ -168,13 +168,13 @@ export const db = {
         });
     },
 
-    async updateOferta(id: string, status: string) {
+    async updateOferta(id: string, status: boolean) {
         return await prisma.oferta.update({
             where: {
                 id
             },
             data: {
-                status
+                status: status ? "ACEITA" : "RECUSADA"
             }
         });
     },
@@ -233,6 +233,16 @@ export const db = {
         });
     },
 
+    async getOfertasForPlayerId(guildId: string, userId: string) {
+        return await prisma.oferta.findMany({
+            where: {
+                guildId,
+                alvoId: userId
+            }
+        });
+    },
+
+
     async getOfertaById(id: string) {
         return await prisma.oferta.findUnique({
             where: {
@@ -262,7 +272,7 @@ export const db = {
         }
     },
 
-    async criarAlerta(guildId: string, userId: string, etapa: number, alerta: string) {
+    async createAlerta(guildId: string, userId: string, etapa: number, alerta: string) {
         return await prisma.alerta.create({
             data: {
                 guildId,

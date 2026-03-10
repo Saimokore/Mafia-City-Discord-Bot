@@ -2,7 +2,8 @@ import { ChannelType, Client, PermissionFlagsBits, TextChannel, User } from "dis
 import { db } from "./database.js";
 import * as Cargo from "./Player/Cargo.js";
 import { use } from "react";
-import { Carta, Player } from "./Player/Player.js";
+import { Player } from "./Player/Player.js";
+import { Carta } from "./Player/Carta.js";
 import { PlayerManager } from "./PlayerManager.js";
 import { Partida } from "./Player/Partida.js";
 
@@ -103,7 +104,7 @@ export class Game {
         const canal = await guild.channels.create({
             name: nome,
             type: ChannelType.GuildText,
-            permissionOverwrites: permissoes,
+            // permissionOverwrites: permissoes,
             reason: 'Novo chat privado para o jogo'
         });
 
@@ -179,7 +180,9 @@ export class Game {
                 await habilidade.resolverOferta(this, oferta.id);
                 continue;
             } else if (oferta.etapa == partida.etapaAtual) {
-                this.playerManager.sendOferta(oferta);
+                // this.playerManager.buildOferta(oferta.id, oferta.emissorId, oferta.nomeOferta, oferta.habilidade);
+                // na verdade fazer um alerta apenas sla
+                await db.createAlerta(this.guildId, oferta.alvoId, partida.etapaAtual, "Você recebeu uma oferta! Digite /offer para aceitar ou recusar.")
             }
         }
 
@@ -219,7 +222,22 @@ export class Game {
             } else {
                 habilidade.usarHabilidade(this, player);
             }
-
+        }
+        const players = await db.getPlayers(this.guildId);
+        for (const p of players) {
+            const player = await this.getPlayerManager().loadPlayer(p.userId, this.guildId);
+            if (!player) {
+                console.error("Player não encontrado: " + p.id);
+                continue;
+            }
+            try {
+                const canal = await this.client.channels.fetch(p.userChat!) as TextChannel;
+                if (canal) {
+                    await canal.send(player.getStatus());
+                }
+            } catch (error) {
+                console.error("Erro ao enviar anúncio. O canal ainda existe?", error);
+            }
         }
     }
 

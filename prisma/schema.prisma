@@ -51,6 +51,7 @@ model Player {
   estaVivo Boolean @default(true)
 
   habilidades Habilidade[]
+  itens       Item[]
   alertas     Alerta[]
   cartas      Carta[]
   actions     Action[]
@@ -62,9 +63,8 @@ model Player {
   quantCartas Int @default(3)
   distrito    Int @default(0)
 
-  status String @default("") // JSON string
-  marcas String @default("") // JSON string
-  items  String @default("") // JSON string
+  status String @default("{}") // JSON string
+  marcas String @default("{}") // JSON string
 
   @@unique([guildId, userId])
 }
@@ -101,14 +101,14 @@ model Action {
 
   etapa        Int
   habilidadeId String
-  habilidade   Habilidade @relation(fields: [habilidadeId], references: [id])
+  habilidade   Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
   alvo         Alvo[]
 
   parametrosAcao String? // JSON string com parâmetros específicos da ação (ex: número de vezes que usou a habilidade) mt importante
 
   player Player @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
 
-  @@unique([guildId, userId, habilidadeId])
+  @@unique([guildId, userId, habilidadeId, etapa])
 }
 
 model Alvo {
@@ -134,7 +134,24 @@ model Habilidade {
   player  Player   @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
   actions Action[]
 
-  @@unique([guildId, userId, nome])
+  @@unique([guildId, userId, nome, etapa])
+}
+
+model Item {
+  id   String @id @default(uuid())
+  nome String
+
+  etapa  String
+  tipo   String
+  uso    Int    @default(10000)
+  status String @default("DISPONIVEL") // por enquanto "IMPEDIDA" ou "DISPONIVEL"
+
+  userId  String
+  guildId String
+
+  player  Player   @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
+
+  @@unique([guildId, userId, nome, etapa])
 }
 
 model Oferta {
@@ -152,9 +169,9 @@ model Oferta {
   etapa      Int
 
   criadoEm DateTime @default(now())
-  player   Player?  @relation(fields: [emissorId], references: [id])
+  player   Player?  @relation(fields: [emissorId, guildId], references: [userId, guildId], onDelete: Cascade)
 
-  @@unique([guildId, emissorId, alvoId])
+  @@unique([guildId, emissorId, alvoId, etapa, nomeOferta])
 }
 
 model Visita {
@@ -170,5 +187,5 @@ model Visita {
 
   criadoEm DateTime @default(now())
 
-  @@unique([guildId, visitanteId, visitadoId])
+  @@unique([guildId, visitanteId, visitadoId, etapa])
 }

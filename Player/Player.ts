@@ -1,6 +1,19 @@
 import { Game } from "../Game.js";
-import type { Cargo } from "./Cargo.js";
-import type { Habilidade } from "./Habilidade.js";
+import { Cargo } from "./Cargo.js";
+import { db } from '../database.js';
+import { Habilidade } from "./Habilidade.js";
+import { Carta } from "./Carta.js";
+import { Alerta } from "./Alerta.js";
+import { Prisma } from '@prisma/client';
+
+export type PrismaPlayer = Prisma.PlayerGetPayload<{
+    include: {
+        cartas: true,
+        alertas: true,
+        habilidades: true,
+        itens: true
+    }
+}>;
 
 export class Player {
     protected game: Game;
@@ -13,66 +26,65 @@ export class Player {
     private cartas: Carta[];
     private quantCartas: number;
     
-    private cargo: Cargo;
-    private status: string[];
-    private marcas: string[];
+    private cargo: Cargo | null;
+    private status: string;
+    private marcas: string;
     private items: Habilidade[];
+    private alertas: Alerta[];
 
     private userChat: string;
     
-    private acao?: Habilidade | Habilidade[] | null;
     private protecao: number; // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
 
-    constructor(game: Game, id: string, username: string, isAlive: boolean, distrito: number, 
-                cartas: Carta[], quantCartas: number, cargo: Cargo, status: string[], marcas: string[], 
-                items: Habilidade[], protecao: number, userChat: string, acao?: Habilidade | Habilidade[] | null) 
-                {
-        this.id = id;
+    constructor(game: Game, player: PrismaPlayer) {
         this.game = game;
-        this.username = username;
+        this.id = player.id;
+        this.username = player.username;
 
-        this.cargo = cargo;
-        this.protecao = protecao;
-        this.isAlive = isAlive;
-        this.quantCartas = quantCartas;
-        this.distrito = distrito;
-
-        this.userChat = userChat;
+        this.cargo = player.cargo ? game.getPlayerManager().getCargoInstance(player.cargo) : null;
         
-        this.cartas = cartas;
-        this.status = status;
-        this.marcas = marcas;
-        this.items = items;
+        this.protecao = player.protecao;
+        this.isAlive = player.estaVivo;
+        this.quantCartas = player.quantCartas;
+        this.distrito = player.distrito;
+        
+        this.userChat = player.userChat || "";
+        
+        this.items = player.itens?.map(i => new Habilidade(i.nome, i.tipo, i.uso, i.etapa)) || [];
+        this.cartas = player.cartas?.map(c => new Carta(c.id, c.userId, c.destinatario, c.mensagem)) || [];
+        this.alertas = player.alertas?.map(a => new Alerta(a.id, a.userId, a.etapa, a.alerta)) || [];
 
-        this.acao = null;
-    }
+        this.status = JSON.parse(player.status) || "";
+        this.marcas = JSON.parse(player.marcas) || "";
 
-    protected setAcao(acao: Habilidade | Habilidade[] | null): void {
-        this.acao = acao;
-    }
-
-    public getAcao(): Habilidade | Habilidade[] | null {
-        if (!this.acao) {
-            throw new Error("Nenhuma ação definida para este jogador.");
-        }
-        return this.acao;
     }
 
     public sendCarta(alvo: Player, mensagem: string): boolean {
-        if (this.quantCartas > 0) {
-            this.cartas.push(new Carta(alvo.id, mensagem));
-            this.quantCartas--;
-            return true;
-        }
+        // if (this.quantCartas > 0) {
+        //     this.cartas.push(new Carta(alvo.id, mensagem));
+        //     this.quantCartas--;
+        //     return true;
+        // }
         return false;
     }
 
-    public getAlinhamento(): string {
+    public getAlinhamento(): string | undefined {
+        if (!this.cargo) return;
         return this.cargo.getAlinhamento();
     }
 
     public getStatus(): string {
-        return `Nome: ${this.username}\nCargo: ${this.cargo.getNome()}\nVivo: ${this.isAlive} \nCartas: ${this.quantCartas}\nDistrito: ${this.distrito} \nProteção: ${this.protecao || "Nenhuma"} \nStatus: ${this.status.join(", ") || "Nenhum"} \nMarcas: ${this.marcas.join(", ") || "Nenhuma"} \nItens: ${this.items.map(i => i.getNome()).join(", ") || "Nenhum"} \nHabilidades: ${this.cargo.getHabilidades().map(h => h.getNome()).join(", ") || "Nenhuma"}\nAlertas: `;
+        return `Nome: ${this.username}\n
+        Cargo: ${this.cargo ? this.cargo.getNome() : "Sem cargo"}\n
+        Vivo: ${this.isAlive} \n
+        Cartas: ${this.quantCartas}\n
+        Distrito: ${this.distrito} \n
+        Proteção: ${this.protecao || "Nenhuma"} \n
+        Status: ${JSON.stringify(this.status) || "Nenhum"} \n
+        Marcas: ${JSON.stringify(this.marcas) || "Nenhuma"} \n
+        Itens: ${this.items.map(i => i.getNome()).join(", ") || "Nenhum"} \n
+        Habilidades: ${this.cargo ? this.cargo.getHabilidades().map(h => h.getNome()).join(", ") : "Nenhuma"}\n
+        Alertas: ${this.alertas.forEach(a => a.getAlerta() + ",\n")}`;
     }
 
     public getId(): string {
@@ -91,7 +103,8 @@ export class Player {
         return this.username;
     }
 
-    public getCargo(): Cargo {
+    public getCargo(): Cargo | undefined {
+        if (!this.cargo) return;
         return this.cargo;
     }
 
@@ -103,14 +116,4 @@ export class Player {
         return this.distrito;
     }
     
-}
-
-export class Carta {
-    private destinatario: string;
-    private mensagem: string;
-
-    constructor(destinatario: string, mensagem: string) {
-        this.destinatario = destinatario;
-        this.mensagem = mensagem;
-    }
 }

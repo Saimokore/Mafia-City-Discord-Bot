@@ -1,10 +1,11 @@
 import { ButtonStyle, Client, TextChannel, ActionRowBuilder, ButtonBuilder, EmbedBuilder } from "discord.js";
 import { Game } from "./Game.js";
 import { db } from "./database.js";
-import { Carta, Player } from "./Player/Player.js";
+import { Player } from "./Player/Player.js";
 import * as Cargo from "./Player/Cargo.js";
 import * as Hab from "./Player/Habilidade.js";
 import { Action } from "./Player/Actions.js";
+import { Carta } from "./Player/Carta.js";
 
 export class PlayerManager {
     private guildId: string;
@@ -44,27 +45,24 @@ export class PlayerManager {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
         }
-        const oferta = await db.criarOferta(this.guildId, emissorId, alvoId, habilidadeNome, partida.etapaAtual, nomeOferta, item, parametros);
+        const oferta = await db.createOferta(this.guildId, emissorId, alvoId, habilidadeNome, partida.etapaAtual, nomeOferta, item, parametros);
     }
 
-    public sendOferta(oferta: any) {
+    public async buildOferta(ofertaId: string, emissorId: string, nomeOferta: string, habilidadeNome: string) {
+        const player = await this.loadPlayer(emissorId, this.game.getGuildId());
         const embed = new EmbedBuilder()
             .setTitle(`Uma Oferta foi feita para você!`)
-            .setDescription(`**${oferta.emissorNome}** está te oferecendo **${oferta.nomeOferta}**.`)
+            .setDescription(`**${player!.getCargo()!.getNome()}** está te oferecendo **${nomeOferta}**.`)
             .setColor('#2b2d31')
-            // .addFields(
-            //     { name: '⚠️ O que acontece se aceitar?', value: this.getEfeitoAceitar(oferta.habilidadeNome) },
-            //     { name: '🚫 O que acontece se recusar?', value: this.getEfeitoRecusar(oferta.habilidadeNome) }
-            // )
-            .setFooter({ text: 'Escolha com sabedoria. Esta decisão é permanente para esta etapa.' });
+            .setFooter({ text: 'Escolha com sabedoria. Esta decisão é talvez permanente para esta etapa.' });
 
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder()
-                .setCustomId(`offer_accept_${oferta.habilidadeNome}_${oferta.alvoId}`)
+                .setCustomId(`offer_button_accept_${nomeOferta}_${ofertaId}`)
                 .setLabel('Aceitar')
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
-                .setCustomId(`offer_deny_${oferta.habilidadeNome}_${oferta.alvoId}`)
+                .setCustomId(`offer_button_deny_${nomeOferta}_${ofertaId}`)
                 .setLabel('Recusar')
                 .setStyle(ButtonStyle.Danger)
         );
@@ -80,35 +78,14 @@ export class PlayerManager {
     // ==========================================
 
     public async loadPlayer(userId: string, guildId: string): Promise<Player | null> {
-        const data = await db.getPlayerById(userId, guildId);
+        const player = await db.getPlayerById(userId, guildId);
 
-        if (!data) return null;
+        if (!player) return null;
 
-        const cargoInstance = this.getCargoInstance(data.cargo || "");
-        if (!cargoInstance) throw new Error("Cargo inválido no banco de dados.");
-
-        const cartasInstanciadas = data.cartas.map(c => new Carta(c.destinatario, c.mensagem));
-        const itensInstanciados = data.habilidades.map(h => this.getHabilidadeInstance(h.nome)).filter(h => h !== null) as Hab.Habilidade[];
-
-        return new Player(
-            this.game,
-            data.userId,
-            data.username,
-            data.estaVivo,
-            data.distrito,
-            cartasInstanciadas,
-            data.quantCartas,
-            cargoInstance,
-            data.status.split(",").filter(s => s !== ""),
-            data.marcas.split(",").filter(m => m !== ""),
-            itensInstanciados,
-            data.protecao || 0,
-            data.userChat || "",
-            [] // Itens/Habilidades extras
-        );
+        return new Player(this.game, player);
     }
 
-    public getCargoInstance(nomeDoCargo: string | null): Cargo.Cargo | null {
+    public getCargoInstance(nomeDoCargo: string): Cargo.Cargo | null {
         if (!nomeDoCargo) return null;
         switch (nomeDoCargo) {
             case "Evangelista": return new Cargo.Evangelista();
