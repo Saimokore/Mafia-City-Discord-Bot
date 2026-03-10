@@ -173,7 +173,7 @@ client.on('messageCreate', async (message: Message) => {
             message.reply("Você não está nesta partida!");
             return;
         }
-        const habilidade = player.getCargo().getHabilidades()[0];
+        const habilidade = player.getCargo()?.getHabilidades()[0];
         if (!habilidade) {
             message.reply("Habilidade não encontrada para seu cargo.");
             return;
@@ -188,7 +188,7 @@ client.on('messageCreate', async (message: Message) => {
             message.reply("Você não está nesta partida!");
             return;
         }
-        const habilidade = player.getCargo().getHabilidades()[0];
+        const habilidade = player.getCargo()?.getHabilidades()[0];
         if (!habilidade) {
             message.reply("Habilidade não encontrada para seu cargo.");
             return;
@@ -210,6 +210,15 @@ client.on('messageCreate', async (message: Message) => {
         await db.addPlayer(serverId, fakeId, "testbro");
 
         message.reply("Você entrou no jogo!");
+    }
+
+    if (message.content.startsWith(prefix +'criaralerta')) {
+        const partida = await game.getPartida();
+        if (!partida) {
+            message.reply("Nenhuma partida ativa neste servidor.");
+            return;
+        }
+        await db.createAlerta(serverId, message.author.id, partida.getEtapaAtual(), "Você recebeu uma oferta! Digite /offer para aceitar ou recusar.")
     }
 });
 
@@ -239,7 +248,10 @@ client.on('interactionCreate', async interaction => {
         } 
 
         // Pega as habilidades da classe dele
-        const habilidades = player.getCargo().getHabilidades();
+        const habilidades = player.getCargo()?.getHabilidades();
+        if (!habilidades || habilidades.length === 0) {
+            return interaction.reply({ content: "Você não possui habilidades para usar." });
+        }
         const habilidadesFiltradas = habilidades.filter(hab => hab.getTipo() === "Passiva" || 
             hab.getEtapa() != "Atemporal" || hab.getEtapa() != partida.getTempoEtapa());
 
@@ -334,6 +346,42 @@ client.on('interactionCreate', async interaction => {
         const nomeOferta = partes[3]
         const offerId = partes[4];
 
+        if (accept && nomeOferta === "Arrependimento") {
+            const playerAlvo = await db.getPlayerById(interaction.user.id, serverId);
+            if (!playerAlvo || !playerAlvo.cargo) {
+                console.error("Player alvo não encontrado no banco de dados para oferta de Arrependimento.");
+                return interaction.reply({ content: "Erro interno ao processar a oferta. Player não encontrado.", flags: MessageFlags.Ephemeral });
+            }
+            const cargoInstancia = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
+
+            if (cargoInstancia && cargoInstancia.getAlinhamento() !== "Cidade") {
+                
+                const habilidadesAtivas = playerAlvo.habilidades.filter(h => h.status !== "IMPEDIDA");
+
+                if (habilidadesAtivas.length === 0) {
+                    return interaction.reply({ content: "Você não tem habilidades ativas para perder!", flags: MessageFlags.Ephemeral });
+                }
+
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId(`offer_choose_loss_${offerId}`)
+                    .setPlaceholder('Escolha uma habilidade para bloquear...')
+                    .addOptions(
+                        habilidadesAtivas.map(hab => ({
+                            label: hab.nome,
+                            value: hab.id.toString()
+                        }))
+                    );
+
+                const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+                return interaction.reply({ 
+                    content: "Como você não é da Cidade, aceitar o Arrependimento exige um sacrifício. **Escolha uma habilidade para perder acesso até o Evangelista morrer:**", 
+                    components: [row], 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+        }
+
         await db.updateOferta(offerId!, accept)
 
         const embed = new EmbedBuilder()
@@ -341,6 +389,21 @@ client.on('interactionCreate', async interaction => {
             .setColor(accept ? '#36a121' : '#b92626')
 
         await interaction.update({embeds: [embed], components: []})
+    }
+
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('offer_choose_loss_')) {
+        const offerId = interaction.customId.split('_')[3];
+        const habilidadeIdEscolhida = interaction.values[0];
+
+        const parametrosJson = JSON.stringify({ habilidadePerdidaId: habilidadeIdEscolhida });
+        await db.updateOferta(offerId!, true, parametrosJson);
+
+        const embed = new EmbedBuilder()
+            .setTitle(`Oferta de Arrependimento Aceita!`)
+            .setDescription(`Você perdeu acesso à habilidade escolhida.`)
+            .setColor('#36a121');
+
+        await interaction.update({ embeds: [embed], components: [], content: "" });
     }
 
     if (interaction.isStringSelectMenu() && interaction.customId.startsWith('offer_select')) {
@@ -357,9 +420,23 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isModalSubmit() && interaction.customId.startsWith('skill_modal_')) {
         const partes = interaction.customId.split('_'); // ["skill", "modal", "NomeHabilidade", "userId"]
         const nomeHabilidade = partes[2];
+
         if (!nomeHabilidade) {
             console.error("Nome da habilidade não encontrado no customId do modal:", interaction.customId);
             await interaction.reply({ content: "Habilidade inválida. Tente novamente.", flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const habilidade = await db.getHabilidade(nomeHabilidade, interaction.user.id, serverId);
+        if (!habilidade) {
+            console.error("Habilidade não encontrada select");
+            interaction.reply("Erro, habilidade não encontrada");
+            return;
+        }
+
+        if (habilidade.uso <= 0 || habilidade.status === "IMPEDIDA") {
+            console.log("Habilidade " + habilidade.nome + " impedida");
+            interaction.reply("Sua habilidade está impedida!");
             return;
         }
 

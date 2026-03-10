@@ -75,13 +75,13 @@ export const db = {
         }
     },
 
-    async addPlayer(guildId: string, userId: string, username: string, dadosCargo?: string) {
+    async addPlayer(guildId: string, userId: string, username: string, dadosExtra?: string) {
         return await prisma.player.create({
             data: {
                 guildId,
                 userId,
                 username,
-                dadosCargo: dadosCargo || null
+                dadosExtra: dadosExtra || "{}"
             }
         });
     },
@@ -168,13 +168,14 @@ export const db = {
         });
     },
 
-    async updateOferta(id: string, status: boolean) {
+    async updateOferta(id: string, status: boolean, parametros?: string) {
         return await prisma.oferta.update({
             where: {
                 id
             },
             data: {
-                status: status ? "ACEITA" : "RECUSADA"
+                status: status ? "ACEITA" : "RECUSADA",
+                parametros: parametros || null
             }
         });
     },

@@ -40,12 +40,13 @@ export class PlayerManager {
     }
 
     public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+        console.log(`Criando oferta: Emissor ${emissorId}, Alvo ${alvoId}, Habilidade ${habilidadeNome}, Oferta ${nomeOferta}, Item ${item}, Parametros ${parametros}`);
         const partida = await db.getPartida(this.guildId);
         if (!partida) {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
         }
-        const oferta = await db.createOferta(this.guildId, emissorId, alvoId, habilidadeNome, partida.etapaAtual, nomeOferta, item, parametros);
+        await db.createOferta(this.guildId, emissorId, alvoId, habilidadeNome, partida.etapaAtual, nomeOferta, item, parametros);
     }
 
     public async buildOferta(ofertaId: string, emissorId: string, nomeOferta: string, habilidadeNome: string) {

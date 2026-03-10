@@ -1,10 +1,8 @@
 import { StringSelectMenuInteraction, ActionRowBuilder, StringSelectMenuBuilder, 
     ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle,
-    ButtonInteraction,
-    MessageFlags,
-    type ModalActionRowComponentBuilder,
-    LabelBuilder,
-    ModalSubmitInteraction} from 'discord.js';
+    ButtonInteraction, MessageFlags, type ModalActionRowComponentBuilder,
+    LabelBuilder, UserSelectMenuBuilder, ModalSubmitInteraction,
+    type Interaction} from 'discord.js';
 import { platform } from 'node:os';
 import { db } from '../database.js';
 import { Game } from '../Game.js';
@@ -71,73 +69,88 @@ export class Habilidade {
 
     public async ativar(game: Game, quemUsou: string, alvos?: string[]): Promise<string | void> {}
 
-    public ofertar(game: Game, quemOfertou: string, alvos: string[], nomeOferta: string, item?: string, parametros?: string): void {
-        // depois tem que ter um jeito de limitar isso pra certas habilidades e tal
+    public async ofertar(game: Game, emissorId: string, alvos: string[], nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+        console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvos.join(", ")} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
+        
+        const partida = await game.getPartida();
+        if (!partida) return;
+
         for (const alvo of alvos) {
-            game.getPlayerManager().criarOferta(quemOfertou, alvo, this.getNome(), nomeOferta, item, parametros);
+            await game.getPlayerManager().criarOferta(emissorId, alvo, this.getNome(), nomeOferta, item, parametros);
+            await db.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`);
         }
     }
 
     public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
 
     public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
-        const jogadores = await db.getPlayers(game.getGuildId());
-        const alvosValidos = jogadores//.filter(p => p.estaVivo && p.userId !== quemUsouId);
 
-        if (alvosValidos.length === 0) {
-            await interaction.reply({ content: "Não há alvos válidos para esta habilidade." });
-            return;
-        }
-
-       const modal = new ModalBuilder()
+        const modal = new ModalBuilder()
             .setCustomId('skill_modal_' + this.getNome())
             .setTitle('Usando habilidade: ' + this.getNome());
 
         const targetLabel = new LabelBuilder()
             .setLabel('Quem é o alvo?')
-            .setStringSelectMenuComponent(
-                new StringSelectMenuBuilder()
-                    .setCustomId('select')
+            .setUserSelectMenuComponent(
+                new UserSelectMenuBuilder()
+                    .setCustomId(`select_${this.getNome()}`)
                     .setPlaceholder('Selecione o seu alvo...')
-                    .addOptions(
-                        alvosValidos.map(p => ({
-                            label: p.username,
-                            value: p.userId
-                        })
-                    )
-            )   
-        )
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            )
 
         modal.addLabelComponents(targetLabel);
         
         return modal;
     }
 
-    public async resolverModal(interaction: ModalSubmitInteraction, game: Game, emissorId: string): Promise<void> {
-        const selectValue = interaction.fields.getStringSelectValues('select')[0];
+    public async resolverModal(interaction: ModalSubmitInteraction, game: Game, emissorId: string) {
+        const selectValue = interaction.fields.getSelectedUsers(`select_${this.getNome()}`);
+        console.log("selectvalue: " + selectValue)
         if (!selectValue) {
             console.error("Select value não encontrado");
-            await interaction.reply({content: "Nenhum valor selecionado"});
-            return;
+            return interaction.reply({content: "Nenhum valor selecionado"});
         }
+
+        const jogadorAlvo = await db.getPlayerById(selectValue, game.getGuildId());
+        if (!jogadorAlvo) {
+            return interaction.reply({ 
+                content: "❌ **Erro:** Esse usuário não está participando da partida atual!", 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+
+        if (!jogadorAlvo.estaVivo) {
+            return interaction.reply({ 
+                content: "👻 **Erro:** Você só pode mirar em jogadores vivos.", 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+
+        if (selectValue === interaction.user.id) {
+            // mudar dependendo da habilidade
+            return interaction.reply({ 
+                content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!", 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+
         // const inputValues = interaction.fields.getTextInputValue('input');
         const partida = await game.getPartida();
         if (!partida) {
             console.error("Partida não encontrada modal");
-            await interaction.reply({content: "Erro, contate o host do jogo"});
-            return;
+            return interaction.reply({content: "Erro, contate o host do jogo"});
         }
         const emissor = await db.getPlayerById(emissorId, game.getGuildId());
         if (!emissor) {
             console.error("Player não encontrado modal");
-            await interaction.reply({content: "Erro, contate o host do jogo"});
-            return;
+            return interaction.reply({content: "Erro, contate o host do jogo"});
         }
         const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
 
         await db.createAction(emissorId, game.getGuildId(), partida.getEtapaAtual(), habilidade!.id, [selectValue]);
         console.log("Modal submetido, alvo:", selectValue);
-        await interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
+        return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }
 
     protected async visitarPlayer(game: Game, alvo: string, alertado: boolean): Promise<void> {
@@ -215,12 +228,19 @@ export class Habilidade {
 
     public getPrioridade(): number {
         switch (this.tipo) {
-            case "Prioridade":
-                return 9;
-                break;
-            case "Instantânea":
+            case "Instantanea":
                 return 10;
-                break;
+            case "Prioridade":
+                return 4;
+            case "Defensiva":
+            case "Protecao":
+                return 3;
+            case "Ofensiva":
+                return 2;
+            case "Descoberta":
+            case "Investigação":
+            case "Suporte":
+                return 1;
             default:                
                 return 0;
         }
@@ -262,66 +282,61 @@ export class Evangelho extends Habilidade {
             return;
         } else if (alvo.length > 1) {
             console.error("Habilidade Evangelho só pode ter um alvo.");
+            return;
         }
-        this.ofertar(game, quemUsou, alvo, "Arrependimento");
+        await this.ofertar(game, quemUsou, alvo, "Arrependimento");
         console.log(`Habilidade ${this.getNome()} usada por ${quemUsou} com alvo ${alvo}.`);
     }
 
     public override async resolverOferta(game: Game, ofertaId: string): Promise<void> {
         const oferta = await db.getOfertaById(ofertaId);
-        const alvo = oferta!.alvoId;
-        const emissor = oferta!.emissorId;
-        const status = oferta!.status === "ACEITA" ? true : false;
+        if (!oferta) {
+            console.error(`Oferta não encontrada para o ID: ${ofertaId}`);
+            return;
+        }
 
-        const parametros = oferta!.parametros ? JSON.parse(oferta!.parametros) : null;
+        const alvo = oferta.alvoId;
+        const emissor = oferta.emissorId;
+        const status = oferta.status === "ACEITA" ? true : false;
+        const parametros = oferta.parametros ? JSON.parse(oferta.parametros) : null;
+
         const habilidadePerdida = parametros?.habilidadePerdida;
 
         // Criar alerta para o emissor sobre a resposta do alvo
         game.sendMensagemPlayer(emissor, `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`);
         // por enquanto msg para debug
         const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
-        const partida = await game.getPartida();
-        if (!partida) {
-            console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
-            return;
-        }
-        if (!playerAlvo || !playerAlvo.cargo) {
-            console.error(`Player alvo ou seu cargo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
-            return;
-        }
-        if (status) {
-            const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
-            if (!cargoAlvo) {
-                console.error(`Cargo do player alvo é inválido: ${playerAlvo.cargo}`);
-                return;
-            }
-            if (cargoAlvo.getAlinhamento() != "Cidade") {
-                console.log(`Alvo ${alvo} aceitou a oferta e é do alinhamento ${cargoAlvo.getAlinhamento()}.`);
-                try {
-                    const habilidade = await db.getHabilidade(this.getNome(), alvo, game.getGuildId());
-                } catch (e) {
-                    console.error(`Erro ao buscar habilidadeId para ${this.getNome()} do player ${alvo} na guild ${game.getGuildId()}: ${e}`);
-                    return;
-                }
-                try {
-                    const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
-                } catch (e) {
-                    console.error(`Erro ao buscar player alvo após aceitar oferta: ${e}`);
-                    return;
-                }
-                const habilidadeRemovida = playerAlvo.habilidades.find(h => h.nome === habilidadePerdida);
-                if (!habilidadeRemovida) {
-                    console.error(`Habilidade a ser perdida ${habilidadePerdida} não encontrada entre as habilidades do player alvo.`);
-                    return;
-                }
+        if (!playerAlvo || !playerAlvo.cargo) return;
 
-                await db.updateHabilidade(habilidadeRemovida.id, { status: "IMPEDIDA" });
+        const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
+
+        if (status) {
+            if (cargoAlvo?.getAlinhamento() !== "Cidade") {
+                const habId = String(parametros?.habilidadePerdidaId);
+                
+                if (habId) {
+                    await db.updateHabilidade(habId, { status: "IMPEDIDA" });
+
+                    const dadosExtra = JSON.parse(playerAlvo.dadosExtra || "[]");
+                    dadosExtra.push({
+                        tipo: "IMPEDIDA_EVANGELHO",
+                        habilidadeId: habId,
+                        evangelistaId: emissor
+                    });
+                    await db.updatePlayer(alvo, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
+                    
+                    game.sendMensagemPlayer(alvo, "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer.");
+                }
             } else {
-                console.log(`Alvo ${alvo} aceitou a oferta e é do alinhamento Cidade.`);
+                // CIDADE: Fica Bloqueado na noite atual
                 await this.bloquearPlayer(game, alvo);
             }
         } else {
-            await db.updateOferta(ofertaId, false);
+            // RECUSADO (Gera a marca para receber a Palavra de Deus)
+            const marcas = JSON.parse(playerAlvo.marcas || "[]");
+            marcas.push({ tipo: "ARREPENDIMENTO", resultado: "RECUSADO" });
+            await db.updatePlayer(alvo, game.getGuildId(), { marcas: JSON.stringify(marcas) });
+            game.sendMensagemPlayer(alvo, "Você recusou a palavra e seus pecados pesam sobre você...");
         }
     }
 }
@@ -403,12 +418,12 @@ export class PalavraDeDeus extends Habilidade {
         return modal;
     }
 
-    public override async resolverModal(interaction: ModalSubmitInteraction, game: Game, quemUsouId: string): Promise<void> {
+    public override async resolverModal(interaction: ModalSubmitInteraction, game: Game, quemUsouId: string) {
         const selectValues = interaction.fields.getStringSelectValues('select');
         // const inputValues = interaction.fields.getTextInputValue('input');
 
         console.log("Modal submetido:", selectValues);
-        await interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
+        return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }
 
 }

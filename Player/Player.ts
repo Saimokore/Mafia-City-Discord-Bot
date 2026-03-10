@@ -27,8 +27,8 @@ export class Player {
     private quantCartas: number;
     
     private cargo: Cargo | null;
-    private status: string;
-    private marcas: string;
+    private status: string[];
+    private marcas: string[];
     private items: Habilidade[];
     private alertas: Alerta[];
 
@@ -54,8 +54,8 @@ export class Player {
         this.cartas = player.cartas?.map(c => new Carta(c.id, c.userId, c.destinatario, c.mensagem)) || [];
         this.alertas = player.alertas?.map(a => new Alerta(a.id, a.userId, a.etapa, a.alerta)) || [];
 
-        this.status = JSON.parse(player.status) || "";
-        this.marcas = JSON.parse(player.marcas) || "";
+        this.status = JSON.parse(player.status || "[]");
+        this.marcas = JSON.parse(player.marcas || "[]");
 
     }
 
@@ -74,17 +74,17 @@ export class Player {
     }
 
     public getStatus(): string {
-        return `Nome: ${this.username}\n
-        Cargo: ${this.cargo ? this.cargo.getNome() : "Sem cargo"}\n
-        Vivo: ${this.isAlive} \n
-        Cartas: ${this.quantCartas}\n
-        Distrito: ${this.distrito} \n
-        Proteção: ${this.protecao || "Nenhuma"} \n
-        Status: ${JSON.stringify(this.status) || "Nenhum"} \n
-        Marcas: ${JSON.stringify(this.marcas) || "Nenhuma"} \n
-        Itens: ${this.items.map(i => i.getNome()).join(", ") || "Nenhum"} \n
-        Habilidades: ${this.cargo ? this.cargo.getHabilidades().map(h => h.getNome()).join(", ") : "Nenhuma"}\n
-        Alertas: ${this.alertas.forEach(a => a.getAlerta() + ",\n")}`;
+        return `Nome: ${this.username}
+        Cargo: ${this.cargo ? this.cargo.getNome() : "Sem cargo"}
+        Vivo: ${this.isAlive}
+        Cartas: ${this.quantCartas}
+        Distrito: ${this.distrito}
+        Proteção: ${this.protecao || "Nenhuma"}
+        Status: ${JSON.stringify(this.status) || "Nenhum"}
+        Marcas: ${JSON.stringify(this.marcas) || "Nenhuma"}
+        Itens: ${this.items.map(i => i.getNome()).join(", ") || "Nenhum"}
+        Habilidades: ${this.cargo ? this.cargo.getHabilidades().map(h => h.getNome()).join(", ") : "Nenhuma"}
+        Alertas: ${this.alertas.map(a => a.getAlerta()).join(", ") || "Nenhum"}`;
     }
 
     public getId(): string {

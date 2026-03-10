@@ -143,6 +143,9 @@ export class Game {
     }
 
     public async avancarEtapa(): Promise<void> {
+        await this.executarActions();
+        await this.sendPlayersStatus();
+
         let etapaAtual = await db.getPartida(this.guildId).then(partida => partida?.etapaAtual || 1);
         etapaAtual++;
         await db.updatePartida(this.guildId, { etapaAtual });
@@ -151,6 +154,25 @@ export class Game {
             await this.iniciarDia(etapaAtual);
         } else {
             await this.iniciarNoite(etapaAtual);
+        }
+    }
+
+    public async sendPlayersStatus(): Promise<void> {
+        const players = await db.getPlayers(this.guildId);
+        for (const p of players) {
+            const player = await this.playerManager.loadPlayer(p.userId, this.guildId);
+            if (!player) {
+                console.error("Player não encontrado: " + p.id);
+                continue;
+            }
+            try {
+                const canal = await this.client.channels.fetch(p.userChat!) as TextChannel;
+                if (canal) {
+                    await canal.send(player.getStatus());
+                }
+            } catch (error) {
+                console.error("Erro ao enviar anúncio. O canal ainda existe?", error);
+            }
         }
     }
 
@@ -168,31 +190,16 @@ export class Game {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
         }
+        
+        this.checkOfertas();
 
-        const ofertas = await db.getOfertas(this.guildId);
-        for (const oferta of ofertas) {
-            if (oferta.etapa == partida.etapaAtual - 1) {
-                const habilidade = this.playerManager.getHabilidadeInstance(oferta.habilidade);
-                if (!habilidade) {
-                    console.error(`Habilidade ${oferta.habilidade} não encontrada para oferta do jogador ${oferta.emissorId}.`);
-                    continue;
-                }
-                await habilidade.resolverOferta(this, oferta.id);
-                continue;
-            } else if (oferta.etapa == partida.etapaAtual) {
-                // this.playerManager.buildOferta(oferta.id, oferta.emissorId, oferta.nomeOferta, oferta.habilidade);
-                // na verdade fazer um alerta apenas sla
-                await db.createAlerta(this.guildId, oferta.alvoId, partida.etapaAtual, "Você recebeu uma oferta! Digite /offer para aceitar ou recusar.")
-            }
-        }
+        this.jogadoresBloqueados.clear();
 
-        const actions = await db.getActionsByEtapa(this.guildId, partida.etapaAtual - 1);
+        const actions = await db.getActionsByEtapa(this.guildId, partida.etapaAtual);
         if (actions.length === 0) {
             console.log(`Nenhuma ação registrada para a etapa ${partida.etapaAtual}.`);
             return;
         }
-
-        this.jogadoresBloqueados.clear();
 
         actions.sort((a, b) => {
             const habA = this.playerManager.getHabilidadeInstance(a.habilidade.nome)?.getPrioridade() || 0;
@@ -223,20 +230,21 @@ export class Game {
                 habilidade.usarHabilidade(this, player);
             }
         }
-        const players = await db.getPlayers(this.guildId);
-        for (const p of players) {
-            const player = await this.getPlayerManager().loadPlayer(p.userId, this.guildId);
-            if (!player) {
-                console.error("Player não encontrado: " + p.id);
-                continue;
-            }
-            try {
-                const canal = await this.client.channels.fetch(p.userChat!) as TextChannel;
-                if (canal) {
-                    await canal.send(player.getStatus());
-                }
-            } catch (error) {
-                console.error("Erro ao enviar anúncio. O canal ainda existe?", error);
+    }
+
+    public async checkOfertas(): Promise<void> {
+        const partida = await db.getPartida(this.guildId);
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${this.guildId}`);
+            return;
+        }
+        const ofertas = await db.getOfertas(this.guildId);
+        for (const oferta of ofertas) {
+            if (oferta.etapa == partida.etapaAtual - 1) {
+                const habilidade = this.playerManager.getHabilidadeInstance(oferta.habilidade);
+                if (!habilidade) continue;
+                
+                await habilidade.resolverOferta(this, oferta.id);
             }
         }
     }
@@ -253,6 +261,32 @@ export class Game {
 
     public async executarInstantAction() {
         // deixar isso pra depois
+    }
+
+    public async processarMortePlayer(jogadorMortoId: string): Promise<void> {
+        const jogadorMorto = await db.getPlayerById(jogadorMortoId, this.guildId);
+        
+        await db.updatePlayer(jogadorMortoId, this.guildId, { estaVivo: false });
+
+        if (jogadorMorto?.cargo === "Evangelista") {
+            const todosJogadores = await db.getPlayers(this.guildId);
+
+            for (const player of todosJogadores) {
+                const marcas = JSON.parse(player.marcas || "[]");
+                
+                const marcaMaldiçao = marcas.find((m: any) => m.tipo === "IMPEDIDA_EVANGELHO" && m.evangelistaId === jogadorMortoId);
+
+                if (marcaMaldiçao) {
+                    await db.updateHabilidade(marcaMaldiçao.habilidadeId, { status: "ATIVA" });
+
+                    const novasMarcas = marcas.filter((m: any) => m !== marcaMaldiçao);
+                    await db.updatePlayer(player.userId, this.guildId, { marcas: JSON.stringify(novasMarcas) });
+
+                    // await this.sendMensagemPlayer(player.userId, "🔔 O Evangelista faleceu! Sua habilidade perdida foi restaurada e pode ser usada novamente.");
+                    // checar se devo realmente avisar o player que possui sua habilidade denovo
+                }
+            }
+        }
     }
 
     public getPlayerManager(): PlayerManager {
@@ -277,13 +311,11 @@ export class Game {
 
     public async iniciarNoite(etapa: number): Promise<void> {
         await this.sendAnuncio(`Noite [${Math.floor(etapa / 2)}]. O sol se põe... A cidade vai dormir. Nenhuma mensagem a mais será ouvida aqui.`);
-        await this.executarActions();
         // await trancarCanal();
     }
 
     public async iniciarDia(etapa: number): Promise<void> {
         await this.sendAnuncio(`Dia amanhece [${Math.floor(etapa / 2)}]`);
-        await this.executarActions();
         // await destrancarCanal();
     }
 
