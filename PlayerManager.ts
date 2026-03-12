@@ -1,11 +1,13 @@
 import { ButtonStyle, Client, TextChannel, ActionRowBuilder, ButtonBuilder, EmbedBuilder } from "discord.js";
 import { Game } from "./Game.js";
-import { db } from "./database.js";
 import { Player } from "./Player/Player.js";
 import * as Cargo from "./Player/Cargo.js";
 import * as Hab from "./Player/Habilidade.js";
-import { Action } from "./Player/Actions.js";
-import { Carta } from "./Player/Carta.js";
+import { PartidaDAO } from "./DAOs/PartidaDAO.js";
+import { ActionDAO } from "./DAOs/ActionDAO.js";
+import { OfertaDAO } from "./DAOs/OfertaDAO.js";
+import { PlayerDAO } from "./DAOs/PlayerDAO.js";
+import { AlertaDAO } from "./DAOs/AlertaDAO.js";
 
 export class PlayerManager {
     private guildId: string;
@@ -17,10 +19,8 @@ export class PlayerManager {
     }
 
     public async useHabilidade(userId: string, habilidade: Hab.Habilidade): Promise<void> {
-        // const player = await this.loadPlayer(userId, this.guildId);
-        // const action = new Action(userId, habilidade);
 
-        const partida = await db.getPartida(this.guildId);
+        const partida = await PartidaDAO.getPartida(this.guildId);
         if (!partida) {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
@@ -30,23 +30,27 @@ export class PlayerManager {
         console.log(`Jogador ${userId} usou a habilidade: ${habilidade.getNome() || "Desconhecida"}`);
     }
 
+    public async criarAlerta(userId: string, alerta: string) {
+        await AlertaDAO.createAlerta(this.guildId, userId, await this.game.getEtapaAtual(), alerta)
+    }
+
     public async criarAction(userId: string, habilidade: Hab.Habilidade, alvos?: string[]): Promise<void> {
-        const partida = await db.getPartida(this.guildId);
+        const partida = await PartidaDAO.getPartida(this.guildId);
         if (!partida) {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
         }
-        await db.createAction(userId, this.guildId, partida.etapaAtual, habilidade.getNome(), alvos);
+        await ActionDAO.createAction(userId, this.guildId, partida.etapaAtual, habilidade.getNome(), alvos);
     }
 
     public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
         console.log(`Criando oferta: Emissor ${emissorId}, Alvo ${alvoId}, Habilidade ${habilidadeNome}, Oferta ${nomeOferta}, Item ${item}, Parametros ${parametros}`);
-        const partida = await db.getPartida(this.guildId);
+        const partida = await PartidaDAO.getPartida(this.guildId);
         if (!partida) {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
         }
-        await db.createOferta(this.guildId, emissorId, alvoId, habilidadeNome, partida.etapaAtual, nomeOferta, item, parametros);
+        await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidadeNome, partida.etapaAtual, nomeOferta, item, parametros);
     }
 
     public async buildOferta(ofertaId: string, emissorId: string, nomeOferta: string, habilidadeNome: string) {
@@ -79,7 +83,7 @@ export class PlayerManager {
     // ==========================================
 
     public async loadPlayer(userId: string, guildId: string): Promise<Player | null> {
-        const player = await db.getPlayerById(userId, guildId);
+        const player = await PlayerDAO.getPlayerById(userId, guildId);
 
         if (!player) return null;
 

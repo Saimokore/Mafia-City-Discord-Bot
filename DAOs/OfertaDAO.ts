@@ -10,65 +10,84 @@ export const prisma = new PrismaClient({ adapter });
 
 export const OfertaDAO = {
     async createOferta(guildId: string, emissorId: string, alvoId: string, habilidade: string, etapa: number, nomeOferta: string, item?: string, parametros?: string) {
-        return await prisma.oferta.create({
-            data: {
-                guildId,
-                emissorId,
-                alvoId,
-                habilidade,
-                etapa,
-                nomeOferta,
-                item: item || null,
-                parametros: parametros || null
-            }
-        });
+        try {
+            return await prisma.oferta.create({
+                data: {
+                    guildId,
+                    emissorId,
+                    alvoId,
+                    habilidade,
+                    etapa,
+                    nomeOferta,
+                    item: item || null,
+                    parametros: parametros || null
+                }
+            });
+        } catch (error) {
+            console.log("Erro ao criar oferta:", error);
+        }
     },
 
     async updateOferta(id: string, status: boolean, parametros?: string) {
-        return await prisma.oferta.update({
-            where: {
-                id
-            },
-            data: {
-                status: status ? "ACEITA" : "RECUSADA",
-                parametros: parametros || null
-            }
-        });
+        try {
+            return await prisma.oferta.update({
+                where: { id },
+                data: {
+                    status: status ? "ACEITA" : "RECUSADA",
+                    parametros: parametros || null
+                }
+            });
+        } catch (error) {
+            console.log("Erro ao atualizar oferta:", error);
+        }
     },
 
     async getOfertas(guildId: string) {
-        return await prisma.oferta.findMany({
-            where: {
-                guildId
-            }
-        });
+        try {
+            return await prisma.oferta.findMany({
+                where: {
+                    guildId
+                }
+            });
+        } catch (error) {
+            console.log("Erro ao buscar ofertas:", error);
+        }
     },
 
     async getOfertasByPlayerId(guildId: string, userId: string) {
-        return await prisma.oferta.findMany({
-            where: {
-                guildId,
-                emissorId: userId
-            }
-        });
+        try {
+            return await prisma.oferta.findMany({
+                where: {
+                    guildId,
+                    emissorId: userId
+                }
+            });
+        } catch (error) {
+            console.log(`Erro ao buscar ofertas enviadas pelo ${userId}:`, error);
+        }
     },
 
     async getOfertasForPlayerId(guildId: string, userId: string) {
-        return await prisma.oferta.findMany({
-            where: {
-                guildId,
-                alvoId: userId
-            }
-        });
+        try {
+            return await prisma.oferta.findMany({
+                where: {
+                    guildId,
+                    alvoId: userId
+                }
+            });
+        } catch (error) {
+            console.log(`Erro ao buscar ofertas recebidas pelo ${userId}:`, error);
+        }
     },
 
-
     async getOfertaById(id: string) {
-        return await prisma.oferta.findUnique({
-            where: {
-                id
-            }
-        });
+        try {
+            return await prisma.oferta.findUnique({
+                where: { id }
+            });
+        } catch (error) {
+            console.log(`Erro ao buscar oferta ${id}:`, error);
+        }
     },
 
     async deleteOferta(id: string) {

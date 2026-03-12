@@ -10,22 +10,30 @@ export const prisma = new PrismaClient({ adapter });
 
 export const CartaDAO = {
     async createCarta(guildId: string, userId:string, destinatario: string, mensagem: string) {
-        return await prisma.carta.create({
-            data: {
-                guildId,
-                userId,
-                destinatario,
-                mensagem
-            }
-        })
+        try {
+            return await prisma.carta.create({
+                data: {
+                    guildId,
+                    userId,
+                    destinatario,
+                    mensagem
+                }
+            })
+        } catch (error) {
+            console.log("Erro ao criar carta:", error);
+        }
     },
 
     async getCartasById(guildId: string, userId: string) {
-        return await prisma.carta.findMany({
-            where: {
-                guildId,
-                userId
-            }
-        });
+        try {
+            return await prisma.carta.findMany({
+                where: {
+                    guildId,
+                    userId
+                }
+            });
+        } catch (error) {
+            console.log("Erro ao buscar carta:", error);
+        }
     },
 }

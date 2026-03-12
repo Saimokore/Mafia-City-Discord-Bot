@@ -11,18 +11,26 @@ export const prisma = new PrismaClient({ adapter });
 export const GuildConfigDAO = {
 
     async getConfig(guildId: string) {
-        return await prisma.guildConfig.upsert({
-            where: { guildId },
-            update: {},
-            create: { guildId }
-        });
+        try {
+            return await prisma.guildConfig.upsert({
+                where: { guildId },
+                update: {},
+                create: { guildId }
+            });
+        } catch (error) {
+            console.log("Erro ao buscar guild config:", error);
+        }
     },
     
     async updateGuildConfig(guildId: string, dados: Prisma.GuildConfigUpdateInput) {
-        return await prisma.guildConfig.upsert({
-            where: { guildId },
-            update: dados,
-            create: { guildId }
-        });
+        try {
+            return await prisma.guildConfig.upsert({
+                where: { guildId },
+                update: dados,
+                create: { guildId }
+            });
+        } catch (error) {
+            console.log("Erro ao atualizar guild config:", error);
+        }
     },
 }

@@ -1,8 +1,13 @@
 import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder, MessageFlags, ButtonBuilder, EmbedBuilder } from 'discord.js';
 import { Game } from './Game.js';
-import { db } from './database.js';
 import * as dotenv from 'dotenv';
 import { channel } from 'node:diagnostics_channel';
+import { GuildConfigDAO } from './DAOs/GuildConfigDAO.js';
+import { PartidaDAO } from './DAOs/PartidaDAO.js';
+import { PlayerDAO } from './DAOs/PlayerDAO.js';
+import { OfertaDAO } from './DAOs/OfertaDAO.js';
+import { HabilidadeDAO } from './DAOs/HabilidadeDAO.js';
+import { AlertaDAO } from './DAOs/AlertaDAO.js';
 
 dotenv.config();
 
@@ -24,7 +29,7 @@ client.on('messageCreate', async (message: Message) => {
     if (!message.guild || message.author.bot) return;
 
     const serverId = message.guild.id;
-    const prefix = await db.getConfig(serverId).then(config => config.prefix || '!');
+    const prefix = await GuildConfigDAO.getConfig(serverId).then(config => config?.prefix || '!');
     const game = new Game(message.guild.id, client);
 
     if (message.content === prefix +'setdiurno') {
@@ -34,7 +39,7 @@ client.on('messageCreate', async (message: Message) => {
         }
 
         try {
-            await db.updateGuildConfig(serverId, { canalDiurnoId: message.channel.id });
+            await GuildConfigDAO.updateGuildConfig(serverId, { canalDiurnoId: message.channel.id });
 
             message.reply(`✅ Feito! O canal <#${message.channel.id}> foi registrado no banco de dados como a praça da Cidade! ☀️`);
         } catch (error) {
@@ -50,7 +55,7 @@ client.on('messageCreate', async (message: Message) => {
         }
 
         try {
-            await db.updateGuildConfig(serverId, { canalAnuncioId: message.channel.id });
+            await GuildConfigDAO.updateGuildConfig(serverId, { canalAnuncioId: message.channel.id });
 
             message.reply(`✅ Feito! O canal <#${message.channel.id}> foi registrado no banco de dados como o canal de anúncios! 📢`);
         } catch (error) {
@@ -60,7 +65,7 @@ client.on('messageCreate', async (message: Message) => {
     }
 
     if (message.content === prefix +'creategame') {
-        const partidaExistente = await db.getPartida(serverId);
+        const partidaExistente = await PartidaDAO.getPartida(serverId);
         if (partidaExistente && partidaExistente.status !== "FINALIZADA") {
             message.reply("Já existe uma partida criada neste servidor. Use `!endGame` para finalizar a partida atual antes de criar uma nova.");
             return;
@@ -69,8 +74,8 @@ client.on('messageCreate', async (message: Message) => {
             return;
         }
 
-        const config = await db.getConfig(serverId);
-        if (!config.canalDiurnoId) {
+        const config = await GuildConfigDAO.getConfig(serverId);
+        if (!config || !config.canalDiurnoId) {
             message.reply("❌ Antes de criar uma partida, defina o canal diurno usando `!setdiurno` no canal desejado.");
             return;
         } else if (!config.canalAnuncioId) {
@@ -78,24 +83,24 @@ client.on('messageCreate', async (message: Message) => {
             return;
         }
 
-        await db.createPartida(serverId);
+        await PartidaDAO.createPartida(serverId);
         message.reply("Uma nova partida foi criada! O lobby está aberto. Digitem `!join` para entrar!");
     }
 
     if (message.content === prefix +'join') {
-        const existingPlayer = await db.getPlayerById(message.author.id, serverId);
+        const existingPlayer = await PlayerDAO.getPlayerById(message.author.id, serverId);
         if (existingPlayer) {
             message.reply("Você já está no jogo!");
             return;
         }
 
-        await db.addPlayer(serverId, message.author.id, message.author.username);
+        await PlayerDAO.createPlayer(serverId, message.author.id, message.author.username);
 
         message.reply("Você entrou no jogo!");
     }
 
     if (message.content === prefix +'startgame') {
-        const partida = await db.getPartida(serverId);
+        const partida = await PartidaDAO.getPartida(serverId);
         if (!partida || partida.status === "FINALIZADA") {
             message.reply("Nenhuma partida criada neste servidor.");
             return;
@@ -104,7 +109,7 @@ client.on('messageCreate', async (message: Message) => {
     }
 
     if (message.content === prefix +'leave') {
-        const removedPlayer = await db.removePlayer(message.author.id);
+        const removedPlayer = await PlayerDAO.deletePlayer(message.author.id);
         if (!removedPlayer) {
             message.reply("Você não está no jogo!");
             return;
@@ -124,7 +129,7 @@ client.on('messageCreate', async (message: Message) => {
         if (!game) {
             message.reply("Nenhuma partida ativa neste servidor.");
             return;
-        } else if (await db.getPartida(serverId).then(partida => partida?.status) === "FINALIZADA") {
+        } else if (await PartidaDAO.getPartida(serverId).then(partida => partida?.status) === "FINALIZADA") {
             message.reply("A partida já foi finalizada. Use `!deletegame` para deletar a partida finalizada.");
             return;
         }
@@ -137,7 +142,7 @@ client.on('messageCreate', async (message: Message) => {
             message.reply("Nenhuma partida ativa neste servidor.");
             return;
         }
-        const status = await db.getPartida(serverId).then(partida => partida?.status);
+        const status = await PartidaDAO.getPartida(serverId).then(partida => partida?.status);
         if (status !== "FINALIZADA") {
             message.reply("Você só pode deletar uma partida que foi finalizada. Finalize a partida primeiro usando `!endGame`.");
             return;
@@ -146,9 +151,11 @@ client.on('messageCreate', async (message: Message) => {
         message.reply("Jogo deletado neste servidor!");
     }
 
-    if (message.content === prefix +'me') {
-        
-        const player = await game.getPlayerManager().loadPlayer(message.author.id, message.guild.id);
+    if (message.content.startsWith(prefix +'me')) {
+        let id = message.content.replace(prefix +'me ', "");
+        if (!id || id === "!me") id = message.author.id;
+        console.log(id);
+        const player = await game.getPlayerManager().loadPlayer(id, message.guild.id);
 
         if (!player) return message.reply("Você não está nesta partida!");
 
@@ -163,7 +170,7 @@ client.on('messageCreate', async (message: Message) => {
         await game.terminarJogo();
         await game.deletarJogo();
 
-        await db.createPartida(serverId);
+        await PartidaDAO.createPartida(serverId);
         message.reply("Jogo reiniciado neste servidor! O lobby está aberto. Digitem `!join` para entrar!");
     }
 
@@ -198,16 +205,16 @@ client.on('messageCreate', async (message: Message) => {
     }
 
     if (message.content.startsWith(prefix +'newplayer')) {
-        const fakeId = message.content.replace(prefix +'newplayer', "");
+        const fakeId = message.content.replace(prefix +'newplayer ', "");
         console.log("id: " + fakeId);
 
-        const existingPlayer = await db.getPlayerById(fakeId, serverId);
+        const existingPlayer = await PlayerDAO.getPlayerById(fakeId, serverId);
         if (existingPlayer) {
             message.reply("Você já está no jogo!");
             return;
         }
 
-        await db.addPlayer(serverId, fakeId, "testbro");
+        await PlayerDAO.createPlayer(serverId, fakeId, "testbro");
 
         message.reply("Você entrou no jogo!");
     }
@@ -218,7 +225,7 @@ client.on('messageCreate', async (message: Message) => {
             message.reply("Nenhuma partida ativa neste servidor.");
             return;
         }
-        await db.createAlerta(serverId, message.author.id, partida.getEtapaAtual(), "Você recebeu uma oferta! Digite /offer para aceitar ou recusar.")
+        await AlertaDAO.createAlerta(serverId, message.author.id, partida.getEtapaAtual(), "Você recebeu uma oferta! Digite /offer para aceitar ou recusar.")
     }
 });
 
@@ -289,7 +296,7 @@ client.on('interactionCreate', async interaction => {
             return interaction.reply({ content: `Use o comando no seu chat privado <#${player.getUserChat()}>`, flags: MessageFlags.Ephemeral })
         }
         
-        const ofertas = await db.getOfertasForPlayerId(partida.getGuildId(), player.getId());
+        const ofertas = await OfertaDAO.getOfertasForPlayerId(partida.getGuildId(), player.getId());
         if (!ofertas || ofertas.length === 0) {
             console.error("Oferta não encontrada");
             return interaction.reply({ content: "Você não possui nenhuma oferta!"});
@@ -347,7 +354,7 @@ client.on('interactionCreate', async interaction => {
         const offerId = partes[4];
 
         if (accept && nomeOferta === "Arrependimento") {
-            const playerAlvo = await db.getPlayerById(interaction.user.id, serverId);
+            const playerAlvo = await PlayerDAO.getPlayerById(interaction.user.id, serverId);
             if (!playerAlvo || !playerAlvo.cargo) {
                 console.error("Player alvo não encontrado no banco de dados para oferta de Arrependimento.");
                 return interaction.reply({ content: "Erro interno ao processar a oferta. Player não encontrado.", flags: MessageFlags.Ephemeral });
@@ -382,7 +389,7 @@ client.on('interactionCreate', async interaction => {
             }
         }
 
-        await db.updateOferta(offerId!, accept)
+        await OfertaDAO.updateOferta(offerId!, accept)
 
         const embed = new EmbedBuilder()
             .setTitle(`A Oferta ${nomeOferta} foi ${accept ? "aceita" : "recusada"}!`)
@@ -396,7 +403,7 @@ client.on('interactionCreate', async interaction => {
         const habilidadeIdEscolhida = interaction.values[0];
 
         const parametrosJson = JSON.stringify({ habilidadePerdidaId: habilidadeIdEscolhida });
-        await db.updateOferta(offerId!, true, parametrosJson);
+        await OfertaDAO.updateOferta(offerId!, true, parametrosJson);
 
         const embed = new EmbedBuilder()
             .setTitle(`Oferta de Arrependimento Aceita!`)
@@ -408,7 +415,7 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isStringSelectMenu() && interaction.customId.startsWith('offer_select')) {
         const ofertaId = interaction.values[0];
-        const oferta = await db.getOfertaById(ofertaId!);
+        const oferta = await OfertaDAO.getOfertaById(ofertaId!);
          if (!oferta) {
             console.error("seila mano nao acho a oferta");
             return;
@@ -427,7 +434,7 @@ client.on('interactionCreate', async interaction => {
             return;
         }
 
-        const habilidade = await db.getHabilidade(nomeHabilidade, interaction.user.id, serverId);
+        const habilidade = await HabilidadeDAO.getHabilidade(nomeHabilidade, interaction.user.id, serverId);
         if (!habilidade) {
             console.error("Habilidade não encontrada select");
             interaction.reply("Erro, habilidade não encontrada");

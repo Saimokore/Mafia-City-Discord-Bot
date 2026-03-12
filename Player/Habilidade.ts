@@ -2,13 +2,8 @@ import { StringSelectMenuInteraction, ActionRowBuilder, StringSelectMenuBuilder,
     ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle,
     ButtonInteraction, MessageFlags, type ModalActionRowComponentBuilder,
     LabelBuilder, UserSelectMenuBuilder, ModalSubmitInteraction,
-    type Interaction} from 'discord.js';
-import { platform } from 'node:os';
-import { db } from '../database.js';
+    } from 'discord.js';
 import { Game } from '../Game.js';
-import { Modificador } from './Modificador.js';
-import { Player } from './Player.js';
-import { Partida } from './Partida.js';
 import { PartidaDAO } from '../DAOs/PartidaDAO.js';
 import { AlertaDAO } from '../DAOs/AlertaDAO.js';
 import { PlayerDAO } from '../DAOs/PlayerDAO.js';
@@ -42,15 +37,15 @@ export class Habilidade {
             return;
         }
 
-        if (game.isBloqueado(quemUsou)) {
-            if (this.modificadores?.includes("Imparavel")) {
-                console.log(`${quemUsou} estava bloqueado, mas a habilidade ${this.getNome()} é Imparável!`);
-            } else {
-                console.log(`${quemUsou} foi bloqueado e perdeu a ação.`);
-                game.sendMensagemPlayer(quemUsou, "🚫 Você foi bloqueado esta noite e sua ação falhou!");
-                return;
-            }
-        }
+        // if (quemUsou) {
+        //     if (this.modificadores?.includes("Imparavel")) {
+        //         console.log(`${quemUsou} estava bloqueado, mas a habilidade ${this.getNome()} é Imparável!`);
+        //     } else {
+        //         console.log(`${quemUsou} foi bloqueado e perdeu a ação.`);
+        //         game.sendMensagemPlayer(quemUsou, "🚫 Você foi bloqueado esta noite e sua ação falhou!");
+        //         return;
+        //     }
+        // }
         
         if (this.modificadores?.includes("Dormente")) {
             // Usa a instância do jogo que foi passada
@@ -70,7 +65,7 @@ export class Habilidade {
             // Então não é uma visita
         }
         
-        this.ativar(game, quemUsou, alvo);
+        await this.ativar(game, quemUsou, alvo);
     }
 
     public async ativar(game: Game, quemUsou: string, alvos?: string[]): Promise<string | void> {}
@@ -132,7 +127,7 @@ export class Habilidade {
 
         if (selectValue === interaction.user.id) {
             // mudar dependendo da habilidade
-            return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
+            // return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
         }
 
         // const inputValues = interaction.fields.getTextInputValue('input');
@@ -300,13 +295,14 @@ export class Evangelho extends Habilidade {
         const status = oferta.status === "ACEITA" ? true : false;
         const parametros = oferta.parametros ? JSON.parse(oferta.parametros) : null;
 
-        const habilidadePerdida = parametros?.habilidadePerdida;
-
         // Criar alerta para o emissor sobre a resposta do alvo
-        game.sendMensagemPlayer(emissor, `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`);
-        // por enquanto msg para debug
+        await game.getPlayerManager().criarAlerta(emissor, `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`)
+        console.log(`A oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`);
+
         const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
         if (!playerAlvo || !playerAlvo.cargo) return;
+
+        await this.updateListaRecusados(game, emissor, alvo, status)
 
         const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
 
@@ -332,12 +328,42 @@ export class Evangelho extends Habilidade {
                 await this.bloquearPlayer(game, alvo);
             }
         } else {
-            // RECUSADO (Gera a marca para receber a Palavra de Deus)
-            const marcas = JSON.parse(playerAlvo.marcas || "[]");
-            marcas.push({ tipo: "ARREPENDIMENTO", resultado: "RECUSADO" });
-            await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { marcas: JSON.stringify(marcas) });
             game.sendMensagemPlayer(alvo, "Você recusou a palavra e seus pecados pesam sobre você...");
         }
+    }
+
+    public async updateListaRecusados(game: Game, emissor: string, alvo: string, aceitou: boolean) {
+        const playerEmissor = await PlayerDAO.getPlayerById(emissor, game.getGuildId());
+        if (!playerEmissor) return;
+
+        let dadosExtraEmissor = JSON.parse(playerEmissor.dadosExtra || "[]");
+
+        if (!Array.isArray(dadosExtraEmissor)) {
+            console.warn(`[Aviso] dadosExtra de ${emissor} não era um array. Resetando para [].`);
+            dadosExtraEmissor = [];
+        }
+        
+        let index = dadosExtraEmissor.findIndex((d: any) => d.tipo === "ALVOS_RECUSADOS");
+
+        if (index === -1) {
+            dadosExtraEmissor.push({ tipo: "ALVOS_RECUSADOS", alvos: [] });
+            index = dadosExtraEmissor.length - 1;
+        }
+
+        const listaAlvos = dadosExtraEmissor[index].alvos;
+        const alvoJaEstaNaLista = listaAlvos.includes(alvo);
+
+        if (!aceitou) {
+            if (!alvoJaEstaNaLista) {
+                listaAlvos.push(alvo);
+            }
+        } else {
+            if (alvoJaEstaNaLista) {
+                dadosExtraEmissor[index].alvos = listaAlvos.filter((a: string) => a !== alvo);
+            }
+        }
+
+        await PlayerDAO.updatePlayer(emissor, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtraEmissor) });
     }
 }
 
@@ -448,8 +474,12 @@ export class ExecucaoPublica extends Habilidade {
     }
 
     public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
-        const jogadores = await PlayerDAO.getPlayers(game.getGuildId());
-        const alvosValidos = jogadores.filter(p => p.estaVivo && p.userId !== quemUsouId);
+        const players = await PlayerDAO.getPlayers(game.getGuildId());
+        if (!players || players.length === 0) {
+            console.error("Players não encontrados");
+            return;
+        } 
+        const alvosValidos = players.filter(p => p.estaVivo && p.userId !== quemUsouId);
 
         if (alvosValidos.length === 0) {
             await interaction.reply({ content: "Não há alvos válidos para esta habilidade." });

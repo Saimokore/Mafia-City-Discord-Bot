@@ -1,6 +1,5 @@
 import { Game } from "../Game.js";
 import { Cargo } from "./Cargo.js";
-import { db } from '../database.js';
 import { Habilidade } from "./Habilidade.js";
 import { Carta } from "./Carta.js";
 import { Alerta } from "./Alerta.js";

@@ -10,34 +10,40 @@ export const prisma = new PrismaClient({ adapter });
 
 export const PartidaDAO = {
     async createPartida(guildId: string) {
-        return await prisma.partida.create({
-            data: {
-                guildId
-            }
-        });
+        try {
+            return await prisma.partida.create({
+                data: {
+                    guildId
+                }
+            });
+        } catch (error) {
+            console.log("Erro ao criar partida:", error);
+        }
     },
 
     async updatePartida(guildId: string, dados: Prisma.PartidaUpdateInput) {
-        return await prisma.partida.upsert({
-            where: { guildId },
-            update: dados,
-            create: { guildId }
-        });
+        try {
+            return await prisma.partida.upsert({
+                where: { guildId },
+                update: dados,
+                create: { guildId }
+            });
+        } catch (error) {
+            console.log("Erro ao atualizar partida:", error);
+        }
     },
 
     async getPartida(guildId: string) {
-        return await prisma.partida.findUnique({
-            where: {
-                guildId
-            },
-            include: { players: true }
-        });
-    },
-
-    async getPartidaById(guildId: string) {
-        return await prisma.partida.findUnique({
-            where: { guildId }
-        });
+        try {
+            return await prisma.partida.findUnique({
+                where: {
+                    guildId
+                },
+                include: { players: true }
+            });
+        } catch (error) {
+            console.log("Erro ao buscar partida:", error);
+        }
     },
 
     async deletePartida(guildId: string) {

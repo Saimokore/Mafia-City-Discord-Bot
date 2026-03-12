@@ -10,16 +10,20 @@ export const prisma = new PrismaClient({ adapter });
 
 export const HabilidadeDAO = {
     async createHabilidade(nome: string, userId: string, guildId: string, uso: number, tipo: string, etapa: string) {
-        return await prisma.habilidade.create({
-            data: {
-                nome,
-                userId,
-                guildId,
-                uso,
-                tipo,
-                etapa
-            }
-        })
+        try {
+            return await prisma.habilidade.create({
+                data: {
+                    nome,
+                    userId,
+                    guildId,
+                    uso,
+                    tipo,
+                    etapa
+                }
+            })
+        } catch (error) {
+            console.log("Erro ao criar habilidade:", error);
+        }
     },
 
     async updateHabilidade(id: string, dados: Prisma.PlayerUpdateInput) {
