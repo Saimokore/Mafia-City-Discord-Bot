@@ -9,6 +9,12 @@ import { Game } from '../Game.js';
 import { Modificador } from './Modificador.js';
 import { Player } from './Player.js';
 import { Partida } from './Partida.js';
+import { PartidaDAO } from '../DAOs/PartidaDAO.js';
+import { AlertaDAO } from '../DAOs/AlertaDAO.js';
+import { PlayerDAO } from '../DAOs/PlayerDAO.js';
+import { ActionDAO } from '../DAOs/ActionDAO.js';
+import { OfertaDAO } from '../DAOs/OfertaDAO.js';
+import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
 
 export class Habilidade {
     private nome: string;
@@ -30,7 +36,7 @@ export class Habilidade {
     }
 
     public async usarHabilidade(game: Game, quemUsou: string, alvo?: string[]): Promise<string | void> {
-        const partida = await db.getPartida(game.getGuildId());
+        const partida = await PartidaDAO.getPartida(game.getGuildId());
         if (!partida) {
             console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
             return;
@@ -48,7 +54,7 @@ export class Habilidade {
         
         if (this.modificadores?.includes("Dormente")) {
             // Usa a instância do jogo que foi passada
-            const etapaAtual = await db.getPartida(game.getGuildId()).then(partida => partida?.etapaAtual || 1);
+            const etapaAtual = await PartidaDAO.getPartida(game.getGuildId()).then(partida => partida?.etapaAtual || 1);
             if (!etapaAtual) {
                 console.error(`Partida não encontrada para ${game.getGuildId()}`);
                 return;
@@ -77,7 +83,7 @@ export class Habilidade {
 
         for (const alvo of alvos) {
             await game.getPlayerManager().criarOferta(emissorId, alvo, this.getNome(), nomeOferta, item, parametros);
-            await db.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`);
+            await AlertaDAO.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`);
         }
     }
 
@@ -105,34 +111,28 @@ export class Habilidade {
     }
 
     public async resolverModal(interaction: ModalSubmitInteraction, game: Game, emissorId: string) {
-        const selectValue = interaction.fields.getSelectedUsers(`select_${this.getNome()}`);
+        const selectedUsers = interaction.fields.getSelectedUsers(`select_${this.getNome()}`);
+        const selectValue = selectedUsers?.firstKey()?.toString(); // pega o primeiro, se tiver mais de um temos que fazer um map
+
         console.log("selectvalue: " + selectValue)
         if (!selectValue) {
             console.error("Select value não encontrado");
             return interaction.reply({content: "Nenhum valor selecionado"});
         }
 
-        const jogadorAlvo = await db.getPlayerById(selectValue, game.getGuildId());
+        const jogadorAlvo = await PlayerDAO.getPlayerById(selectValue, game.getGuildId());
+        console.log("jogadorAlvo: " + jogadorAlvo?.id)
         if (!jogadorAlvo) {
-            return interaction.reply({ 
-                content: "❌ **Erro:** Esse usuário não está participando da partida atual!", 
-                flags: MessageFlags.Ephemeral 
-            });
+            return interaction.reply({ content: "❌ **Erro:** Esse usuário não está participando da partida atual!" });
         }
 
         if (!jogadorAlvo.estaVivo) {
-            return interaction.reply({ 
-                content: "👻 **Erro:** Você só pode mirar em jogadores vivos.", 
-                flags: MessageFlags.Ephemeral 
-            });
+            return interaction.reply({ content: "👻 **Erro:** Você só pode mirar em jogadores vivos." });
         }
 
         if (selectValue === interaction.user.id) {
             // mudar dependendo da habilidade
-            return interaction.reply({ 
-                content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!", 
-                flags: MessageFlags.Ephemeral 
-            });
+            return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
         }
 
         // const inputValues = interaction.fields.getTextInputValue('input');
@@ -141,14 +141,14 @@ export class Habilidade {
             console.error("Partida não encontrada modal");
             return interaction.reply({content: "Erro, contate o host do jogo"});
         }
-        const emissor = await db.getPlayerById(emissorId, game.getGuildId());
+        const emissor = await PlayerDAO.getPlayerById(emissorId, game.getGuildId());
         if (!emissor) {
             console.error("Player não encontrado modal");
             return interaction.reply({content: "Erro, contate o host do jogo"});
         }
         const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
 
-        await db.createAction(emissorId, game.getGuildId(), partida.getEtapaAtual(), habilidade!.id, [selectValue]);
+        await ActionDAO.createAction(emissorId, game.getGuildId(), partida.getEtapaAtual(), habilidade!.id, [selectValue]);
         console.log("Modal submetido, alvo:", selectValue);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }
@@ -164,7 +164,7 @@ export class Habilidade {
             return;
         }
         if (alertado) {
-            await db.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você foi visitado essa noite!`);
+            await AlertaDAO.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você foi visitado essa noite!`);
         }
     }
 
@@ -175,27 +175,27 @@ export class Habilidade {
             console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
             return;
         }
-        await db.updatePlayer(alvo, game.getGuildId(), { status: "BLOQUEADO" });
-        await db.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você foi bloqueado essa noite!`);
+        await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { status: "BLOQUEADO" });
+        await AlertaDAO.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você foi bloqueado essa noite!`);
     }
 
     protected async atacarPlayer(game: Game, alvo: string, poderAtaque: number): Promise<void> {
         // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
-        const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
+        const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
         if (!playerAlvo) {
             console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
             return;
         }
         if (poderAtaque > playerAlvo.protecao) {
             console.log(`Alvo ${alvo} tem proteção inferior e pode ser atacado.`);
-            await db.updatePlayer(alvo, playerAlvo.guildId, { estaVivo: false })
+            await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { estaVivo: false })
             return;
         } else {
             console.log(`Alvo ${alvo} tem proteção suficiente para resistir ao ataque.`);
-            await db.updatePlayer(alvo, playerAlvo.guildId, { protecao: 0 });
+            await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { protecao: 0 });
             if (playerAlvo.cargo === "Bigode") {
                 console.log(`Alvo ${alvo} é um Bigode e tem proteção especial.`);
-                await db.updatePlayer(alvo, playerAlvo.guildId, { protecao: 1 });
+                await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { protecao: 1 });
             }
         }
     }
@@ -289,7 +289,7 @@ export class Evangelho extends Habilidade {
     }
 
     public override async resolverOferta(game: Game, ofertaId: string): Promise<void> {
-        const oferta = await db.getOfertaById(ofertaId);
+        const oferta = await OfertaDAO.getOfertaById(ofertaId);
         if (!oferta) {
             console.error(`Oferta não encontrada para o ID: ${ofertaId}`);
             return;
@@ -305,7 +305,7 @@ export class Evangelho extends Habilidade {
         // Criar alerta para o emissor sobre a resposta do alvo
         game.sendMensagemPlayer(emissor, `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`);
         // por enquanto msg para debug
-        const playerAlvo = await db.getPlayerById(alvo, game.getGuildId());
+        const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
         if (!playerAlvo || !playerAlvo.cargo) return;
 
         const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
@@ -315,7 +315,7 @@ export class Evangelho extends Habilidade {
                 const habId = String(parametros?.habilidadePerdidaId);
                 
                 if (habId) {
-                    await db.updateHabilidade(habId, { status: "IMPEDIDA" });
+                    await HabilidadeDAO.updateHabilidade(habId, { status: "IMPEDIDA" });
 
                     const dadosExtra = JSON.parse(playerAlvo.dadosExtra || "[]");
                     dadosExtra.push({
@@ -323,7 +323,7 @@ export class Evangelho extends Habilidade {
                         habilidadeId: habId,
                         evangelistaId: emissor
                     });
-                    await db.updatePlayer(alvo, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
+                    await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
                     
                     game.sendMensagemPlayer(alvo, "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer.");
                 }
@@ -335,7 +335,7 @@ export class Evangelho extends Habilidade {
             // RECUSADO (Gera a marca para receber a Palavra de Deus)
             const marcas = JSON.parse(playerAlvo.marcas || "[]");
             marcas.push({ tipo: "ARREPENDIMENTO", resultado: "RECUSADO" });
-            await db.updatePlayer(alvo, game.getGuildId(), { marcas: JSON.stringify(marcas) });
+            await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { marcas: JSON.stringify(marcas) });
             game.sendMensagemPlayer(alvo, "Você recusou a palavra e seus pecados pesam sobre você...");
         }
     }
@@ -355,7 +355,7 @@ export class PalavraDeDeus extends Habilidade {
             return;
         }
         const alvoId = alvo[0];
-        const player = await db.getPlayerById(alvoId!, game.getGuildId());
+        const player = await PlayerDAO.getPlayerById(alvoId!, game.getGuildId());
         if (!player) {
             console.error(`Nenhum player encontrado para guildId ${game.getGuildId()}`);
             return;
@@ -371,7 +371,7 @@ export class PalavraDeDeus extends Habilidade {
     }
 
     public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, emissor: string): Promise<ModalBuilder | void> {
-        const emissorPlayer = await db.getPlayerById(emissor, game.getGuildId());
+        const emissorPlayer = await PlayerDAO.getPlayerById(emissor, game.getGuildId());
         const alvosValidos = [];
         if (!emissorPlayer) {
             console.error(`Player emissor não encontrado para id ${emissor} e guildId ${game.getGuildId()}`);
@@ -381,7 +381,7 @@ export class PalavraDeDeus extends Habilidade {
 
         const ofertas = emissorPlayer.ofertas.filter(o => o.habilidade === this.getNome() && o.status === "RECUSADA");
         for (const oferta of ofertas) {
-            const playerAlvo = await db.getPlayerById(oferta.alvoId, game.getGuildId());
+            const playerAlvo = await PlayerDAO.getPlayerById(oferta.alvoId, game.getGuildId());
             if (!playerAlvo) {
                 console.error(`Player alvo não encontrado para id ${oferta.alvoId} e guildId ${game.getGuildId()}`);
                 continue;
@@ -448,7 +448,7 @@ export class ExecucaoPublica extends Habilidade {
     }
 
     public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
-        const jogadores = await db.getPlayers(game.getGuildId());
+        const jogadores = await PlayerDAO.getPlayers(game.getGuildId());
         const alvosValidos = jogadores.filter(p => p.estaVivo && p.userId !== quemUsouId);
 
         if (alvosValidos.length === 0) {

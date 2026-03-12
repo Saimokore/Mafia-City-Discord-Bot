@@ -1,0 +1,75 @@
+import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { log } from 'node:console';
+
+const adapter = new PrismaBetterSqlite3({
+  url: "file:./dev.db",
+});
+
+export const prisma = new PrismaClient({ adapter });
+
+export const PlayerDAO = {
+    
+    async createPlayer(guildId: string, userId: string, username: string, dadosExtra?: string) {
+        return await prisma.player.create({
+            data: {
+                guildId,
+                userId,
+                username,
+                dadosExtra: dadosExtra || "{}"
+            }
+        });
+    },
+
+    async updatePlayer(userId: string, guildId: string, dados: Prisma.PlayerUpdateInput) {
+        try{
+            return await prisma.player.update({
+                where: { guildId_userId: { userId, guildId } },
+                data: dados
+            });
+        } catch (e) {
+            console.log("Erro ao atualizar jogador:", e);
+        }
+    },
+
+    async getPlayerId(userId: string, guildId: string) {
+        const player = await prisma.player.findFirst({
+            where: {
+                userId,
+                guildId
+            }
+        });
+        return player ? player.id : null;
+    },
+
+    async getPlayerById(userId: string, guildId: string) {
+        return await prisma.player.findUnique({
+            where: {
+                guildId_userId: {
+                    userId,
+                    guildId
+                }
+            },
+            include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, actions: true }
+        });
+    },
+
+    async getPlayers(guildId: string) {
+        return await prisma.player.findMany({
+            where: {
+                guildId
+            },
+            include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, actions: true }
+        });
+    },
+
+    async deletePlayer(id: string) {
+        try {
+            return await prisma.player.delete({
+                where: { id }
+            });
+        } catch (e) {
+            console.log("Erro ao remover jogador:", e);
+        }
+    },    
+}
