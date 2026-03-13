@@ -102,7 +102,7 @@ model Action {
   etapa        Int
   habilidadeId String
   habilidade   Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
-  alvo         Alvo[]
+  alvos         Alvo[]
 
   parametrosAcao String? // JSON string com parâmetros específicos da ação (ex: número de vezes que usou a habilidade) mt importante
 

@@ -1,15 +1,15 @@
-import { StringSelectMenuInteraction, ActionRowBuilder, StringSelectMenuBuilder, 
-    ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle,
-    ButtonInteraction, MessageFlags, type ModalActionRowComponentBuilder,
-    LabelBuilder, UserSelectMenuBuilder, ModalSubmitInteraction,
-    } from 'discord.js';
+import { StringSelectMenuInteraction,ModalBuilder, LabelBuilder, UserSelectMenuBuilder, ModalSubmitInteraction } from 'discord.js';
 import { Game } from '../Game.js';
-import { PartidaDAO } from '../DAOs/PartidaDAO.js';
-import { AlertaDAO } from '../DAOs/AlertaDAO.js';
 import { PlayerDAO } from '../DAOs/PlayerDAO.js';
-import { ActionDAO } from '../DAOs/ActionDAO.js';
-import { OfertaDAO } from '../DAOs/OfertaDAO.js';
 import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
+import { Prisma } from '@prisma/client';
+
+export type PrismaAction = Prisma.ActionGetPayload<{
+    include: {
+        alvos: true,
+        habilidade: true
+    }
+}>;
 
 export class Habilidade {
     private nome: string;
@@ -30,45 +30,25 @@ export class Habilidade {
         }
     }
 
-    public async usarHabilidade(game: Game, quemUsou: string, alvo?: string[]): Promise<string | void> {
-        const partida = await PartidaDAO.getPartida(game.getGuildId());
-        if (!partida) {
-            console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
-            return;
-        }
+    public async usarHabilidade(game: Game, action: PrismaAction): Promise<string | void> {
+        // Custo padrão é 1
+        const custo = action.parametrosAcao ? this.getCustoUso(action.parametrosAcao) : 1;
+        const habilidade = action.habilidade;
+        
+        // Atualiza o uso da habilidade, habilidades reutilizaveis tem custo de 10000
+        const valorUsoTotal = habilidade.uso - custo;
+        await HabilidadeDAO.updateHabilidade(habilidade.id, { uso: valorUsoTotal });
 
-        // if (quemUsou) {
-        //     if (this.modificadores?.includes("Imparavel")) {
-        //         console.log(`${quemUsou} estava bloqueado, mas a habilidade ${this.getNome()} é Imparável!`);
-        //     } else {
-        //         console.log(`${quemUsou} foi bloqueado e perdeu a ação.`);
-        //         game.sendMensagemPlayer(quemUsou, "🚫 Você foi bloqueado esta noite e sua ação falhou!");
-        //         return;
-        //     }
-        // }
-        
-        if (this.modificadores?.includes("Dormente")) {
-            // Usa a instância do jogo que foi passada
-            const etapaAtual = await PartidaDAO.getPartida(game.getGuildId()).then(partida => partida?.etapaAtual || 1);
-            if (!etapaAtual) {
-                console.error(`Partida não encontrada para ${game.getGuildId()}`);
-                return;
-            }
-
-            if (etapaAtual < 4) {
-                console.error("Habilidade não pode ser usada antes do dia 2.");
-                return;
-            }
-        }
-        
-        if (this.modificadores?.includes("Astral")) {
-            // Então não é uma visita
-        }
-        
-        await this.ativar(game, quemUsou, alvo);
+        await this.ativar(game, action);
     }
 
-    public async ativar(game: Game, quemUsou: string, alvos?: string[]): Promise<string | void> {}
+    public getCustoUso(parametros: string): number {
+        const parsedParams = JSON.parse(parametros || "{}");
+        const custo = parsedParams.custoUso || 1;
+        return custo;
+    }
+
+    public async ativar(game: Game, action: PrismaAction): Promise<string | void> {}
 
     public async ofertar(game: Game, emissorId: string, alvos: string[], nomeOferta: string, item?: string, parametros?: string): Promise<void> {
         console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvos.join(", ")} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
@@ -174,8 +154,10 @@ export class Habilidade {
         await game.getPlayerManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
     }
 
-    protected async atacarPlayer(game: Game, alvo: string, poderAtaque: number): Promise<void> {
+    protected async atacarPlayer(game: Game, alvo: string, action: PrismaAction): Promise<void> {
         // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
+        const poderAtaque = action.parametrosAcao
+
         const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
         if (!playerAlvo) {
             console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
@@ -268,10 +250,6 @@ export class ExecucaoPublica extends Habilidade {
         super("Execução Pública", "Instantânea", 1, "Dia", ["Astral", "Instantânea", "Especial"]);
     }
 
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-
-    }
-
     public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
         
        const modal = new ModalBuilder()
@@ -310,28 +288,17 @@ export class Reputacao extends Habilidade {
         super("Reputação", "Passiva");
     }
 
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-
-    }
 }
 
 export class Prender extends Habilidade {
     constructor() {
         super("Prender", "Prioridade", 10000, "Noite", ["Imparavel"]);
     }
-
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-
-    }
 }
 
 export class Pacificacao extends Habilidade {
     constructor() {
         super("Pacificacao", "Prioridade", 3, "Noite", ["Dormente", "Imparavel"]);
-    }
-
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-
     }
 }
 
@@ -466,9 +433,6 @@ export class PunhoDeFerro extends Habilidade {
         super("Punho de Ferro", "Passiva", 0, undefined, ["Especial"]);
     }
 
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-
-    }
 }
 
 export class Matar extends Habilidade {
@@ -476,9 +440,6 @@ export class Matar extends Habilidade {
         super("Matar", "Ofensiva", 10000, "Noite", ["Dormente"]);
     }
 
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-
-    }
 }
 
 export class Massacre extends Habilidade {
@@ -486,9 +447,6 @@ export class Massacre extends Habilidade {
         super("Massacre", "Ofensiva", 1, "Noite", ["Especial"]);
     }
 
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-
-    }
 }
 
 // export class Plantar extends Habilidade {

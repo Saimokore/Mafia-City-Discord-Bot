@@ -3,23 +3,25 @@ import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import type { Game } from "../../Game.js";
 import { Habilidade } from "../Habilidade.js";
+import { Prisma } from '@prisma/client';
 
+export type PrismaAction = Prisma.ActionGetPayload<{
+    include: {
+        alvos: true,
+        habilidade: true
+    }
+}>;
 
 export class Evangelho extends Habilidade {
     constructor() {
         super("Evangelho", "Comunicacao", 10000, "Dia");
     }
 
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-        if (!alvo) {
-            console.error("Habilidade requer um alvo.");
-            return;
-        } else if (alvo.length > 1) {
-            console.error("Habilidade Evangelho só pode ter um alvo.");
-            return;
-        }
-        await this.ofertar(game, quemUsou, alvo, "Arrependimento");
-        console.log(`Habilidade ${this.getNome()} usada por ${quemUsou} com alvo ${alvo}.`);
+    public override async ativar(game: Game, action: PrismaAction): Promise<void> {
+        const alvosId = action.alvos.map(a => a.id);
+
+        await this.ofertar(game, action.userId, action.alvos.map(a => a.id), "Arrependimento");
+        console.log(`Habilidade ${this.getNome()} usada por ${action.userId} com alvo ${alvosId}.`);
     }
 
     public override async resolverOferta(game: Game, ofertaId: string): Promise<void> {

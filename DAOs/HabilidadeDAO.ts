@@ -26,9 +26,9 @@ export const HabilidadeDAO = {
         }
     },
 
-    async updateHabilidade(id: string, dados: Prisma.PlayerUpdateInput) {
+    async updateHabilidade(id: string, dados: Prisma.HabilidadeUpdateInput) {
         try{
-            return await prisma.player.update({
+            return await prisma.habilidade.update({
                 where: { id },
                 data: dados
             });
@@ -48,6 +48,16 @@ export const HabilidadeDAO = {
             });
         } catch (error) {
             console.error(`Erro ao buscar habilidadeId para ${nome} do player ${userId} na guild ${guildId}: ${error}`);
+        }
+    },
+
+    async getHabilidadeById(id: string) {
+        try {
+            return await prisma.habilidade.findFirst({
+                where: { id }
+            });
+        } catch (error) {
+            console.error(`Erro ao buscar habilidadeId ${id}: ${error}`);
         }
     },
 }

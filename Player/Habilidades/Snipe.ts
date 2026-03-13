@@ -3,6 +3,15 @@ import type { Game } from "../../Game.js";
 import { Habilidade } from "../Habilidade.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import { ActionDAO } from "../../DAOs/ActionDAO.js";
+import { Prisma } from '@prisma/client';
+
+export type PrismaAction = Prisma.ActionGetPayload<{
+    include: {
+        alvos: true,
+        habilidade: true
+    }
+}>;
+
 
 export class Snipe extends Habilidade {
 
@@ -10,8 +19,9 @@ export class Snipe extends Habilidade {
         super("Snipe", "Ofensiva", 2, "Noite", ["Dormente"]);
     }
 
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-        
+    public override async ativar(game: Game, action: PrismaAction): Promise<void> {
+        const alvo = action.alvos[0]!.id;
+        this.atacarPlayer(game, alvo, action)
     }
 
     public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
@@ -74,7 +84,7 @@ export class Snipe extends Habilidade {
             )
 
 
-        modal.addLabelComponents(targetLabel);
+        modal.addLabelComponents(targetLabel, classeLabel);
         
         return modal;
     }
@@ -86,6 +96,7 @@ export class Snipe extends Habilidade {
         const partesClass = selectedClass[0]!.split('_');
         const alinhamento = partesClass[0];
         const classe = partesClass[1];
+        const custoAcao = 1;
 
         let poderAtaque = 0;
 
@@ -109,19 +120,17 @@ export class Snipe extends Habilidade {
             // return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
         }
 
-        let parametrosAcao = [];
+        const parametrosAcao = [];
         const cargo = game.getPlayerManager().getCargoInstance(jogadorAlvo.cargo!);
         if (cargo?.getAlinhamento() === alinhamento) {
             //ataque vira poderoso
-            poderAtaque = 2;
+            parametrosAcao.push({ poderAtaque: 2 });
+            
             if (cargo?.getNome() === classe) {
-                parametrosAcao = [{
-                    tipo: "uso",
-                    quantidade: "0"
-                }]
+                // acertou a classe e agora ela não gasta usos
+                parametrosAcao.push({ custoUso: 0 });
             }
         }
-
 
         const emissor = await PlayerDAO.getPlayerById(emissorId, game.getGuildId());
         if (!emissor) {
@@ -129,8 +138,13 @@ export class Snipe extends Habilidade {
             return interaction.reply({content: "Erro, contate o host do jogo"});
         }
         const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
+        if (!habilidade) return interaction.reply({content: "Erro, ao achar habilidade contate o host do jogo"});
 
-        await game.getPlayerManager().criarAction(emissorId, habilidade!.id, [alvoId], JSON.stringify(parametrosAcao))
+        if (habilidade.uso < custoAcao) {
+            return interaction.reply({content: "Você usou não tem usos disponíveis dessa habilidade!"})
+        }
+
+        await game.getPlayerManager().criarAction(emissorId, habilidade.id, [alvoId], JSON.stringify(parametrosAcao))
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

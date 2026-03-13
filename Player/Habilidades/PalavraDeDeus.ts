@@ -3,6 +3,14 @@ import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import type { Game } from "../../Game.js";
 import { Habilidade } from "../Habilidade.js";
 import { ActionDAO } from "../../DAOs/ActionDAO.js";
+import { Prisma } from '@prisma/client';
+
+export type PrismaAction = Prisma.ActionGetPayload<{
+    include: {
+        alvos: true,
+        habilidade: true
+    }
+}>;
 
 
 export class PalavraDeDeus extends Habilidade {
@@ -10,15 +18,8 @@ export class PalavraDeDeus extends Habilidade {
         super("Palavra de Deus", "Ofensiva", 10000, "Noite");
     }
 
-    public override async ativar(game: Game, emissor: string, alvo?: string[]): Promise<void> {
-        if (!alvo || alvo.length === 0) {
-            console.error("Habilidade requer um alvo.");
-            return;
-        } else if (alvo.length > 1) {
-            console.error("Habilidade Palavra de Deus só pode ter um alvo.");
-            return;
-        }
-        const alvoId = alvo[0];
+     public override async ativar(game: Game, action: PrismaAction): Promise<void> {
+        const alvoId = action.alvos[0]!.id;
         if (!alvoId) {
             console.error(`Nenhum player encontrado para guildId ${game.getGuildId()}`);
             return;

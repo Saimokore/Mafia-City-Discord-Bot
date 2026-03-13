@@ -3,6 +3,14 @@ import type { Game } from "../../Game.js";
 import { Habilidade } from "../Habilidade.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import { ActionDAO } from "../../DAOs/ActionDAO.js";
+import { Prisma } from '@prisma/client';
+
+export type PrismaAction = Prisma.ActionGetPayload<{
+    include: {
+        alvos: true,
+        habilidade: true
+    }
+}>;
 
 export class HabilidadeT extends Habilidade {
 
@@ -10,7 +18,7 @@ export class HabilidadeT extends Habilidade {
         super("NomeHabilidade", "Ofensiva", 2, "Noite", ["Dormente"]);
     }
 
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
+    public override async ativar(game: Game, action: PrismaAction): Promise<void> {
         
     }
 

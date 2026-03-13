@@ -15,7 +15,7 @@ export const ActionDAO = {
                 userId,
                 guildId,
                 etapa: etapa,
-                alvo: {
+                alvos: {
                     create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
                 },
                 habilidadeId,
@@ -30,7 +30,7 @@ export const ActionDAO = {
                 guildId,
                 etapa: etapa
             },
-            include: { habilidade: true, alvo: true }
+            include: { habilidade: true, alvos: true }
         });
     },
 }

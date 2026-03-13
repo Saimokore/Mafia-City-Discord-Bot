@@ -208,7 +208,6 @@ export class Game {
         
         for (const action of actions) {
             const habilidadeDB = action.habilidade;
-            const alvos = action.alvo.map(a => a.alvoId);
             const player = action.userId;
             
             if (habilidadeDB.status === "IMPEDIDA") {
@@ -222,12 +221,7 @@ export class Game {
                 continue;
             }
             
-            if (alvos.length > 0) {
-                // tem que ter algo que permita não usar mais de uma habilidade que não sao item ou gratis e tal
-                await habilidade.usarHabilidade(this, player, alvos);
-            } else {
-                await habilidade.usarHabilidade(this, player);
-            }
+            await habilidade.usarHabilidade(this, action);
         }
     }
     
