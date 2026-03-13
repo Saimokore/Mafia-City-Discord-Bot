@@ -78,7 +78,7 @@ export class Habilidade {
 
         for (const alvo of alvos) {
             await game.getPlayerManager().criarOferta(emissorId, alvo, this.getNome(), nomeOferta, item, parametros);
-            await AlertaDAO.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`);
+            await game.getPlayerManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
         }
     }
 
@@ -143,7 +143,7 @@ export class Habilidade {
         }
         const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
 
-        await ActionDAO.createAction(emissorId, game.getGuildId(), partida.getEtapaAtual(), habilidade!.id, [selectValue]);
+        await game.getPlayerManager().criarAction(emissorId, habilidade!.id, [selectValue]);
         console.log("Modal submetido, alvo:", selectValue);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }
@@ -159,7 +159,7 @@ export class Habilidade {
             return;
         }
         if (alertado) {
-            await AlertaDAO.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você foi visitado essa noite!`);
+            await game.getPlayerManager().criarAlerta(alvo, `Você foi visitado essa noite!`);
         }
     }
 
@@ -171,7 +171,7 @@ export class Habilidade {
             return;
         }
         await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { status: "BLOQUEADO" });
-        await AlertaDAO.createAlerta(game.getGuildId(), alvo, partida.getEtapaAtual(), `Você foi bloqueado essa noite!`);
+        await game.getPlayerManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
     }
 
     protected async atacarPlayer(game: Game, alvo: string, poderAtaque: number): Promise<void> {
@@ -183,20 +183,17 @@ export class Habilidade {
         }
         if (poderAtaque > playerAlvo.protecao) {
             console.log(`Alvo ${alvo} tem proteção inferior e pode ser atacado.`);
-            await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { estaVivo: false })
+            game.processarMortePlayer(alvo)
             return;
         } else {
             console.log(`Alvo ${alvo} tem proteção suficiente para resistir ao ataque.`);
             await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { protecao: 0 });
+            // depois checar para proteçoes inatas 
             if (playerAlvo.cargo === "Bigode") {
                 console.log(`Alvo ${alvo} é um Bigode e tem proteção especial.`);
                 await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { protecao: 1 });
             }
         }
-    }
-
-    public async criarAction(game: Game, userId: string, habilidade: Habilidade, alvos?: string[]): Promise<void> {
-        game.getPlayerManager().criarAction(userId, habilidade, alvos);
     }
 
     public getNome(): string {
@@ -266,204 +263,6 @@ export class Habilidade {
     }
 }
 
-export class Evangelho extends Habilidade {
-    constructor() {
-        super("Evangelho", "Comunicacao", 10000, "Dia");
-    }
-
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-        if (!alvo) {
-            console.error("Habilidade requer um alvo.");
-            return;
-        } else if (alvo.length > 1) {
-            console.error("Habilidade Evangelho só pode ter um alvo.");
-            return;
-        }
-        await this.ofertar(game, quemUsou, alvo, "Arrependimento");
-        console.log(`Habilidade ${this.getNome()} usada por ${quemUsou} com alvo ${alvo}.`);
-    }
-
-    public override async resolverOferta(game: Game, ofertaId: string): Promise<void> {
-        const oferta = await OfertaDAO.getOfertaById(ofertaId);
-        if (!oferta) {
-            console.error(`Oferta não encontrada para o ID: ${ofertaId}`);
-            return;
-        }
-
-        const alvo = oferta.alvoId;
-        const emissor = oferta.emissorId;
-        const status = oferta.status === "ACEITA" ? true : false;
-        const parametros = oferta.parametros ? JSON.parse(oferta.parametros) : null;
-
-        // Criar alerta para o emissor sobre a resposta do alvo
-        await game.getPlayerManager().criarAlerta(emissor, `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`)
-        console.log(`A oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`);
-
-        const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
-        if (!playerAlvo || !playerAlvo.cargo) return;
-
-        await this.updateListaRecusados(game, emissor, alvo, status)
-
-        const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
-
-        if (status) {
-            if (cargoAlvo?.getAlinhamento() !== "Cidade") {
-                const habId = String(parametros?.habilidadePerdidaId);
-                
-                if (habId) {
-                    await HabilidadeDAO.updateHabilidade(habId, { status: "IMPEDIDA" });
-
-                    const dadosExtra = JSON.parse(playerAlvo.dadosExtra || "[]");
-                    dadosExtra.push({
-                        tipo: "IMPEDIDA_EVANGELHO",
-                        habilidadeId: habId,
-                        evangelistaId: emissor
-                    });
-                    await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
-                    
-                    game.sendMensagemPlayer(alvo, "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer.");
-                }
-            } else {
-                // CIDADE: Fica Bloqueado na noite atual
-                await this.bloquearPlayer(game, alvo);
-            }
-        } else {
-            game.sendMensagemPlayer(alvo, "Você recusou a palavra e seus pecados pesam sobre você...");
-        }
-    }
-
-    public async updateListaRecusados(game: Game, emissor: string, alvo: string, aceitou: boolean) {
-        const playerEmissor = await PlayerDAO.getPlayerById(emissor, game.getGuildId());
-        if (!playerEmissor) return;
-
-        let dadosExtraEmissor = JSON.parse(playerEmissor.dadosExtra || "[]");
-
-        if (!Array.isArray(dadosExtraEmissor)) {
-            console.warn(`[Aviso] dadosExtra de ${emissor} não era um array. Resetando para [].`);
-            dadosExtraEmissor = [];
-        }
-        
-        let index = dadosExtraEmissor.findIndex((d: any) => d.tipo === "ALVOS_RECUSADOS");
-
-        if (index === -1) {
-            dadosExtraEmissor.push({ tipo: "ALVOS_RECUSADOS", alvos: [] });
-            index = dadosExtraEmissor.length - 1;
-        }
-
-        const listaAlvos = dadosExtraEmissor[index].alvos;
-        const alvoJaEstaNaLista = listaAlvos.includes(alvo);
-
-        if (!aceitou) {
-            if (!alvoJaEstaNaLista) {
-                listaAlvos.push(alvo);
-            }
-        } else {
-            if (alvoJaEstaNaLista) {
-                dadosExtraEmissor[index].alvos = listaAlvos.filter((a: string) => a !== alvo);
-            }
-        }
-
-        await PlayerDAO.updatePlayer(emissor, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtraEmissor) });
-    }
-}
-
-export class PalavraDeDeus extends Habilidade {
-    constructor() {
-        super("Palavra de Deus", "Ofensiva", 10000, "Noite");
-    }
-
-    public override async ativar(game: Game, emissor: string, alvo?: string[]): Promise<void> {
-        if (!alvo || alvo.length === 0) {
-            console.error("Habilidade requer um alvo.");
-            return;
-        } else if (alvo.length > 1) {
-            console.error("Habilidade Palavra de Deus só pode ter um alvo.");
-            return;
-        }
-        const alvoId = alvo[0];
-        const player = await PlayerDAO.getPlayerById(alvoId!, game.getGuildId());
-        if (!player) {
-            console.error(`Nenhum player encontrado para guildId ${game.getGuildId()}`);
-            return;
-        }
-        
-        const oferta = player.ofertas.find(o => o.habilidade === this.getNome() && o.emissorId === emissor); // isso deve dar problema depois
-        if (!oferta) {
-            console.error(`Nenhuma oferta encontrada para habilidade ${this.getNome()} do emissor ${emissor} para o alvo ${alvoId}.`);
-            return;
-        }
-
-
-    }
-
-    public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, emissor: string): Promise<ModalBuilder | void> {
-        const emissorPlayer = await PlayerDAO.getPlayerById(emissor, game.getGuildId());
-        const alvosValidos = [];
-        if (!emissorPlayer) {
-            console.error(`Player emissor não encontrado para id ${emissor} e guildId ${game.getGuildId()}`);
-            await interaction.reply({ content: "Ocorreu um erro ao buscar suas ofertas. Tente novamente mais tarde.", flags: MessageFlags.Ephemeral });
-            return;
-        }
-
-        const ofertas = emissorPlayer.ofertas.filter(o => o.habilidade === this.getNome() && o.status === "RECUSADA");
-        for (const oferta of ofertas) {
-            const playerAlvo = await PlayerDAO.getPlayerById(oferta.alvoId, game.getGuildId());
-            if (!playerAlvo) {
-                console.error(`Player alvo não encontrado para id ${oferta.alvoId} e guildId ${game.getGuildId()}`);
-                continue;
-            }
-            alvosValidos.push(playerAlvo);
-        }
-
-        if (alvosValidos.length === 0) {
-            await interaction.reply({ content: "Não há alvos vivos que recusaram \"Arrependimento\" para esta habilidade." });
-            return;
-        }
-
-       const modal = new ModalBuilder()
-            .setCustomId('skill_modal_' + this.getNome())
-            .setTitle('Usando habilidade: ' + this.getNome());
-
-        const targetLabel = new LabelBuilder()
-            .setLabel('Quem é o alvo?')
-            .setStringSelectMenuComponent(
-                new StringSelectMenuBuilder()
-                    .setCustomId('select')
-                    .setPlaceholder('Selecione o seu alvo...')
-                    .addOptions(
-                        alvosValidos.map(p => ({
-                            label: p.username,
-                            value: p.userId
-                        })
-                    )
-            )   
-        )
-
-        modal.addLabelComponents(targetLabel);
-        
-        return modal;
-    }
-
-    public override async resolverModal(interaction: ModalSubmitInteraction, game: Game, quemUsouId: string) {
-        const selectValues = interaction.fields.getStringSelectValues('select');
-        // const inputValues = interaction.fields.getTextInputValue('input');
-
-        console.log("Modal submetido:", selectValues);
-        return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
-    }
-
-}
-
-export class Snipe extends Habilidade {
-    constructor() {
-        super("Snipe", "Ofensiva", 2, "Noite", ["Dormente"]);
-    }
-
-    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
-        
-    }
-}
-
 export class ExecucaoPublica extends Habilidade {
     constructor() {
         super("Execução Pública", "Instantânea", 1, "Dia", ["Astral", "Instantânea", "Especial"]);
@@ -474,53 +273,33 @@ export class ExecucaoPublica extends Habilidade {
     }
 
     public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
-        const players = await PlayerDAO.getPlayers(game.getGuildId());
-        if (!players || players.length === 0) {
-            console.error("Players não encontrados");
-            return;
-        } 
-        const alvosValidos = players.filter(p => p.estaVivo && p.userId !== quemUsouId);
-
-        if (alvosValidos.length === 0) {
-            await interaction.reply({ content: "Não há alvos válidos para esta habilidade." });
-            return;
-        }
-
+        
        const modal = new ModalBuilder()
             .setCustomId('skill_modal_' + this.getNome())
             .setTitle('Usando habilidade: ' + this.getNome());
 
         const targetLabel = new LabelBuilder()
             .setLabel('Quem é o alvo?')
-            .setStringSelectMenuComponent(
-                new StringSelectMenuBuilder()
-                    .setCustomId('select')
+            .setUserSelectMenuComponent(
+                new UserSelectMenuBuilder()
+                    .setCustomId(`select_target_${this.getNome()}`)
                     .setPlaceholder('Selecione o seu alvo...')
-                    .addOptions(
-                        alvosValidos.map(p => ({
-                            label: p.username,
-                            value: p.userId
-                        })
-                    )
-            )   
-        )
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            )
 
         const targetCargoLabel = new LabelBuilder()
             .setLabel('Qual o cargo do alvo?')
-            .setStringSelectMenuComponent(
-                new StringSelectMenuBuilder()
-                    .setCustomId('select')
+            .setUserSelectMenuComponent(
+                new UserSelectMenuBuilder()
+                    .setCustomId(`select_cargo_${this.getNome()}`)
                     .setPlaceholder('Selecione o seu alvo...')
-                    .addOptions(
-                        alvosValidos.map(p => ({
-                            label: p.username,
-                            value: p.userId
-                        })
-                    )
+                    .setMinValues(1)
+                    .setMaxValues(1)
             )   
-        )
+        
 
-        modal.addLabelComponents(targetLabel);
+        modal.addLabelComponents(targetLabel, targetCargoLabel);
         
         return modal;
     }

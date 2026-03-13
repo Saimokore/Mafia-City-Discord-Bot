@@ -8,6 +8,9 @@ import { ActionDAO } from "./DAOs/ActionDAO.js";
 import { OfertaDAO } from "./DAOs/OfertaDAO.js";
 import { PlayerDAO } from "./DAOs/PlayerDAO.js";
 import { AlertaDAO } from "./DAOs/AlertaDAO.js";
+import { Evangelho } from "./Player/Habilidades/Evangelho.js";
+import { PalavraDeDeus } from "./Player/Habilidades/PalavraDeDeus.js";
+import { Snipe } from "./Player/Habilidades/Snipe.js";
 
 export class PlayerManager {
     private guildId: string;
@@ -34,13 +37,14 @@ export class PlayerManager {
         await AlertaDAO.createAlerta(this.guildId, userId, await this.game.getEtapaAtual(), alerta)
     }
 
-    public async criarAction(userId: string, habilidade: Hab.Habilidade, alvos?: string[]): Promise<void> {
+    public async criarAction(userId: string, habilidade: Hab.Habilidade | string, alvos?: string[], parametros?: string): Promise<void> {
         const partida = await PartidaDAO.getPartida(this.guildId);
         if (!partida) {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
         }
-        await ActionDAO.createAction(userId, this.guildId, partida.etapaAtual, habilidade.getNome(), alvos);
+        const habNome = habilidade instanceof Hab.Habilidade ? habilidade.getNome() : habilidade;
+        await ActionDAO.createAction(userId, this.guildId, partida.etapaAtual, habNome, alvos, parametros);
     }
 
     public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
@@ -104,10 +108,10 @@ export class PlayerManager {
     public getHabilidadeInstance(nomeDaHabilidade: string | null): Hab.Habilidade | null {
         if (!nomeDaHabilidade) return null;
         switch (nomeDaHabilidade) {
-            case "Evangelho": return new Hab.Evangelho();
-            case "Palavra de Deus": return new Hab.PalavraDeDeus();
+            case "Evangelho": return new Evangelho();
+            case "Palavra de Deus": return new PalavraDeDeus();
 
-            case "Snipe": return new Hab.Snipe();
+            case "Snipe": return new Snipe();
             case "Execucao Publica": return new Hab.ExecucaoPublica();
 
             case "Reputacao": return new Hab.Reputacao();

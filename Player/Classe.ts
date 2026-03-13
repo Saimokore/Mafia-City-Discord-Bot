@@ -5,9 +5,9 @@ export class Classe {
     private nome: string;
     private numeroSetor: number;
 
-    constructor(nome: string, alinhamento: string) {
-        this.nome = nome;
+    constructor(alinhamento: string, nome: string) {
         this.alinhamento = alinhamento;
+        this.nome = nome;
         this.numeroSetor = 0;
     }
 

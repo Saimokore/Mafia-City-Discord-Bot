@@ -270,6 +270,7 @@ export class Game {
         const jogadorMorto = await PlayerDAO.getPlayerById(jogadorMortoId, this.guildId);
         
         await PlayerDAO.updatePlayer(jogadorMortoId, this.guildId, { estaVivo: false });
+        this.playerManager.criarAlerta(jogadorMortoId, "Você morreu!");
         
         if (jogadorMorto?.cargo === "Evangelista") {
             const todosJogadores = await PlayerDAO.getPlayers(this.guildId);
@@ -279,18 +280,23 @@ export class Game {
             }
             
             for (const player of todosJogadores) {
-                const marcas = JSON.parse(player.marcas || "[]");
+                let dadosExtra = JSON.parse(player.dadosExtra || "[]");
+
+                if (!Array.isArray(dadosExtra)) {
+                    console.warn(`[Aviso] dadosExtra de ${jogadorMortoId} não era um array. Resetando para [].`);
+                    dadosExtra = [];
+                }
                 
-                const marcaMaldiçao = marcas.find((m: any) => m.tipo === "IMPEDIDA_EVANGELHO" && m.evangelistaId === jogadorMortoId);
+                const dadosExtraMaldiçao = dadosExtra.find((m: any) => m.tipo === "IMPEDIDA_EVANGELHO" && m.evangelistaId === jogadorMortoId);
                 
-                if (marcaMaldiçao) {
-                    await HabilidadeDAO.updateHabilidade(marcaMaldiçao.habilidadeId, { status: "ATIVA" });
+                if (dadosExtraMaldiçao) {
+                    await HabilidadeDAO.updateHabilidade(dadosExtraMaldiçao.habilidadeId, { status: "ATIVA" });
                     
-                    const novasMarcas = marcas.filter((m: any) => m !== marcaMaldiçao);
+                    const novasMarcas = dadosExtra.filter((m: any) => m !== dadosExtraMaldiçao);
                     await PlayerDAO.updatePlayer(player.userId, this.guildId, { marcas: JSON.stringify(novasMarcas) });
                     
                     // await this.sendMensagemPlayer(player.userId, "🔔 O Evangelista faleceu! Sua habilidade perdida foi restaurada e pode ser usada novamente.");
-                    // checar se devo realmente avisar o player que possui sua habilidade denovo
+                    // checar se devo realmente avisar o player que ele possui sua habilidade denovo, provavel que não
                 }
             }
         }

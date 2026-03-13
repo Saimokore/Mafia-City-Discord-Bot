@@ -1,0 +1,109 @@
+import { HabilidadeDAO } from "../../DAOs/HabilidadeDAO.js";
+import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
+import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
+import type { Game } from "../../Game.js";
+import { Habilidade } from "../Habilidade.js";
+
+
+export class Evangelho extends Habilidade {
+    constructor() {
+        super("Evangelho", "Comunicacao", 10000, "Dia");
+    }
+
+    public async ativar(game: Game, quemUsou: string, alvo?: string[]): Promise<void> {
+        if (!alvo) {
+            console.error("Habilidade requer um alvo.");
+            return;
+        } else if (alvo.length > 1) {
+            console.error("Habilidade Evangelho só pode ter um alvo.");
+            return;
+        }
+        await this.ofertar(game, quemUsou, alvo, "Arrependimento");
+        console.log(`Habilidade ${this.getNome()} usada por ${quemUsou} com alvo ${alvo}.`);
+    }
+
+    public override async resolverOferta(game: Game, ofertaId: string): Promise<void> {
+        const oferta = await OfertaDAO.getOfertaById(ofertaId);
+        if (!oferta) {
+            console.error(`Oferta não encontrada para o ID: ${ofertaId}`);
+            return;
+        }
+
+        if (oferta.status === "PENDENTE") await OfertaDAO.updateOferta(ofertaId, false);
+
+        const alvo = oferta.alvoId;
+        const emissor = oferta.emissorId;
+        const status = oferta.status === "ACEITA" ? true : false;
+        const parametros = oferta.parametros ? JSON.parse(oferta.parametros) : null;
+
+        // Criar alerta para o emissor sobre a resposta do alvo
+        await game.getPlayerManager().criarAlerta(emissor, `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`)
+        console.log(`A oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`);
+
+        const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
+        if (!playerAlvo || !playerAlvo.cargo) return;
+
+        await this.updateListaRecusados(game, emissor, alvo, status)
+
+        const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
+
+        if (status) {
+            if (cargoAlvo?.getAlinhamento() !== "Cidade") {
+                const habId = String(parametros?.habilidadePerdidaId);
+                
+                if (habId) {
+                    await HabilidadeDAO.updateHabilidade(habId, { status: "IMPEDIDA" });
+
+                    const dadosExtra = JSON.parse(playerAlvo.dadosExtra || "[]");
+                    dadosExtra.push({
+                        tipo: "IMPEDIDA_EVANGELHO",
+                        habilidadeId: habId,
+                        evangelistaId: emissor
+                    });
+                    await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
+                    
+                    game.sendMensagemPlayer(alvo, "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer.");
+                }
+            } else {
+                // CIDADE: Fica Bloqueado na noite atual
+                await this.bloquearPlayer(game, alvo);
+            }
+        } else {
+            game.sendMensagemPlayer(alvo, "Você recusou a palavra e seus pecados pesam sobre você...");
+        }
+    }
+
+    public async updateListaRecusados(game: Game, emissor: string, alvo: string, aceitou: boolean) {
+        const playerEmissor = await PlayerDAO.getPlayerById(emissor, game.getGuildId());
+        if (!playerEmissor) return;
+
+        let dadosExtraEmissor = JSON.parse(playerEmissor.dadosExtra || "[]");
+
+        if (!Array.isArray(dadosExtraEmissor)) {
+            console.warn(`[Aviso] dadosExtra de ${emissor} não era um array. Resetando para [].`);
+            dadosExtraEmissor = [];
+        }
+        
+        let index = dadosExtraEmissor.findIndex((d: any) => d.tipo === "ALVOS_RECUSADOS");
+
+        if (index === -1) {
+            dadosExtraEmissor.push({ tipo: "ALVOS_RECUSADOS", alvos: [] });
+            index = dadosExtraEmissor.length - 1;
+        }
+
+        const listaAlvos = dadosExtraEmissor[index].alvos;
+        const alvoJaEstaNaLista = listaAlvos.includes(alvo);
+
+        if (!aceitou) {
+            if (!alvoJaEstaNaLista) {
+                listaAlvos.push(alvo);
+            }
+        } else {
+            if (alvoJaEstaNaLista) {
+                dadosExtraEmissor[index].alvos = listaAlvos.filter((a: string) => a !== alvo);
+            }
+        }
+
+        await PlayerDAO.updatePlayer(emissor, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtraEmissor) });
+    }
+}
