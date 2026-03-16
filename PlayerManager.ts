@@ -1,8 +1,9 @@
 import { ButtonStyle, Client, TextChannel, ActionRowBuilder, ButtonBuilder, EmbedBuilder } from "discord.js";
 import { Game } from "./Game.js";
 import { Player } from "./Player/Player.js";
-import * as Cargo from "./Player/Cargo.js";
+import { Cargo } from "./Player/Cargo.js";
 import * as Hab from "./Player/Habilidade.js";
+import * as Class from "./Player/Classe.js";
 import { PartidaDAO } from "./DAOs/PartidaDAO.js";
 import { ActionDAO } from "./DAOs/ActionDAO.js";
 import { OfertaDAO } from "./DAOs/OfertaDAO.js";
@@ -11,6 +12,7 @@ import { AlertaDAO } from "./DAOs/AlertaDAO.js";
 import { Evangelho } from "./Player/Habilidades/Evangelho.js";
 import { PalavraDeDeus } from "./Player/Habilidades/PalavraDeDeus.js";
 import { Snipe } from "./Player/Habilidades/Snipe.js";
+import { ExecucaoPublica } from "./Player/Habilidades/ExecucaoPublica.js";
 
 export class PlayerManager {
     private guildId: string;
@@ -58,7 +60,7 @@ export class PlayerManager {
     }
 
     public async buildOferta(ofertaId: string, emissorId: string, nomeOferta: string, habilidadeNome: string) {
-        const player = await this.loadPlayer(emissorId, this.game.getGuildId());
+        const player = await this.loadPlayer(emissorId);
         const embed = new EmbedBuilder()
             .setTitle(`Uma Oferta foi feita para você!`)
             .setDescription(`**${player!.getCargo()!.getNome()}** está te oferecendo **${nomeOferta}**.`)
@@ -82,25 +84,33 @@ export class PlayerManager {
         };
     }
 
+    public async getPlayerProtection(userId: string): Promise<number> {
+        const player = await PlayerDAO.getPlayerById(userId, this.guildId);
+        if (!player || !player.cargo) return 0;
+
+        const cargo = this.getCargoInstance(player.cargo);
+        return cargo?.getProtecaoInata() || 0;
+    }
+
     // ==========================================
     // FACTORY
     // ==========================================
 
-    public async loadPlayer(userId: string, guildId: string): Promise<Player | null> {
-        const player = await PlayerDAO.getPlayerById(userId, guildId);
+    public async loadPlayer(userId: string): Promise<Player | null> {
+        const player = await PlayerDAO.getPlayerById(userId, this.guildId);
 
         if (!player) return null;
 
         return new Player(this.game, player);
     }
 
-    public getCargoInstance(nomeDoCargo: string): Cargo.Cargo | null {
+    public getCargoInstance(nomeDoCargo: string): Cargo | null {
         if (!nomeDoCargo) return null;
         switch (nomeDoCargo) {
-            case "Evangelista": return new Cargo.Evangelista();
-            case "Atirador de Elite": return new Cargo.AtiradorDeElite();
-            case "Xerife": return new Cargo.Xerife();
-            case "Bigode": return new Cargo.Bigode();
+            case "Evangelista": return new Cargo("Evangelista", new Class.CidadeJusticeiro(), "Comum", [new Evangelho(), new PalavraDeDeus()], 1);
+            case "Atirador de Elite": return new Cargo("Atirador de Elite", new Class.CidadeJusticeiro(), "Comum", [new Snipe(), new ExecucaoPublica()], 2);
+            case "Xerife": return new Cargo("Xerife", new Class.CidadeJusticeiro(), "Comum", [new Hab.Reputacao(), new Hab.Prender(), new Hab.Pacificacao()], 2);
+            case "Bigode": return new Cargo("Bigode", new Class.MafiaLider(), "Único", [new Hab.PunhoDeFerro(), new Hab.Matar(), new Hab.Massacre()], 2, 1);
             default: return null;
         }
     }
@@ -112,7 +122,7 @@ export class PlayerManager {
             case "Palavra de Deus": return new PalavraDeDeus();
 
             case "Snipe": return new Snipe();
-            case "Execucao Publica": return new Hab.ExecucaoPublica();
+            case "Execucao Publica": return new ExecucaoPublica();
 
             case "Reputacao": return new Hab.Reputacao();
             case "Prender": return new Hab.Prender();

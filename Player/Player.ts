@@ -26,6 +26,7 @@ export class Player {
     private quantCartas: number;
     
     private cargo: Cargo | null;
+
     private status: string[];
     private marcas: string[];
     private items: Habilidade[];
@@ -40,6 +41,10 @@ export class Player {
         this.id = player.id;
         this.username = player.username;
 
+        if (player.cargo) {
+            this.cargo = game.getPlayerManager().getCargoInstance(player.cargo) || null;
+            this.cargo?.setHabilidades(player.habilidades.map(h => new Habilidade()));
+        }
         this.cargo = player.cargo ? game.getPlayerManager().getCargoInstance(player.cargo) : null;
         
         this.protecao = player.protecao;
@@ -84,6 +89,10 @@ export class Player {
         Itens: ${this.items.map(i => i.getNome()).join(", ") || "Nenhum"}
         Habilidades: ${this.cargo ? this.cargo.getHabilidades().map(h => h.getNome()).join(", ") : "Nenhuma"}
         Alertas: ${this.alertas.map(a => a.getAlerta()).join(", ") || "Nenhum"}`;
+    }
+
+    public getHabilidades() {
+        return this.cargo?.getHabilidades() || null;
     }
 
     public getId(): string {

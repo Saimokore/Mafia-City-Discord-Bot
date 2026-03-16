@@ -1,9 +1,8 @@
-import { LabelBuilder, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuInteraction, UserSelectMenuBuilder } from "discord.js";
+import { LabelBuilder, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, UserSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
 import type { Game } from "../../Game.js";
 import { Habilidade } from "../Habilidade.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import { Prisma } from '@prisma/client';
-import { HabilidadeDAO } from "../../DAOs/HabilidadeDAO.js";
 
 export type PrismaAction = Prisma.ActionGetPayload<{
     include: {
@@ -16,34 +15,20 @@ export type PrismaAction = Prisma.ActionGetPayload<{
     }
 }>;
 
-export class Snipe extends Habilidade {
+export class ExecucaoPublica extends Habilidade {
 
     constructor() {
-        super("Snipe", "Ofensiva", 2, "Noite", ["Dormente"]);
+        super("NomeHabilidade", "Ofensiva", 2, "Noite", ["Dormente"]);
     }
 
     public override async ativar(game: Game, action: PrismaAction): Promise<void> {
-        const parsedParams = JSON.parse(action.parametrosAcao || "{}");
-        const acertouClasse = parsedParams.acertouClasse || false;
-
-        const alvo = action.alvos[0]!.id;
-        if (await this.atacarPlayer(game, alvo, action)) {
-            await game.getPlayerManager().criarAlerta(action.userId, "Matou o mano parabens");
-            if (acertouClasse) {
-                // Devolve o uso
-                const valorUsoTotal = action.habilidade.uso + 1;
-                await HabilidadeDAO.updateHabilidade(action.habilidade.id, { uso: valorUsoTotal });
-            }
-        } else {
-            await game.getPlayerManager().criarAlerta(action.userId, "Nao matou o mano parabens");
-        }
         
     }
 
     public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
 
     public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
-
+    
         const modal = new ModalBuilder()
             .setCustomId('skill_modal_' + this.getNome())
             .setTitle('Usando habilidade: ' + this.getNome());
@@ -106,23 +91,17 @@ export class Snipe extends Habilidade {
     }
 
     public async resolverModal(interaction: ModalSubmitInteraction, game: Game, emissorId: string) {
-        const selectedUsers = interaction.fields.getSelectedUsers(`select_target_${this.getNome()}`);
-        const selectedClass = interaction.fields.getStringSelectValues(`select_classe_${this.getNome()}`)
-
-        const partesClass = selectedClass[0]!.split('_');
-        const alinhamento = partesClass[0];
-        const classe = partesClass[1];
-        const custoAcao = 1;
-
-        let poderAtaque = 0;
-
+        const selectedUsers = interaction.fields.getSelectedUsers(`select_${this.getNome()}`);
         const alvoId = selectedUsers?.firstKey()?.toString(); // pega o primeiro, se tiver mais de um temos que fazer um map
-        if (!alvoId) return interaction.reply({content: "Nenhum valor selecionado"});
 
         console.log("selectvalue: " + alvoId)
+        if (!alvoId) {
+            console.error("Select value não encontrado");
+            return interaction.reply({content: "Nenhum valor selecionado"});
+        }
 
-        const jogadorAlvo = await PlayerDAO.getPlayerById(alvoId, game.getGuildId());
-        console.log("jogadorAlvo: " + jogadorAlvo?.id)
+        const jogadorAlvo = await game.getPlayerManager().loadPlayer(alvoId);
+        console.log("jogadorAlvo: " + jogadorAlvo?.getId())
         if (!jogadorAlvo) {
             return interaction.reply({ content: "❌ **Erro:** Esse usuário não está participando da partida atual!" });
         }
@@ -136,36 +115,14 @@ export class Snipe extends Habilidade {
             // return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
         }
 
-        let parametrosAcao = {};
-        const cargo = game.getPlayerManager().getCargoInstance(jogadorAlvo.cargo!);
-        if (cargo?.getAlinhamento() === alinhamento) {
-            //ataque vira poderoso
-            parametrosAcao = { 
-                poderAtaque: 2
-            };
-            
-            if (cargo?.getNome() === classe) {
-                // acertou a classe e agora ela não gasta usos
-                parametrosAcao = { 
-                    poderAtaque: 2,
-                    acertouClasse: true
-                };
-            }
-        }
-
-        const emissor = await PlayerDAO.getPlayerById(emissorId, game.getGuildId());
+        const emissor = await game.getPlayerManager().loadPlayer(emissorId);
         if (!emissor) {
             console.error("Player não encontrado modal");
             return interaction.reply({content: "Erro, contate o host do jogo"});
         }
         const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
-        if (!habilidade) return interaction.reply({content: "Erro, ao achar habilidade contate o host do jogo"});
 
-        if (habilidade.uso < custoAcao) {
-            return interaction.reply({content: "Você usou não tem usos disponíveis dessa habilidade!"})
-        }
-
-        await game.getPlayerManager().criarAction(emissorId, habilidade.id, [alvoId], JSON.stringify(parametrosAcao))
+        await game.getPlayerManager().criarAction(emissorId, habilidade!.id, [alvoId])
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

@@ -1,56 +1,67 @@
-import * as Hab from './Habilidade.js';
 import * as Class from './Classe.js';
-import type { Player } from './Player.js';
+import { Player } from './Player.js';
+import { Habilidade } from './Habilidade.js';
+import { Evangelho } from './Habilidades/Evangelho.js';
+import { PalavraDeDeus } from './Habilidades/PalavraDeDeus.js';
+import { Snipe } from './Habilidades/Snipe.js';
+import { ExecucaoPublica } from './Habilidades/ExecucaoPublica.js';
 
 export class Cargo {
     private nome: string;
     private classe: Class.Classe;
     private raridade: string;
-    private habilidades: Hab.Habilidade[];
+    private habilidades: Habilidade[];
     private complexidade: number;
-
-    constructor(nome: string, classe: Class.Classe, raridade: string, habilidades: Hab.Habilidade[], complexidade: number) {
+    private protecaoInata: number;
+    
+    
+    constructor(nome: string, classe: Class.Classe, raridade: string, habilidades: Habilidade[], complexidade: number, protecaoInata?: number) {
         this.nome = nome;
         this.classe = classe;
         this.raridade = raridade;
         this.habilidades = habilidades;
         this.complexidade = complexidade;
+        this.protecaoInata = protecaoInata ? protecaoInata : 0;
     }
 
     public usarHabilidade(indice: number, quemUsou: Player, alvo?: Player): string | void {
         if (this.habilidades.length === 0) {
-            throw new Error("Este cargo não possui habilidades.");
+            console.error("Este cargo não possui habilidades.");
         }
         if (indice < 0 || indice >= this.habilidades.length) {
-            throw new Error("Índice de habilidade inválido.");
+            console.error("Índice de habilidade inválido.");
         }
         // repetivel e gratis provavelmente entra aqui
     }
-
+    
     public getNome(): string {
         return this.nome;
     }
-
+    
     public setNome(nome: string): void {
         this.nome = nome;
     }
-
+    
     public getNomeClasse(): string {
         return this.classe.getNome();
     }
-
+    
     public getAlinhamento(): string {
         return this.classe.getAlinhamento();
     }
-
+    
     public getRaridade(): string {
         return this.raridade;
     }
-
-    public getHabilidades(): Hab.Habilidade[] {
+    
+    public getHabilidades(): Habilidade[] {
         return this.habilidades;
     }
-
+    
+    public getProtecaoInata(): number {
+        return this.protecaoInata;
+    }
+    
     public getComplexidade(): number {
         return this.complexidade;
     }
@@ -63,30 +74,12 @@ export class Cargo {
         this.raridade = raridade;
     }
 
-    public setHabilidades(habilidades: Hab.Habilidade[]): void {
+    public setHabilidades(habilidades: Habilidade[]): void {
         this.habilidades = habilidades;
     }
 
     public setComplexidade(complexidade: number): void {
         this.complexidade = complexidade;
-    }
-}
-
-export class Evangelista extends Cargo {
-    constructor() {
-        super("Evangelista", new Class.CidadeJusticeiro(), "Comum", [new Hab.Evangelho(), new Hab.PalavraDeDeus()], 1);
-    }
-}
-
-export class AtiradorDeElite extends Cargo {
-    constructor() {
-        super("Atirador de Elite", new Class.CidadeJusticeiro(), "Comum", [new Hab.Snipe(), new Hab.ExecucaoPublica()], 2);
-    }
-}
-
-export class Xerife extends Cargo {
-    constructor() {
-        super("Xerife", new Class.CidadeJusticeiro(), "Comum", [new Hab.Reputacao(), new Hab.Prender(), new Hab.Pacificacao()], 2);
     }
 }
 
@@ -143,13 +136,6 @@ export class Xerife extends Cargo {
 //         super("Agente da CIA", new Class.CidadeSuporte(), "Comum", [new Hab.MKULTRA(), new Hab.VivaMaisUmDia(), new Hab.VirarANoite()], 2);
 //     }
 // }
-
-export class Bigode extends Cargo {
-    // lembrar q esse bicho vem com protecao basica
-    constructor() {
-        super("Bigode", new Class.MafiaLider(), "Único", [new Hab.PunhoDeFerro(), new Hab.Matar(), new Hab.Massacre()], 2);
-    }
-}
 
 // export class Bombardeiro extends Cargo {
 //     constructor() {

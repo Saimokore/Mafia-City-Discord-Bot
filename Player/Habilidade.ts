@@ -154,27 +154,27 @@ export class Habilidade {
         await game.getPlayerManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
     }
 
-    protected async atacarPlayer(game: Game, alvo: string, action: PrismaAction): Promise<void> {
-        // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
-        const poderAtaque = action.parametrosAcao
+    protected async atacarPlayer(game: Game, alvo: string, action: PrismaAction): Promise<boolean> {
+        // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0) > Sem Prot (0)
+        const parsedParams = JSON.parse(action.parametrosAcao || "{}");
+        const poderAtaque = parsedParams.poderAtaque || 0;
 
         const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
         if (!playerAlvo) {
             console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
-            return;
+            return false;
         }
-        if (poderAtaque > playerAlvo.protecao) {
+
+        if (poderAtaque >= playerAlvo.protecao) {
             console.log(`Alvo ${alvo} tem proteção inferior e pode ser atacado.`);
-            game.processarMortePlayer(alvo)
-            return;
+            game.processarMortePlayer(alvo);
+            return true;
         } else {
             console.log(`Alvo ${alvo} tem proteção suficiente para resistir ao ataque.`);
-            await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { protecao: 0 });
-            // depois checar para proteçoes inatas 
-            if (playerAlvo.cargo === "Bigode") {
-                console.log(`Alvo ${alvo} é um Bigode e tem proteção especial.`);
-                await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { protecao: 1 });
-            }
+            
+            const protInata = await game.getPlayerManager().getPlayerProtection(alvo);
+            await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { protecao: protInata });
+            return false;
         }
     }
 
@@ -242,44 +242,6 @@ export class Habilidade {
 
     public setModificadores(modificadores: string[]): void {
         this.modificadores = modificadores;
-    }
-}
-
-export class ExecucaoPublica extends Habilidade {
-    constructor() {
-        super("Execução Pública", "Instantânea", 1, "Dia", ["Astral", "Instantânea", "Especial"]);
-    }
-
-    public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
-        
-       const modal = new ModalBuilder()
-            .setCustomId('skill_modal_' + this.getNome())
-            .setTitle('Usando habilidade: ' + this.getNome());
-
-        const targetLabel = new LabelBuilder()
-            .setLabel('Quem é o alvo?')
-            .setUserSelectMenuComponent(
-                new UserSelectMenuBuilder()
-                    .setCustomId(`select_target_${this.getNome()}`)
-                    .setPlaceholder('Selecione o seu alvo...')
-                    .setMinValues(1)
-                    .setMaxValues(1)
-            )
-
-        const targetCargoLabel = new LabelBuilder()
-            .setLabel('Qual o cargo do alvo?')
-            .setUserSelectMenuComponent(
-                new UserSelectMenuBuilder()
-                    .setCustomId(`select_cargo_${this.getNome()}`)
-                    .setPlaceholder('Selecione o seu alvo...')
-                    .setMinValues(1)
-                    .setMaxValues(1)
-            )   
-        
-
-        modal.addLabelComponents(targetLabel, targetCargoLabel);
-        
-        return modal;
     }
 }
 

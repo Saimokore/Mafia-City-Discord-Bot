@@ -2,13 +2,16 @@ import { LabelBuilder, ModalBuilder, ModalSubmitInteraction, UserSelectMenuBuild
 import type { Game } from "../../Game.js";
 import { Habilidade } from "../Habilidade.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
-import { ActionDAO } from "../../DAOs/ActionDAO.js";
 import { Prisma } from '@prisma/client';
 
 export type PrismaAction = Prisma.ActionGetPayload<{
     include: {
         alvos: true,
-        habilidade: true
+        habilidade: {
+            include: {
+                actions: true
+            }
+        }
     }
 }>;
 
