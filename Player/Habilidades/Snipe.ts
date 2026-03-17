@@ -18,8 +18,8 @@ export type PrismaAction = Prisma.ActionGetPayload<{
 
 export class Snipe extends Habilidade {
 
-    constructor() {
-        super("Snipe", "Ofensiva", 2, "Noite", ["Dormente"]);
+    constructor(usos?: number, status?: string) {
+        super("Snipe", "Ofensiva", usos || 2, "Noite", ["Dormente"], status || "DISPONIVEL");
     }
 
     public override async ativar(game: Game, action: PrismaAction): Promise<void> {

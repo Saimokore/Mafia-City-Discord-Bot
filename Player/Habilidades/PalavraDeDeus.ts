@@ -14,8 +14,8 @@ export type PrismaAction = Prisma.ActionGetPayload<{
 
 
 export class PalavraDeDeus extends Habilidade {
-    constructor() {
-        super("Palavra de Deus", "Ofensiva", 10000, "Noite");
+    constructor(usos?: number, status?: string) {
+        super("Palavra de Deus", "Ofensiva", 10000, "Noite", [], status || "DISPONIVEL");
     }
 
      public override async ativar(game: Game, action: PrismaAction): Promise<void> {
@@ -25,7 +25,7 @@ export class PalavraDeDeus extends Habilidade {
             return;
         }
         
-        this.atacarPlayer(game, alvoId, 2);
+        this.atacarPlayer(game, alvoId, action);
     }
 
     public override async resolverModal(interaction: ModalSubmitInteraction, game: Game, quemUsouId: string) {

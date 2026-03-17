@@ -13,21 +13,19 @@ export type PrismaAction = Prisma.ActionGetPayload<{
 
 export class Habilidade {
     private nome: string;
-    private uso?: number;
     private tipo: string;
-    private etapa?: string;
+    private status: string;
+    private uso: number;
+    private etapa: string;
     private modificadores?: string[];
 
-    constructor(nome: string, tipo: string, uso?: number, etapa?: string, modificadores?: string[]) {
+    constructor(nome: string, tipo: string, uso?: number, etapa?: string, modificadores?: string[], status?: string) {
         this.nome = nome;
         this.tipo = tipo;
-        this.uso = uso || 0;
-        if (etapa) {
-            this.etapa = etapa;
-        }
-        if (modificadores) {
-            this.modificadores = modificadores;
-        }
+        this.uso = uso || 10000;
+        this.etapa = etapa || "Dia";
+        this.modificadores = modificadores ||  [];
+        this.status = status || "DISPONIVEL";
     }
 
     public async usarHabilidade(game: Game, action: PrismaAction): Promise<string | void> {
@@ -57,8 +55,8 @@ export class Habilidade {
         if (!partida) return;
 
         for (const alvo of alvos) {
-            await game.getPlayerManager().criarOferta(emissorId, alvo, this.getNome(), nomeOferta, item, parametros);
-            await game.getPlayerManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
+            await game.getSkillManager().criarOferta(emissorId, alvo, this.getNome(), nomeOferta, item, parametros);
+            await game.getSkillManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
         }
     }
 
@@ -123,7 +121,7 @@ export class Habilidade {
         }
         const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
 
-        await game.getPlayerManager().criarAction(emissorId, habilidade!.id, [selectValue]);
+        await game.getSkillManager().criarAction(emissorId, habilidade!.id, [selectValue]);
         console.log("Modal submetido, alvo:", selectValue);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }
@@ -139,7 +137,7 @@ export class Habilidade {
             return;
         }
         if (alertado) {
-            await game.getPlayerManager().criarAlerta(alvo, `Você foi visitado essa noite!`);
+            await game.getSkillManager().criarAlerta(alvo, `Você foi visitado essa noite!`);
         }
     }
 
@@ -151,7 +149,7 @@ export class Habilidade {
             return;
         }
         await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { status: "BLOQUEADO" });
-        await game.getPlayerManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
+        await game.getSkillManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
     }
 
     protected async atacarPlayer(game: Game, alvo: string, action: PrismaAction): Promise<boolean> {

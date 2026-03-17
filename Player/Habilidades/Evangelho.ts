@@ -13,8 +13,8 @@ export type PrismaAction = Prisma.ActionGetPayload<{
 }>;
 
 export class Evangelho extends Habilidade {
-    constructor() {
-        super("Evangelho", "Comunicacao", 10000, "Dia");
+    constructor(usos?: number, status?: string) {
+        super("Evangelho", "Comunicacao", usos || 10000, "Dia", [], status || "DISPONIVEL");
     }
 
     public override async ativar(game: Game, action: PrismaAction): Promise<void> {
@@ -34,20 +34,21 @@ export class Evangelho extends Habilidade {
         if (oferta.status === "PENDENTE") await OfertaDAO.updateOferta(ofertaId, false);
 
         const alvo = oferta.alvoId;
-        const emissor = oferta.emissorId;
         const status = oferta.status === "ACEITA" ? true : false;
         const parametros = oferta.parametros ? JSON.parse(oferta.parametros) : null;
+        const emissor = await game.getPlayerManager().loadPlayer(oferta.emissorId);
+        if (!emissor) return;
 
         // Criar alerta para o emissor sobre a resposta do alvo
-        await game.getPlayerManager().criarAlerta(emissor, `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`)
+        await game.getSkillManager().criarAlerta(emissor.getId(), `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`)
         console.log(`A oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`);
 
         const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
         if (!playerAlvo || !playerAlvo.cargo) return;
 
-        await this.updateListaRecusados(game, emissor, alvo, status)
+        await this.updateListaRecusados(game, emissor.getId(), alvo, status)
 
-        const cargoAlvo = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
+        const cargoAlvo = game.getSkillManager().getCargoInstance(playerAlvo.cargo);
 
         if (status) {
             if (cargoAlvo?.getAlinhamento() !== "Cidade") {
@@ -56,13 +57,12 @@ export class Evangelho extends Habilidade {
                 if (habId) {
                     await HabilidadeDAO.updateHabilidade(habId, { status: "IMPEDIDA" });
 
-                    const dadosExtra = JSON.parse(playerAlvo.dadosExtra || "[]");
-                    dadosExtra.push({
+                    const dados = {
                         tipo: "IMPEDIDA_EVANGELHO",
                         habilidadeId: habId,
                         evangelistaId: emissor
-                    });
-                    await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
+                    }
+                    await game.getPlayerManager().storeDadosExtra(emissor, JSON.stringify(dados))
                     
                     game.sendMensagemPlayer(alvo, "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer.");
                 }

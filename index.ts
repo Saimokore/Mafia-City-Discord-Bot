@@ -155,7 +155,7 @@ client.on('messageCreate', async (message: Message) => {
         let id = message.content.replace(prefix +'me ', "");
         if (!id || id === "!me") id = message.author.id;
         console.log(id);
-        const player = await game.getPlayerManager().loadPlayer(id, message.guild.id);
+        const player = await game.getPlayerManager().loadPlayer(id);
 
         if (!player) return message.reply("Você não está nesta partida!");
 
@@ -174,23 +174,8 @@ client.on('messageCreate', async (message: Message) => {
         message.reply("Jogo reiniciado neste servidor! O lobby está aberto. Digitem `!join` para entrar!");
     }
 
-    if (message.content === prefix +'skill 1') {
-        const player = await game.getPlayerManager().loadPlayer(message.author.id, message.guild.id);
-        if (!player) {
-            message.reply("Você não está nesta partida!");
-            return;
-        }
-        const habilidade = player.getCargo()?.getHabilidades()[0];
-        if (!habilidade) {
-            message.reply("Habilidade não encontrada para seu cargo.");
-            return;
-        }
-
-        game.getPlayerManager().useHabilidade(message.author.id, habilidade);
-    }
-
     if (message.content === prefix +'oferta') {
-        const player = await game.getPlayerManager().loadPlayer(message.author.id, message.guild.id);
+        const player = await game.getPlayerManager().loadPlayer(message.author.id);
         if (!player) {
             message.reply("Você não está nesta partida!");
             return;
@@ -239,7 +224,7 @@ client.on('interactionCreate', async interaction => {
     const game = new Game(serverId, client);
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'action') {
-        const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
+        const player = await game.getPlayerManager().loadPlayer(interaction.user.id);
         const partida = await game.getPartida();
         if (!partida) {
             console.log("Partida não encontrada, interação falhou");
@@ -281,7 +266,7 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'offer') {
         
-        const player = await game.getPlayerManager().loadPlayer(interaction.user.id, serverId);
+        const player = await game.getPlayerManager().loadPlayer(interaction.user.id);
         const partida = await game.getPartida();
         if (!partida) {
             console.log("Partida não encontrada, interação falhou");

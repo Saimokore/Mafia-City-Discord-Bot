@@ -1,8 +1,4 @@
 import { ChannelType, Client, PermissionFlagsBits, TextChannel, User } from "discord.js";
-import * as Cargo from "./Player/Cargo.js";
-import { use } from "react";
-import { Player } from "./Player/Player.js";
-import { Carta } from "./Player/Carta.js";
 import { PlayerManager } from "./PlayerManager.js";
 import { Partida } from "./Player/Partida.js";
 import { PartidaDAO } from "./DAOs/PartidaDAO.js";
@@ -11,19 +7,24 @@ import { HabilidadeDAO } from "./DAOs/HabilidadeDAO.js";
 import { GuildConfigDAO } from "./DAOs/GuildConfigDAO.js";
 import { ActionDAO } from "./DAOs/ActionDAO.js";
 import { OfertaDAO } from "./DAOs/OfertaDAO.js";
+import { SkillManager } from "./SkillManager.js";
 
 export class Game {
     private guildId: string;
-    private playerManager: PlayerManager;
     private client: Client;
     private cargoList: string[];
     private etapaAtual: number;
 
+    private playerManager: PlayerManager;
+    private skillManager: SkillManager;
+
     constructor(guildId: string, client: Client) {
         this.guildId = guildId;
         this.client = client;
-        this.playerManager = new PlayerManager(this.guildId, this);
         this.etapaAtual = 1;
+
+        this.playerManager = new PlayerManager(this.guildId, this);
+        this.skillManager = new SkillManager(this.guildId, this);
         
         this.cargoList = ["Evangelista", "Atirador de Elite", "Xerife", "Bigode"];
     }
@@ -52,7 +53,7 @@ export class Game {
                 console.error("Cargo não encontrado (IniciarJogo)")
                 return;
             }
-            const cargoObj = await this.playerManager.getCargoInstance(cargo);
+            const cargoObj = await this.skillManager.getCargoInstance(cargo);
             const habilidades = cargoObj!.getHabilidades();
 
             await PlayerDAO.updatePlayer(p.userId, this.guildId, { cargo: `${cargo}` });
@@ -63,7 +64,7 @@ export class Game {
             
             await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
             
-            const player = await this.playerManager.loadPlayer(p.userId, p.guildId)
+            const player = await this.playerManager.loadPlayer(p.userId)
         }
 
         this.avancarEtapa();
@@ -140,23 +141,9 @@ export class Game {
         }
     }
 
-    public async sendMensagemPlayer(userId: string, mensagem: string): Promise<void> {
-        try {
-            const userChat = await PlayerDAO.getPlayerById(userId, this.guildId).then(player => player?.userChat);
-            if (userChat) {
-                const channel = await this.client.channels.fetch(userChat) as TextChannel;
-                await channel.send(mensagem);
-            } else {
-                console.warn(`O jogador ${userId} não tem um canal de chat registrado.`);
-            }
-        } catch (error) {
-            console.log(`Não consegui mandar mensagem para o user ${userId}`);
-        }
-    }
-
     public async avancarEtapa(): Promise<void> {
-        await this.executarActions();
-        await this.sendPlayersStatus();
+        await this.skillManager.executarActions();
+        await this.playerManager.sendPlayersStatus();
 
         this.etapaAtual = await PartidaDAO.getPartida(this.guildId).then(p => p!.etapaAtual);
         this.etapaAtual++;
@@ -169,80 +156,17 @@ export class Game {
         }
     }
     
-    public async sendPlayersStatus(): Promise<void> {
-        const players = await PlayerDAO.getPlayers(this.guildId);
-        if (!players || players.length === 0) {
-            console.error("Players não encontrados");
-            return;
-        } 
-        for (const p of players) {
-            const player = await this.playerManager.loadPlayer(p.userId, this.guildId);
-            if (!player) {
-                console.error("Player não encontrado: " + p.id);
-                continue;
+    public async sendMensagemPlayer(userId: string, mensagem: string): Promise<void> {
+        try {
+            const userChat = await this.playerManager.loadPlayer(userId).then(player => player?.getUserChat());
+            if (userChat) {
+                const channel = await this.client.channels.fetch(userChat) as TextChannel;
+                await channel.send(mensagem);
+            } else {
+                console.warn(`O jogador ${userId} não tem um canal de chat registrado.`);
             }
-            this.sendMensagemPlayer(p.id, player.getStatus());
-        }
-    }
-
-    public async executarActions() {
-        const partida = await PartidaDAO.getPartida(this.guildId);
-        if (!partida) {
-            console.error(`Partida não encontrada para guildId ${this.guildId}`);
-            return;
-        }
-        
-        await this.checkOfertas();
-        
-        const actions = await ActionDAO.getActionsByEtapa(this.guildId, partida.etapaAtual);
-        if (actions.length === 0) {
-            console.log(`Nenhuma ação registrada para a etapa ${partida.etapaAtual}.`);
-            return;
-        }
-        
-        actions.sort((a, b) => {
-            const habA = this.playerManager.getHabilidadeInstance(a.habilidade.nome)?.getPrioridade() || 0;
-            const habB = this.playerManager.getHabilidadeInstance(b.habilidade.nome)?.getPrioridade() || 0;
-            return habB - habA;
-        });
-        
-        for (const action of actions) {
-            const habilidadeDB = action.habilidade;
-            const player = action.userId;
-            
-            if (habilidadeDB.status === "IMPEDIDA") {
-                console.log(`Habilidade ${habilidadeDB.nome} do jogador ${player} está impedida e não pode ser usada.`);
-                continue;
-            }
-            
-            const habilidade = this.playerManager.getHabilidadeInstance(habilidadeDB.nome);
-            if (!habilidade) {
-                console.error(`Habilidade ${habilidadeDB.nome} não encontrada para ação do jogador ${action.userId}.`);
-                continue;
-            }
-            
-            await habilidade.usarHabilidade(this, action);
-        }
-    }
-    
-    public async checkOfertas(): Promise<void> {
-        const partida = await PartidaDAO.getPartida(this.guildId);
-        if (!partida) {
-            console.error(`Partida não encontrada para guildId ${this.guildId}`);
-            return;
-        }
-        const ofertas = await OfertaDAO.getOfertas(this.guildId);
-        if (!ofertas || ofertas.length === 0) {
-            console.error("Ofertas não encontradas");
-            return;
-        }
-        for (const oferta of ofertas) {
-            if (oferta.etapa == partida.etapaAtual - 1) {
-                const habilidade = this.playerManager.getHabilidadeInstance(oferta.habilidade);
-                if (!habilidade) continue;
-                
-                await habilidade.resolverOferta(this, oferta.id);
-            }
+        } catch (error) {
+            console.log(`Não consegui mandar mensagem para o user ${userId}`);
         }
     }
     
@@ -264,7 +188,7 @@ export class Game {
         const jogadorMorto = await PlayerDAO.getPlayerById(jogadorMortoId, this.guildId);
         
         await PlayerDAO.updatePlayer(jogadorMortoId, this.guildId, { estaVivo: false });
-        this.playerManager.criarAlerta(jogadorMortoId, "Você morreu!");
+        this.skillManager.criarAlerta(jogadorMortoId, "Você morreu!");
         
         if (jogadorMorto?.cargo === "Evangelista") {
             const todosJogadores = await PlayerDAO.getPlayers(this.guildId);
@@ -299,6 +223,10 @@ export class Game {
     public getPlayerManager(): PlayerManager {
         return this.playerManager;
     }
+
+    public getSkillManager(): SkillManager {
+        return this.skillManager;
+    }
     
     public getGuildId(): string {
         return this.guildId;
@@ -312,7 +240,7 @@ export class Game {
     public getCargos() {
         const cargos = [];
         for (const cargo of this.cargoList) {
-            cargos.push(this.playerManager.getCargoInstance(cargo))
+            cargos.push(this.skillManager.getCargoInstance(cargo))
         }
         return cargos;
     }

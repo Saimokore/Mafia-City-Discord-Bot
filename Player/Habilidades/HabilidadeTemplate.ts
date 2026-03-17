@@ -17,8 +17,8 @@ export type PrismaAction = Prisma.ActionGetPayload<{
 
 export class HabilidadeT extends Habilidade {
 
-    constructor() {
-        super("NomeHabilidade", "Ofensiva", 2, "Noite", ["Dormente"]);
+    constructor(usos?: number, status?: string) {
+        super("NomeHabilidade", "Ofensiva", usos || 2, "Noite", ["Dormente"], status || "DISPONIVEL");
     }
 
     public override async ativar(game: Game, action: PrismaAction): Promise<void> {
@@ -80,7 +80,7 @@ export class HabilidadeT extends Habilidade {
         }
         const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
 
-        await game.getPlayerManager().criarAction(emissorId, habilidade!.id, [alvoId])
+        await game.getSkillManager().criarAction(emissorId, habilidade!.id, [alvoId])
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

@@ -63,7 +63,7 @@ model Player {
   quantCartas Int @default(3)
   distrito    Int @default(0)
 
-  status String @default("{}") // JSON string
+  status String @default("{}") // JSON string - Obliterado vem aqui tbm
   marcas String @default("{}") // JSON string
 
   @@unique([guildId, userId])

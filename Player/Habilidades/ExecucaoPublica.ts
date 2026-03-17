@@ -3,6 +3,7 @@ import type { Game } from "../../Game.js";
 import { Habilidade } from "../Habilidade.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import { Prisma } from '@prisma/client';
+import { HabilidadeDAO } from "../../DAOs/HabilidadeDAO.js";
 
 export type PrismaAction = Prisma.ActionGetPayload<{
     include: {
@@ -17,8 +18,8 @@ export type PrismaAction = Prisma.ActionGetPayload<{
 
 export class ExecucaoPublica extends Habilidade {
 
-    constructor() {
-        super("NomeHabilidade", "Ofensiva", 2, "Noite", ["Dormente"]);
+    constructor(usos?: number, status?: string) {
+        super("ExecucaoPublica", "Instantanea", usos || 1, "Dia", ["Astral", "Instantanea", "Especial"], status || "DISPONIVEL");
     }
 
     public override async ativar(game: Game, action: PrismaAction): Promise<void> {
@@ -28,6 +29,8 @@ export class ExecucaoPublica extends Habilidade {
     public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
 
     public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
+
+        // Checar se matou um jogador não cidade neste jogo.
     
         const modal = new ModalBuilder()
             .setCustomId('skill_modal_' + this.getNome())
@@ -120,9 +123,15 @@ export class ExecucaoPublica extends Habilidade {
             console.error("Player não encontrado modal");
             return interaction.reply({content: "Erro, contate o host do jogo"});
         }
-        const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
+        const habilidade = emissor.getHabilidades()?.find(hab => hab.getNome() === this.getNome()) || null;
+        if (!habilidade) {
+            console.error("Instancia da habilidade não encontrada");
+            return interaction.reply({content: "Erro, contate o host do jogo"});;
+        }
 
-        await game.getPlayerManager().criarAction(emissorId, habilidade!.id, [alvoId])
+        const habId = await game.getSkillManager().getHabilidadeId(habilidade, emissor.getId());
+
+        await game.getSkillManager().criarAction(emissorId, habId, [alvoId])
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

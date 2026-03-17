@@ -15,7 +15,6 @@ export type PrismaPlayer = Prisma.PlayerGetPayload<{
 }>;
 
 export class Player {
-    protected game: Game;
     private id: string;
     private username: string;
 
@@ -33,19 +32,28 @@ export class Player {
     private alertas: Alerta[];
 
     private userChat: string;
+
+    private dadosExtra: string[];
     
     private protecao: number; // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
 
     constructor(game: Game, player: PrismaPlayer) {
-        this.game = game;
         this.id = player.id;
         this.username = player.username;
 
         if (player.cargo) {
-            this.cargo = game.getPlayerManager().getCargoInstance(player.cargo) || null;
-            this.cargo?.setHabilidades(player.habilidades.map(h => new Habilidade()));
+            this.cargo = game.getSkillManager().getCargoInstance(player.cargo) || null;
+
+            if (this.cargo && player.habilidades) {
+                const habilidades = player.habilidades
+                    .map(h => game.getSkillManager().getHabilidadeInstance(h.nome, h.uso, h.status))
+                    .filter(h => h !== null);
+                
+                this.cargo.setHabilidades(habilidades);
+            }
+        } else {
+            this.cargo = null;
         }
-        this.cargo = player.cargo ? game.getPlayerManager().getCargoInstance(player.cargo) : null;
         
         this.protecao = player.protecao;
         this.isAlive = player.estaVivo;
@@ -60,7 +68,7 @@ export class Player {
 
         this.status = JSON.parse(player.status || "[]");
         this.marcas = JSON.parse(player.marcas || "[]");
-
+        this.dadosExtra = JSON.parse(player.dadosExtra || "[]");
     }
 
     public sendCarta(alvo: Player, mensagem: string): boolean {
@@ -92,7 +100,11 @@ export class Player {
     }
 
     public getHabilidades() {
-        return this.cargo?.getHabilidades() || null;
+        return this.cargo?.getHabilidades();
+    }
+
+    public getDadosExtra() {
+        return this.dadosExtra;
     }
 
     public getId(): string {
