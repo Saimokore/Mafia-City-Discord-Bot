@@ -76,24 +76,19 @@ export class Evangelho extends Habilidade {
     }
 
     public async updateListaRecusados(game: Game, emissor: string, alvo: string, aceitou: boolean) {
-        const playerEmissor = await PlayerDAO.getPlayerById(emissor, game.getGuildId());
+        const playerEmissor = await game.getPlayerManager().loadPlayer(emissor);
         if (!playerEmissor) return;
 
-        let dadosExtraEmissor = JSON.parse(playerEmissor.dadosExtra || "[]");
+        let dadosExtraEmissor = playerEmissor.getDadosExtra();
 
-        if (!Array.isArray(dadosExtraEmissor)) {
-            console.warn(`[Aviso] dadosExtra de ${emissor} não era um array. Resetando para [].`);
-            dadosExtraEmissor = [];
-        }
-        
-        let index = dadosExtraEmissor.findIndex((d: any) => d.tipo === "ALVOS_RECUSADOS");
+        let dadosExtraAlvos = dadosExtraEmissor.find(m => m.tipo === "ALVOS_RECUSADOS");
 
         if (index === -1) {
             dadosExtraEmissor.push({ tipo: "ALVOS_RECUSADOS", alvos: [] });
             index = dadosExtraEmissor.length - 1;
         }
 
-        const listaAlvos = dadosExtraEmissor[index].alvos;
+        const listaAlvos = dadosExtraEmissor[index]!.alvos;
         const alvoJaEstaNaLista = listaAlvos.includes(alvo);
 
         if (!aceitou) {

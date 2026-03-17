@@ -4,6 +4,7 @@ import { Player } from "./Player/Player.js";
 import { PlayerDAO } from "./DAOs/PlayerDAO.js";
 import type { Prisma } from "@prisma/client";
 import { platform } from "node:os";
+import type { DadoExtra } from "./Player/Tipos.js";
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{
     include: {
@@ -64,8 +65,8 @@ export class PlayerManager {
         }
     }
 
-    public async storeDadosExtra(player: Player, dados: string) {
-        const dadosExtra = player.getDadosExtra().push(JSON.parse(dados));
+    public async storeDadosExtra(player: Player, dados: DadoExtra) {
+        const dadosExtra = player.getDadosExtra().push(dados);
         await PlayerDAO.updatePlayer(player.getId(), this.game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
     }
 

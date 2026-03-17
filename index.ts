@@ -319,7 +319,7 @@ client.on('interactionCreate', async interaction => {
             return;
         }
         
-        const habilidadeInstance = game.getPlayerManager().getHabilidadeInstance(nomeHabilidade);
+        const habilidadeInstance = game.getSkillManager().getHabilidadeInstance(nomeHabilidade);
 
         if (habilidadeInstance) {
             const modal = await habilidadeInstance.buildModal(interaction, game, interaction.user.id);
@@ -344,7 +344,7 @@ client.on('interactionCreate', async interaction => {
                 console.error("Player alvo não encontrado no banco de dados para oferta de Arrependimento.");
                 return interaction.reply({ content: "Erro interno ao processar a oferta. Player não encontrado.", flags: MessageFlags.Ephemeral });
             }
-            const cargoInstancia = game.getPlayerManager().getCargoInstance(playerAlvo.cargo);
+            const cargoInstancia = game.getSkillManager().getCargoInstance(playerAlvo.cargo);
 
             if (cargoInstancia && cargoInstancia.getAlinhamento() !== "Cidade") {
                 
@@ -432,7 +432,7 @@ client.on('interactionCreate', async interaction => {
             return;
         }
 
-        const habilidadeInstance = game.getPlayerManager().getHabilidadeInstance(nomeHabilidade);
+        const habilidadeInstance = game.getSkillManager().getHabilidadeInstance(nomeHabilidade);
         if (!habilidadeInstance) {
             console.error("Habilidade não encontrada para o modal submetido:", nomeHabilidade);
             await interaction.reply({ content: "Habilidade não encontrada. Tente novamente.", flags: MessageFlags.Ephemeral });

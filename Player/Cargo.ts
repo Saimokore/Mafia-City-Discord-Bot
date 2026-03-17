@@ -1,6 +1,14 @@
 import * as Class from './Classe.js';
 import { Player } from './Player.js';
 import { Habilidade } from './Habilidade.js';
+import type { Game } from '../Game.js';
+import { PlayerDAO } from '../DAOs/PlayerDAO.js';
+import { Evangelho } from './Habilidades/Evangelho.js';
+import { PalavraDeDeus } from './Habilidades/PalavraDeDeus.js';
+import { Snipe } from './Habilidades/Snipe.js';
+import { ExecucaoPublica } from './Habilidades/ExecucaoPublica.js';
+import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
+import type { DadoImpedidaEvangelho } from './Tipos.js';
 
 export class Cargo {
     private nome: string;
@@ -28,6 +36,12 @@ export class Cargo {
             console.error("Índice de habilidade inválido.");
         }
         // repetivel e gratis provavelmente entra aqui
+    }
+
+    public async processarMorte(game: Game, playerMorto: Player, playerAssassino: Player): Promise<boolean> {
+        await PlayerDAO.updatePlayer(playerMorto.getId(), game.getGuildId(), { estaVivo: false });
+        game.getSkillManager().criarAlerta(playerMorto.getId(), "Você morreu!");
+        return true;
     }
     
     public getNome(): string {
@@ -78,6 +92,57 @@ export class Cargo {
         this.complexidade = complexidade;
     }
 }
+
+export class Evangelista extends Cargo {
+    constructor(habilidades?: Habilidade[]) {
+        super("Evangelista", new Class.CidadeJusticeiro(), "Comum", habilidades || [new Evangelho(), new PalavraDeDeus()], 1);
+    }
+
+    public override async processarMorte(game: Game, playerMorto: Player, playerAssassino: Player): Promise<boolean> {
+        const todosJogadores = await game.getPlayerManager().getAllPlayers();
+        if (todosJogadores && todosJogadores.length > 0) {
+            for (const player of todosJogadores) {
+                const dadosExtra = player.getDadosExtra();
+                
+                const dadosExtraMaldicao = dadosExtra.find(m => m.tipo === "IMPEDIDA_EVANGELHO" && m.evangelistaId === playerMorto.getId());
+                
+                if (dadosExtraMaldicao && dadosExtraMaldicao.tipo === "IMPEDIDA_EVANGELHO") {
+                    await HabilidadeDAO.updateHabilidade(dadosExtraMaldicao.habilidadeId , { status: "ATIVA" });
+                    
+                    const novasMarcas = dadosExtra.filter((m: any) => m !== dadosExtraMaldicao);
+                    await PlayerDAO.updatePlayer(player.getUserId(), game.getGuildId(), { marcas: JSON.stringify(novasMarcas) });
+                    
+                    // await this.sendMensagemPlayer(player.userId, "🔔 O Evangelista faleceu! Sua habilidade perdida foi restaurada e pode ser usada novamente.");
+                    // checar se devo realmente avisar o player que ele possui sua habilidade denovo, provavel que não
+                }
+            }
+        } else {
+            console.error("Players não encontrados");
+        }
+        
+        return super.processarMorte(game, playerMorto, playerAssassino);
+    }
+}
+
+export class AtiradorDeElite extends Cargo {
+    constructor(habilidades?: Habilidade[]) {
+        super("Atirador de Elite", new Class.CidadeJusticeiro(), "Comum", habilidades || [new Snipe(), new ExecucaoPublica()], 2);
+    }
+}
+
+// export class Xerife extends Cargo {
+//     constructor() {
+//         super("Xerife", new Class.CidadeJusticeiro(), "Comum", [new Hab.Reputacao(), new Hab.Prender(), new Hab.Pacificacao()], 2);
+//     }
+// }
+
+// export class Bigode extends Cargo {
+//     // lembrar q esse bicho vem com protecao basica
+//     constructor() {
+//         super("Bigode", new Class.MafiaLider(), "Único", [new Hab.PunhoDeFerro(), new Hab.Matar(), new Hab.Massacre()], 2, 1);
+//     }
+// }
+
 
 // export class Detetive extends Cargo {
 //     constructor() {

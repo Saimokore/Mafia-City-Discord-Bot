@@ -1,5 +1,5 @@
 import { Game } from "./Game.js";
-import { Cargo } from "./Player/Cargo.js";
+import { AtiradorDeElite, Cargo, Evangelista } from "./Player/Cargo.js";
 import * as Hab from "./Player/Habilidade.js";
 import * as Class from "./Player/Classe.js";
 import { PartidaDAO } from "./DAOs/PartidaDAO.js";
@@ -110,11 +110,11 @@ export class SkillManager {
         await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidadeNome, partida.etapaAtual, nomeOferta, item, parametros);
     }
 
-    public getCargoInstance(nomeDoCargo: string): Cargo | null {
+    public getCargoInstance(nomeDoCargo: string, habilidades?: Hab.Habilidade[]): Cargo | null {
         if (!nomeDoCargo) return null;
         switch (nomeDoCargo) {
-            case "Evangelista": return new Cargo("Evangelista", new Class.CidadeJusticeiro(), "Comum", [new Evangelho(), new PalavraDeDeus()], 1);
-            case "Atirador de Elite": return new Cargo("Atirador de Elite", new Class.CidadeJusticeiro(), "Comum", [new Snipe(), new ExecucaoPublica()], 2);
+            case "Evangelista": return new Evangelista(habilidades);
+            case "Atirador de Elite": return new AtiradorDeElite(habilidades);
             case "Xerife": return new Cargo("Xerife", new Class.CidadeJusticeiro(), "Comum", [new Hab.Reputacao(), new Hab.Prender(), new Hab.Pacificacao()], 2);
             case "Bigode": return new Cargo("Bigode", new Class.MafiaLider(), "Único", [new Hab.PunhoDeFerro(), new Hab.Matar(), new Hab.Massacre()], 2, 1);
             default: return null;

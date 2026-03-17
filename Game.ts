@@ -184,45 +184,46 @@ export class Game {
         // deixar isso pra depois
     }
     
-    public async processarMortePlayer(jogadorMortoId: string, quemAtacouId: string): Promise<void> {
+    public async processarMortePlayer(jogadorMortoId: string, quemAtacouId: string): Promise<boolean> {
         const jogadorMorto = await this.playerManager.loadPlayer(jogadorMortoId);
+        const jogadorAssassino = await this.playerManager.loadPlayer(quemAtacouId);
+        if (!jogadorMorto || !jogadorAssassino) return false;
         
-        await PlayerDAO.updatePlayer(jogadorMortoId, this.guildId, { estaVivo: false });
-        this.skillManager.criarAlerta(jogadorMortoId, "Você morreu!");
-        
-        jogadorMorto.processarMorte()
-        if (jogadorMorto?.cargo) {
-            const cargoMorto = this.skillManager.getCargoInstance(jogadorMorto?.cargo)
-            cargoMorto.processarMorte();
+        const cargo = jogadorMorto.getCargo();
+        if (cargo) {
+            return cargo?.processarMorte(this, jogadorMorto, jogadorAssassino) || false;
         }
-        if (jogadorMorto?.cargo === "Evangelista") {
-            const todosJogadores = await PlayerDAO.getPlayers(this.guildId);
-            if (!todosJogadores || todosJogadores.length === 0) {
-                console.error("Players não encontrados");
-                return;
-            }
-            
-            for (const player of todosJogadores) {
-                let dadosExtra = JSON.parse(player.dadosExtra || "[]");
 
-                if (!Array.isArray(dadosExtra)) {
-                    console.warn(`[Aviso] dadosExtra de ${jogadorMortoId} não era um array. Resetando para [].`);
-                    dadosExtra = [];
-                }
+        return true;
+
+        // if (jogadorMorto?.cargo === "Evangelista") {
+        //     const todosJogadores = await PlayerDAO.getPlayers(this.guildId);
+        //     if (!todosJogadores || todosJogadores.length === 0) {
+        //         console.error("Players não encontrados");
+        //         return;
+        //     }
+            
+        //     for (const player of todosJogadores) {
+        //         let dadosExtra = JSON.parse(player.dadosExtra || "[]");
+
+        //         if (!Array.isArray(dadosExtra)) {
+        //             console.warn(`[Aviso] dadosExtra de ${jogadorMortoId} não era um array. Resetando para [].`);
+        //             dadosExtra = [];
+        //         }
                 
-                const dadosExtraMaldiçao = dadosExtra.find((m: any) => m.tipo === "IMPEDIDA_EVANGELHO" && m.evangelistaId === jogadorMortoId);
+        //         const dadosExtraMaldiçao = dadosExtra.find((m: any) => m.tipo === "IMPEDIDA_EVANGELHO" && m.evangelistaId === jogadorMortoId);
                 
-                if (dadosExtraMaldiçao) {
-                    await HabilidadeDAO.updateHabilidade(dadosExtraMaldiçao.habilidadeId, { status: "ATIVA" });
+        //         if (dadosExtraMaldiçao) {
+        //             await HabilidadeDAO.updateHabilidade(dadosExtraMaldiçao.habilidadeId, { status: "ATIVA" });
                     
-                    const novasMarcas = dadosExtra.filter((m: any) => m !== dadosExtraMaldiçao);
-                    await PlayerDAO.updatePlayer(player.userId, this.guildId, { marcas: JSON.stringify(novasMarcas) });
+        //             const novasMarcas = dadosExtra.filter((m: any) => m !== dadosExtraMaldiçao);
+        //             await PlayerDAO.updatePlayer(player.userId, this.guildId, { marcas: JSON.stringify(novasMarcas) });
                     
-                    // await this.sendMensagemPlayer(player.userId, "🔔 O Evangelista faleceu! Sua habilidade perdida foi restaurada e pode ser usada novamente.");
-                    // checar se devo realmente avisar o player que ele possui sua habilidade denovo, provavel que não
-                }
-            }
-        }
+        //             // await this.sendMensagemPlayer(player.userId, "🔔 O Evangelista faleceu! Sua habilidade perdida foi restaurada e pode ser usada novamente.");
+        //             // checar se devo realmente avisar o player que ele possui sua habilidade denovo, provavel que não
+        //         }
+        //     }
+        // }
     }
     
     public getPlayerManager(): PlayerManager {
