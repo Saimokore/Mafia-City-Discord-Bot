@@ -4,6 +4,8 @@ import { Habilidade } from "./Habilidade.js";
 import { Carta } from "./Carta.js";
 import { Alerta } from "./Alerta.js";
 import { Prisma } from '@prisma/client';
+import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
+import { PlayerDAO } from "../DAOs/PlayerDAO.js";
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{
     include: {
@@ -16,6 +18,7 @@ export type PrismaPlayer = Prisma.PlayerGetPayload<{
 
 export class Player {
     private id: string;
+    private userId: string;
     private username: string;
 
     private isAlive: boolean;
@@ -39,6 +42,7 @@ export class Player {
 
     constructor(game: Game, player: PrismaPlayer) {
         this.id = player.id;
+        this.userId = player.userId;
         this.username = player.username;
 
         if (player.cargo) {
@@ -71,13 +75,33 @@ export class Player {
         this.dadosExtra = JSON.parse(player.dadosExtra || "[]");
     }
 
-    public sendCarta(alvo: Player, mensagem: string): boolean {
-        // if (this.quantCartas > 0) {
-        //     this.cartas.push(new Carta(alvo.id, mensagem));
-        //     this.quantCartas--;
-        //     return true;
-        // }
-        return false;
+    public async processarMorte(game: Game) {
+        const cargo = this.getCargo();
+        if (!cargo) return;
+
+        if (cargo.getNome() === "Evangelista") {
+            const todosJogadores = await game.getPlayerManager().getAllPlayers();
+            if (!todosJogadores || todosJogadores.length === 0) {
+                console.error("Players não encontrados");
+                return;
+            }
+            
+            for (const player of todosJogadores) {
+                let dadosExtra = player.getDadosExtra();
+                
+                const dadosExtraMaldiçao = dadosExtra.find((m: any) => m.tipo === "IMPEDIDA_EVANGELHO" && m.evangelistaId === this.id);
+                
+                if (dadosExtraMaldiçao) {
+                    await HabilidadeDAO.updateHabilidade(dadosExtraMaldiçao.habilidadeId, { status: "ATIVA" });
+                    
+                    const novasMarcas = dadosExtra.filter((m: any) => m !== dadosExtraMaldiçao);
+                    await PlayerDAO.updatePlayer(player.userId, game.getGuildId(), { marcas: JSON.stringify(novasMarcas) });
+                    
+                    // await this.sendMensagemPlayer(player.userId, "🔔 O Evangelista faleceu! Sua habilidade perdida foi restaurada e pode ser usada novamente.");
+                    // checar se devo realmente avisar o player que ele possui sua habilidade denovo, provavel que não
+                }
+            }
+        }
     }
 
     public getAlinhamento(): string | undefined {

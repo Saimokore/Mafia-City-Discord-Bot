@@ -2,6 +2,17 @@ import { ButtonStyle, ActionRowBuilder, ButtonBuilder, EmbedBuilder } from "disc
 import { Game } from "./Game.js";
 import { Player } from "./Player/Player.js";
 import { PlayerDAO } from "./DAOs/PlayerDAO.js";
+import type { Prisma } from "@prisma/client";
+import { platform } from "node:os";
+
+export type PrismaPlayer = Prisma.PlayerGetPayload<{
+    include: {
+        cartas: true,
+        alertas: true,
+        habilidades: true,
+        itens: true
+    }
+}>;
 
 export class PlayerManager {
     private guildId: string;
@@ -66,12 +77,20 @@ export class PlayerManager {
         return cargo?.getProtecaoInata() || 0;
     }
 
-    public async loadPlayer(userId: string): Promise<Player | null> {
-        const player = await PlayerDAO.getPlayerById(userId, this.guildId);
+    public async getAllPlayers(): Promise<Player[] | null> {
+        const players = await PlayerDAO.getPlayers(this.guildId);
+        if (!players) return null;
+        return await players.map(p => new Player(this.game, p))
+    }
 
-        if (!player) return null;
-
-        return new Player(this.game, player);
+    public async loadPlayer(user: string | PrismaPlayer): Promise<Player | null> {
+        if (typeof user === "string") {
+            const player = await PlayerDAO.getPlayerById(user, this.guildId);
+            if (!player) return null;
+            return new Player(this.game, player);
+        } else {
+            return new Player(this.game, user);
+        }
     }
     
 }

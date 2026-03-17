@@ -165,7 +165,7 @@ export class Habilidade {
 
         if (poderAtaque >= playerAlvo.protecao) {
             console.log(`Alvo ${alvo} tem proteção inferior e pode ser atacado.`);
-            game.processarMortePlayer(alvo);
+            game.processarMortePlayer(alvo, action.userId);
             return true;
         } else {
             console.log(`Alvo ${alvo} tem proteção suficiente para resistir ao ataque.`);

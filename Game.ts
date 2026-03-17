@@ -184,12 +184,17 @@ export class Game {
         // deixar isso pra depois
     }
     
-    public async processarMortePlayer(jogadorMortoId: string): Promise<void> {
-        const jogadorMorto = await PlayerDAO.getPlayerById(jogadorMortoId, this.guildId);
+    public async processarMortePlayer(jogadorMortoId: string, quemAtacouId: string): Promise<void> {
+        const jogadorMorto = await this.playerManager.loadPlayer(jogadorMortoId);
         
         await PlayerDAO.updatePlayer(jogadorMortoId, this.guildId, { estaVivo: false });
         this.skillManager.criarAlerta(jogadorMortoId, "Você morreu!");
         
+        jogadorMorto.processarMorte()
+        if (jogadorMorto?.cargo) {
+            const cargoMorto = this.skillManager.getCargoInstance(jogadorMorto?.cargo)
+            cargoMorto.processarMorte();
+        }
         if (jogadorMorto?.cargo === "Evangelista") {
             const todosJogadores = await PlayerDAO.getPlayers(this.guildId);
             if (!todosJogadores || todosJogadores.length === 0) {

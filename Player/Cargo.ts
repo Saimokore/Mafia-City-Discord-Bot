@@ -1,10 +1,6 @@
 import * as Class from './Classe.js';
 import { Player } from './Player.js';
 import { Habilidade } from './Habilidade.js';
-import { Evangelho } from './Habilidades/Evangelho.js';
-import { PalavraDeDeus } from './Habilidades/PalavraDeDeus.js';
-import { Snipe } from './Habilidades/Snipe.js';
-import { ExecucaoPublica } from './Habilidades/ExecucaoPublica.js';
 
 export class Cargo {
     private nome: string;
