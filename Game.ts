@@ -195,35 +195,6 @@ export class Game {
         }
 
         return true;
-
-        // if (jogadorMorto?.cargo === "Evangelista") {
-        //     const todosJogadores = await PlayerDAO.getPlayers(this.guildId);
-        //     if (!todosJogadores || todosJogadores.length === 0) {
-        //         console.error("Players não encontrados");
-        //         return;
-        //     }
-            
-        //     for (const player of todosJogadores) {
-        //         let dadosExtra = JSON.parse(player.dadosExtra || "[]");
-
-        //         if (!Array.isArray(dadosExtra)) {
-        //             console.warn(`[Aviso] dadosExtra de ${jogadorMortoId} não era um array. Resetando para [].`);
-        //             dadosExtra = [];
-        //         }
-                
-        //         const dadosExtraMaldiçao = dadosExtra.find((m: any) => m.tipo === "IMPEDIDA_EVANGELHO" && m.evangelistaId === jogadorMortoId);
-                
-        //         if (dadosExtraMaldiçao) {
-        //             await HabilidadeDAO.updateHabilidade(dadosExtraMaldiçao.habilidadeId, { status: "ATIVA" });
-                    
-        //             const novasMarcas = dadosExtra.filter((m: any) => m !== dadosExtraMaldiçao);
-        //             await PlayerDAO.updatePlayer(player.userId, this.guildId, { marcas: JSON.stringify(novasMarcas) });
-                    
-        //             // await this.sendMensagemPlayer(player.userId, "🔔 O Evangelista faleceu! Sua habilidade perdida foi restaurada e pode ser usada novamente.");
-        //             // checar se devo realmente avisar o player que ele possui sua habilidade denovo, provavel que não
-        //         }
-        //     }
-        // }
     }
     
     public getPlayerManager(): PlayerManager {

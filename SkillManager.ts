@@ -57,7 +57,8 @@ export class SkillManager {
                 continue;
             }
             
-            await habilidade.usarHabilidade(this.game, action);
+            const sucesso = await habilidade.usarHabilidade(this.game, action)
+            await ActionDAO.updateAction(action.id, { sucesso: sucesso ? "SUCEDIDA" : "FALHA"});
         }
     }
     
@@ -91,13 +92,13 @@ export class SkillManager {
         await AlertaDAO.createAlerta(this.guildId, userId, await this.game.getEtapaAtual(), alerta)
     }
 
-    public async criarAction(userId: string, habilidade: string, alvos?: string[], parametros?: string): Promise<void> {
+    public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: string[], parametros?: string): Promise<void> {
         const partida = await PartidaDAO.getPartida(this.guildId);
         if (!partida) {
             console.error(`Partida não encontrada para guildId ${this.guildId}`);
             return;
         }
-        await ActionDAO.createAction(userId, this.guildId, partida.etapaAtual, habilidade, alvos, parametros);
+        await ActionDAO.createAction(userId, this.guildId, tipo, partida.etapaAtual, habilidadeId, alvos, parametros);
     }
 
     public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, nomeOferta: string, item?: string, parametros?: string): Promise<void> {

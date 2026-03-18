@@ -123,10 +123,6 @@ export class Player {
         return this.cargo;
     }
 
-    public isPlayerAlive(): boolean {
-        return this.isAlive;
-    }
-
     public getDistrito(): number {
         return this.distrito;
     }

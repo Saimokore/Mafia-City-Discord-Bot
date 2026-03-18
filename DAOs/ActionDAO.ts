@@ -9,12 +9,13 @@ const adapter = new PrismaBetterSqlite3({
 export const prisma = new PrismaClient({ adapter });
 
 export const ActionDAO = {
-    async createAction(userId: string, guildId: string, etapa: number, habilidadeId: string, alvoIds?: string[], parametrosAcao?: string) {
+    async createAction(userId: string, guildId: string, tipo: string, etapa: number, habilidadeId: string, alvoIds?: string[], parametrosAcao?: string) {
         return await prisma.action.create({
             data: {
                 userId,
                 guildId,
-                etapa: etapa,
+                tipo,
+                etapa,
                 alvos: {
                     create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
                 },
@@ -22,6 +23,17 @@ export const ActionDAO = {
                 parametrosAcao: parametrosAcao || null
             }
         });
+    },
+
+    async updateAction(id: string, dados: Prisma.ActionUpdateInput) {
+        try{
+            return await prisma.action.update({
+                where: { id },
+                data: dados
+            });
+        } catch (e) {
+            console.log("Erro ao atualizar action:", e);
+        }
     },
 
     async getActionsByEtapa(guildId: string, etapa: number) {

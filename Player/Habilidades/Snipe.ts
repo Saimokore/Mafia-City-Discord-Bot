@@ -22,20 +22,22 @@ export class Snipe extends Habilidade {
         super("Snipe", "Ofensiva", usos || 2, "Noite", ["Dormente"], status || "DISPONIVEL");
     }
 
-    public override async ativar(game: Game, action: PrismaAction): Promise<void> {
+    public override async ativar(game: Game, action: PrismaAction): Promise<boolean> {
         const parsedParams = JSON.parse(action.parametrosAcao || "{}");
         const acertouClasse = parsedParams.acertouClasse || false;
 
         const alvo = action.alvos[0]!.id;
         if (await this.atacarPlayer(game, alvo, action)) {
-            await game.getPlayerManager().criarAlerta(action.userId, "Matou o mano parabens");
+            await game.getSkillManager().criarAlerta(action.userId, "Matou o mano parabens");
             if (acertouClasse) {
                 // Devolve o uso
                 const valorUsoTotal = action.habilidade.uso + 1;
                 await HabilidadeDAO.updateHabilidade(action.habilidade.id, { uso: valorUsoTotal });
             }
+            return true;
         } else {
-            await game.getPlayerManager().criarAlerta(action.userId, "Nao matou o mano parabens");
+            await game.getSkillManager().criarAlerta(action.userId, "Nao matou o mano parabens");
+            return false;
         }
         
     }
@@ -137,7 +139,7 @@ export class Snipe extends Habilidade {
         }
 
         let parametrosAcao = {};
-        const cargo = game.getPlayerManager().getCargoInstance(jogadorAlvo.cargo!);
+        const cargo = game.getSkillManager().getCargoInstance(jogadorAlvo.cargo!);
         if (cargo?.getAlinhamento() === alinhamento) {
             //ataque vira poderoso
             parametrosAcao = { 
@@ -165,7 +167,7 @@ export class Snipe extends Habilidade {
             return interaction.reply({content: "Você usou não tem usos disponíveis dessa habilidade!"})
         }
 
-        await game.getPlayerManager().criarAction(emissorId, habilidade.id, [alvoId], JSON.stringify(parametrosAcao))
+        await game.getSkillManager().criarAction(emissorId, habilidade.id, this.getTipo(), [alvoId], JSON.stringify(parametrosAcao))
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

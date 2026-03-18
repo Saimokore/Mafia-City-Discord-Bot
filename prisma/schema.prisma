@@ -99,6 +99,9 @@ model Action {
   userId  String
   guildId String
 
+  tipo    String @default("") // Ofensiva, Instantanea...
+  sucesso String @default("PENDENTE") // PENDENTE, SUCEDIDA, FALHA
+
   etapa        Int
   habilidadeId String
   habilidade   Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)

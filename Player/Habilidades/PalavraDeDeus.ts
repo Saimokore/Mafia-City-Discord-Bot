@@ -18,14 +18,14 @@ export class PalavraDeDeus extends Habilidade {
         super("Palavra de Deus", "Ofensiva", 10000, "Noite", [], status || "DISPONIVEL");
     }
 
-     public override async ativar(game: Game, action: PrismaAction): Promise<void> {
+     public override async ativar(game: Game, action: PrismaAction): Promise<boolean> {
         const alvoId = action.alvos[0]!.id;
         if (!alvoId) {
             console.error(`Nenhum player encontrado para guildId ${game.getGuildId()}`);
-            return;
+            return false;
         }
         
-        this.atacarPlayer(game, alvoId, action);
+        return this.atacarPlayer(game, alvoId, action);
     }
 
     public override async resolverModal(interaction: ModalSubmitInteraction, game: Game, quemUsouId: string) {
@@ -59,20 +59,17 @@ export class PalavraDeDeus extends Habilidade {
 
         let dadosExtraEmissor = JSON.parse(emissorPlayer.dadosExtra || "[]");
 
-        if (!Array.isArray(dadosExtraEmissor)) {
-            console.warn(`[Aviso] dadosExtra de ${quemUsouId} não era um array. Resetando para [].`);
-            dadosExtraEmissor = [];
-        }
-        
         let index = dadosExtraEmissor.findIndex((d: any) => d.tipo === "ALVOS_RECUSADOS");
-
+        if (index === -1) {
+            return interaction.reply({ content: "Você ainda não tem alvos que recusaram o arrependimento!" });
+        }
         const listaAlvos = dadosExtraEmissor[index].alvos;
         
         if (!listaAlvos.includes(alvoId)) {
             return interaction.reply({ content: "Alvo não recusou \"Arrependimento\", use a habilidade evangelho primeiro!"})
         }
         
-        await ActionDAO.createAction(quemUsouId, game.getGuildId(), await game.getEtapaAtual(), habilidade!.id, [alvoId]);
+        await ActionDAO.createAction(quemUsouId, game.getGuildId(), this.getTipo(), await game.getEtapaAtual(), habilidade!.id, [alvoId]);
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

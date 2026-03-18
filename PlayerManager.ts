@@ -66,7 +66,9 @@ export class PlayerManager {
     }
 
     public async storeDadosExtra(player: Player, dados: DadoExtra) {
-        const dadosExtra = player.getDadosExtra().push(dados);
+        //dados deve estar em {}
+        const dadosExtra = player.getDadosExtra();
+        dadosExtra.push(dados);
         await PlayerDAO.updatePlayer(player.getId(), this.game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
     }
 

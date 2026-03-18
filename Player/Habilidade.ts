@@ -1,4 +1,4 @@
-import { StringSelectMenuInteraction,ModalBuilder, LabelBuilder, UserSelectMenuBuilder, ModalSubmitInteraction } from 'discord.js';
+import { StringSelectMenuInteraction,ModalBuilder, LabelBuilder, UserSelectMenuBuilder, ModalSubmitInteraction, type Interaction } from 'discord.js';
 import { Game } from '../Game.js';
 import { PlayerDAO } from '../DAOs/PlayerDAO.js';
 import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
@@ -28,7 +28,7 @@ export class Habilidade {
         this.status = status || "DISPONIVEL";
     }
 
-    public async usarHabilidade(game: Game, action: PrismaAction): Promise<string | void> {
+    public async usarHabilidade(game: Game, action: PrismaAction): Promise<boolean> {
         // Custo padrão é 1
         const custo = action.parametrosAcao ? this.getCustoUso(action.parametrosAcao) : 1;
         const habilidade = action.habilidade;
@@ -37,7 +37,7 @@ export class Habilidade {
         const valorUsoTotal = habilidade.uso - custo;
         await HabilidadeDAO.updateHabilidade(habilidade.id, { uso: valorUsoTotal });
 
-        await this.ativar(game, action);
+        return await this.ativar(game, action);
     }
 
     public getCustoUso(parametros: string): number {
@@ -46,7 +46,7 @@ export class Habilidade {
         return custo;
     }
 
-    public async ativar(game: Game, action: PrismaAction): Promise<string | void> {}
+    public async ativar(game: Game, action: PrismaAction): Promise<boolean> {return false;}
 
     public async ofertar(game: Game, emissorId: string, alvos: string[], nomeOferta: string, item?: string, parametros?: string): Promise<void> {
         console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvos.join(", ")} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
@@ -121,7 +121,7 @@ export class Habilidade {
         }
         const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
 
-        await game.getSkillManager().criarAction(emissorId, habilidade!.id, [selectValue]);
+        await game.getSkillManager().criarAction(emissorId, habilidade!.id, this.tipo, [selectValue]);
         console.log("Modal submetido, alvo:", selectValue);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

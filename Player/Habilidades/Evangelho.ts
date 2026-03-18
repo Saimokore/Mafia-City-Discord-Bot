@@ -4,6 +4,7 @@ import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import type { Game } from "../../Game.js";
 import { Habilidade } from "../Habilidade.js";
 import { Prisma } from '@prisma/client';
+import type { DadoExtra, DadoImpedidaEvangelho } from "../Tipos.js";
 
 export type PrismaAction = Prisma.ActionGetPayload<{
     include: {
@@ -17,11 +18,12 @@ export class Evangelho extends Habilidade {
         super("Evangelho", "Comunicacao", usos || 10000, "Dia", [], status || "DISPONIVEL");
     }
 
-    public override async ativar(game: Game, action: PrismaAction): Promise<void> {
+    public override async ativar(game: Game, action: PrismaAction): Promise<boolean> {
         const alvosId = action.alvos.map(a => a.id);
 
         await this.ofertar(game, action.userId, action.alvos.map(a => a.id), "Arrependimento");
         console.log(`Habilidade ${this.getNome()} usada por ${action.userId} com alvo ${alvosId}.`);
+        return true;
     }
 
     public override async resolverOferta(game: Game, ofertaId: string): Promise<void> {
@@ -57,12 +59,12 @@ export class Evangelho extends Habilidade {
                 if (habId) {
                     await HabilidadeDAO.updateHabilidade(habId, { status: "IMPEDIDA" });
 
-                    const dados = {
+                    const dados: DadoImpedidaEvangelho = {
                         tipo: "IMPEDIDA_EVANGELHO",
                         habilidadeId: habId,
-                        evangelistaId: emissor
+                        evangelistaId: emissor.getId()
                     }
-                    await game.getPlayerManager().storeDadosExtra(emissor, JSON.stringify(dados))
+                    await game.getPlayerManager().storeDadosExtra(emissor, dados)
                     
                     game.sendMensagemPlayer(alvo, "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer.");
                 }
@@ -83,24 +85,25 @@ export class Evangelho extends Habilidade {
 
         let dadosExtraAlvos = dadosExtraEmissor.find(m => m.tipo === "ALVOS_RECUSADOS");
 
-        if (index === -1) {
-            dadosExtraEmissor.push({ tipo: "ALVOS_RECUSADOS", alvos: [] });
-            index = dadosExtraEmissor.length - 1;
-        }
-
-        const listaAlvos = dadosExtraEmissor[index]!.alvos;
-        const alvoJaEstaNaLista = listaAlvos.includes(alvo);
-
-        if (!aceitou) {
-            if (!alvoJaEstaNaLista) {
-                listaAlvos.push(alvo);
+        if (!dadosExtraAlvos || dadosExtraAlvos.tipo != "ALVOS_RECUSADOS") {
+            if (!aceitou) {
+                dadosExtraEmissor.push({ tipo: "ALVOS_RECUSADOS", alvos: [alvo] });
             }
         } else {
-            if (alvoJaEstaNaLista) {
-                dadosExtraEmissor[index].alvos = listaAlvos.filter((a: string) => a !== alvo);
+            const listaAlvos = dadosExtraAlvos.alvos;
+            const alvoJaEstaNaLista = listaAlvos.includes(alvo);
+    
+            if (!aceitou) {
+                if (!alvoJaEstaNaLista) {
+                    listaAlvos.push(alvo);
+                }
+            } else {
+                if (alvoJaEstaNaLista) {
+                    dadosExtraAlvos.alvos = listaAlvos.filter((a: string) => a !== alvo);
+                }
             }
+    
+            await PlayerDAO.updatePlayer(emissor, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtraEmissor) });
         }
-
-        await PlayerDAO.updatePlayer(emissor, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtraEmissor) });
     }
 }

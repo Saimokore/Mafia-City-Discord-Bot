@@ -22,8 +22,8 @@ export class ExecucaoPublica extends Habilidade {
         super("ExecucaoPublica", "Instantanea", usos || 1, "Dia", ["Astral", "Instantanea", "Especial"], status || "DISPONIVEL");
     }
 
-    public override async ativar(game: Game, action: PrismaAction): Promise<void> {
-        
+    public override async ativar(game: Game, action: PrismaAction): Promise<boolean> {
+        return false;
     }
 
     public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
@@ -131,7 +131,7 @@ export class ExecucaoPublica extends Habilidade {
 
         const habId = await game.getSkillManager().getHabilidadeId(habilidade, emissor.getId());
 
-        await game.getSkillManager().criarAction(emissorId, habId, [alvoId])
+        await game.getSkillManager().criarAction(emissorId, habId, this.getTipo(), [alvoId])
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

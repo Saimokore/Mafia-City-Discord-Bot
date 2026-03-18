@@ -21,8 +21,8 @@ export class HabilidadeT extends Habilidade {
         super("NomeHabilidade", "Ofensiva", usos || 2, "Noite", ["Dormente"], status || "DISPONIVEL");
     }
 
-    public override async ativar(game: Game, action: PrismaAction): Promise<void> {
-        
+    public override async ativar(game: Game, action: PrismaAction): Promise<boolean> {
+        return false;
     }
 
     public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
@@ -80,7 +80,7 @@ export class HabilidadeT extends Habilidade {
         }
         const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
 
-        await game.getSkillManager().criarAction(emissorId, habilidade!.id, [alvoId])
+        await game.getSkillManager().criarAction(emissorId, habilidade!.id, this.getTipo(), [alvoId])
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }
