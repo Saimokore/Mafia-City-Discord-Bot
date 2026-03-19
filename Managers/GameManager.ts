@@ -1,12 +1,10 @@
 import { ChannelType, Client, PermissionFlagsBits, TextChannel, User } from "discord.js";
 import { PlayerManager } from "./PlayerManager.js";
-import { Partida } from "./Player/Partida.js";
-import { PartidaDAO } from "./DAOs/PartidaDAO.js";
-import { PlayerDAO } from "./DAOs/PlayerDAO.js";
-import { HabilidadeDAO } from "./DAOs/HabilidadeDAO.js";
-import { GuildConfigDAO } from "./DAOs/GuildConfigDAO.js";
-import { ActionDAO } from "./DAOs/ActionDAO.js";
-import { OfertaDAO } from "./DAOs/OfertaDAO.js";
+import { Partida } from "../Player/Partida.js";
+import { PartidaDAO } from "../DAOs/PartidaDAO.js";
+import { PlayerDAO } from "../DAOs/PlayerDAO.js";
+import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
+import { GuildConfigDAO } from "../DAOs/GuildConfigDAO.js";
 import { SkillManager } from "./SkillManager.js";
 
 export class Game {
@@ -26,7 +24,7 @@ export class Game {
         this.playerManager = new PlayerManager(this.guildId, this);
         this.skillManager = new SkillManager(this.guildId, this);
         
-        this.cargoList = ["Evangelista", "Atirador de Elite", "Xerife", "Bigode"];
+        this.cargoList = ["Evangelista", "Atirador_de_elite", "Xerife", "Bigode"];
     }
 
     // ==========================================
@@ -48,7 +46,7 @@ export class Game {
             await this.criarChatPlayer(`chat-${p.username}`, p.userId);
             
             // const cargo = cargosDistribuidos.pop();
-            const cargo = "Evangelista";
+            const cargo = "Atirador_de_elite";
             if (!cargo) {
                 console.error("Cargo não encontrado (IniciarJogo)")
                 return;
@@ -63,8 +61,6 @@ export class Game {
             }
             
             await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
-            
-            const player = await this.playerManager.loadPlayer(p.userId)
         }
 
         this.avancarEtapa();

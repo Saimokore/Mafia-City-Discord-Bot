@@ -1,5 +1,5 @@
 import { LabelBuilder, ModalBuilder, ModalSubmitInteraction, UserSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
-import type { Game } from "../../Game.js";
+import { Game } from '../../Managers/GameManager.js';
 import { Habilidade } from "../Habilidade.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import { Prisma } from '@prisma/client';

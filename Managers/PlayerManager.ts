@@ -1,10 +1,11 @@
 import { ButtonStyle, ActionRowBuilder, ButtonBuilder, EmbedBuilder } from "discord.js";
-import { Game } from "./Game.js";
-import { Player } from "./Player/Player.js";
-import { PlayerDAO } from "./DAOs/PlayerDAO.js";
+import { Game } from "./GameManager.js";
+import { Player } from "../Player/Player.js";
+import { PlayerDAO } from "../DAOs/PlayerDAO.js";
 import type { Prisma } from "@prisma/client";
 import { platform } from "node:os";
-import type { DadoExtra } from "./Player/Tipos.js";
+import type { DadoExtra } from "../Player/Tipos.js";
+import type { Habilidade } from "../Player/Habilidade.js";
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{
     include: {
@@ -61,7 +62,7 @@ export class PlayerManager {
                 console.error("Player não encontrado: " + p.id);
                 continue;
             }
-            this.game.sendMensagemPlayer(p.id, player.getStatus());
+            this.game.sendMensagemPlayer(p.userId, player.getStatus());
         }
     }
 
@@ -84,6 +85,11 @@ export class PlayerManager {
         const players = await PlayerDAO.getPlayers(this.guildId);
         if (!players) return null;
         return await players.map(p => new Player(this.game, p))
+    }
+
+    public async getHabilidadePlayer(playerId: string, nomeHabilidade: string): Promise<Habilidade | undefined> {
+        const player = await this.loadPlayer(playerId);
+        return player?.getHabilidade(nomeHabilidade);
     }
 
     public async loadPlayer(user: string | PrismaPlayer): Promise<Player | null> {

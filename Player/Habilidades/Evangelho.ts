@@ -1,7 +1,7 @@
 import { HabilidadeDAO } from "../../DAOs/HabilidadeDAO.js";
 import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
-import type { Game } from "../../Game.js";
+import { Game } from '../../Managers/GameManager.js';
 import { Habilidade } from "../Habilidade.js";
 import { Prisma } from '@prisma/client';
 import type { DadoExtra, DadoImpedidaEvangelho } from "../Tipos.js";

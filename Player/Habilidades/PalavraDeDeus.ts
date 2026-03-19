@@ -1,6 +1,6 @@
 import { MessageFlags, type ModalSubmitInteraction } from "discord.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
-import type { Game } from "../../Game.js";
+import { Game } from '../../Managers/GameManager.js';
 import { Habilidade } from "../Habilidade.js";
 import { ActionDAO } from "../../DAOs/ActionDAO.js";
 import { Prisma } from '@prisma/client';

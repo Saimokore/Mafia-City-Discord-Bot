@@ -1,5 +1,5 @@
 import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder, MessageFlags, ButtonBuilder, EmbedBuilder } from 'discord.js';
-import { Game } from './Game.js';
+import { Game } from './Managers/GameManager.js';
 import * as dotenv from 'dotenv';
 import { channel } from 'node:diagnostics_channel';
 import { GuildConfigDAO } from './DAOs/GuildConfigDAO.js';
@@ -314,15 +314,17 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.isStringSelectMenu() && interaction.customId === 'select_habilidade_inicial') {
         const nomeHabilidade = interaction.values[0];
+        const userId = interaction.user.id;
         if (!nomeHabilidade) {
             await interaction.update({ content: "Habilidade inválida selecionada.", components: [] });
             return;
         }
         
-        const habilidadeInstance = game.getSkillManager().getHabilidadeInstance(nomeHabilidade);
+        const habilidadeInstance = await game.getPlayerManager().getHabilidadePlayer(userId, nomeHabilidade);
+        if (!habilidadeInstance) return;
 
         if (habilidadeInstance) {
-            const modal = await habilidadeInstance.buildModal(interaction, game, interaction.user.id);
+            const modal = await habilidadeInstance.buildModal(interaction, game, userId);
             if (!modal) {
                 console.error("Erro ao construir o modal para a habilidade:", nomeHabilidade);
                 return;
@@ -426,13 +428,7 @@ client.on('interactionCreate', async interaction => {
             return;
         }
 
-        if (habilidade.uso <= 0 || habilidade.status === "IMPEDIDA") {
-            console.log("Habilidade " + habilidade.nome + " impedida");
-            interaction.reply("Sua habilidade está impedida!");
-            return;
-        }
-
-        const habilidadeInstance = game.getSkillManager().getHabilidadeInstance(nomeHabilidade);
+        const habilidadeInstance = await game.getPlayerManager().getHabilidadePlayer(interaction.user.id, nomeHabilidade);
         if (!habilidadeInstance) {
             console.error("Habilidade não encontrada para o modal submetido:", nomeHabilidade);
             await interaction.reply({ content: "Habilidade não encontrada. Tente novamente.", flags: MessageFlags.Ephemeral });

@@ -1,8 +1,9 @@
 import { StringSelectMenuInteraction,ModalBuilder, LabelBuilder, UserSelectMenuBuilder, ModalSubmitInteraction, type Interaction } from 'discord.js';
-import { Game } from '../Game.js';
+import { Game } from '../Managers/GameManager.js';
 import { PlayerDAO } from '../DAOs/PlayerDAO.js';
 import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
 import { Prisma } from '@prisma/client';
+import type { Player } from './Player.js';
 
 export type PrismaAction = Prisma.ActionGetPayload<{
     include: {
@@ -12,6 +13,7 @@ export type PrismaAction = Prisma.ActionGetPayload<{
 }>;
 
 export class Habilidade {
+    private id?: string;
     private nome: string;
     private tipo: string;
     private status: string;
@@ -26,6 +28,76 @@ export class Habilidade {
         this.etapa = etapa || "Dia";
         this.modificadores = modificadores ||  [];
         this.status = status || "DISPONIVEL";
+    }
+
+    public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
+
+        const modal = new ModalBuilder()
+            .setCustomId('skill_modal_' + this.getNome())
+            .setTitle('Usando habilidade: ' + this.getNome());
+
+        const targetLabel = new LabelBuilder()
+            .setLabel('Quem é o alvo?')
+            .setUserSelectMenuComponent(
+                new UserSelectMenuBuilder()
+                    .setCustomId(`select_${this.getNome()}`)
+                    .setPlaceholder('Selecione o seu alvo...')
+                    .setMinValues(1)
+                    .setMaxValues(1)
+            )
+
+        modal.addLabelComponents(targetLabel);
+        
+        return modal;
+    }
+
+    public async resolverModal(interaction: ModalSubmitInteraction, game: Game, emissorId: string) {
+        // Tenta pegar o valor das duas formas usadas no seu código
+        const selectedUsers = interaction.fields.getSelectedUsers(`select_${this.getNome()}`) 
+                           || interaction.fields.getSelectedUsers(`select_target_${this.getNome()}`);
+        
+        const alvoId = selectedUsers?.firstKey()?.toString();
+
+        if (!alvoId) {
+            return interaction.reply({ content: "❌ **Erro:** Nenhum alvo selecionado." });
+        }
+
+        const jogadorAlvo = await game.getPlayerManager().loadPlayer(alvoId);
+        if (!jogadorAlvo) {
+            return interaction.reply({ content: "❌ **Erro:** Esse usuário não está participando da partida atual!" });
+        }
+
+        if (!jogadorAlvo.estaVivo()) {
+            return interaction.reply({ content: "👻 **Erro:** Você só pode mirar em jogadores vivos." });
+        }
+
+        if (alvoId === interaction.user.id && !this.permiteAutoUso()) {
+            return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
+        }
+
+        const emissor = await game.getPlayerManager().loadPlayer(emissorId);
+        if (!emissor) {
+            return interaction.reply({ content: "❌ **Erro:** Emissor não encontrado. Contate o host." });
+        }
+
+        const habilidade = emissor.getHabilidades()?.find(hab => hab.getNome() === this.getNome());
+        if (!habilidade) {
+            return interaction.reply({ content: "❌ **Erro:** Você não possui essa habilidade." });
+        }
+
+        return await this.processarUsoModal(interaction, game, emissor, jogadorAlvo, habilidade);
+    }
+
+    protected async processarUsoModal( interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade) {
+        // cria a ação genérica e responde
+        const habId = await game.getSkillManager().getHabilidadeId(this, emissor.getId());
+        await game.getSkillManager().criarAction(emissor.getId(), habId, this.tipo, [alvo.getId()]);
+        
+        return interaction.reply({ content: `Habilidade **${this.getNome()}** usada com sucesso!` });
+    }
+
+    protected permiteAutoUso(): boolean {
+        return false; // checa se a habilidade pode se usar em si mesma
     }
 
     public async usarHabilidade(game: Game, action: PrismaAction): Promise<boolean> {
@@ -62,69 +134,6 @@ export class Habilidade {
 
     public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
 
-    public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
-
-        const modal = new ModalBuilder()
-            .setCustomId('skill_modal_' + this.getNome())
-            .setTitle('Usando habilidade: ' + this.getNome());
-
-        const targetLabel = new LabelBuilder()
-            .setLabel('Quem é o alvo?')
-            .setUserSelectMenuComponent(
-                new UserSelectMenuBuilder()
-                    .setCustomId(`select_${this.getNome()}`)
-                    .setPlaceholder('Selecione o seu alvo...')
-                    .setMinValues(1)
-                    .setMaxValues(1)
-            )
-
-        modal.addLabelComponents(targetLabel);
-        
-        return modal;
-    }
-
-    public async resolverModal(interaction: ModalSubmitInteraction, game: Game, emissorId: string) {
-        const selectedUsers = interaction.fields.getSelectedUsers(`select_${this.getNome()}`);
-        const selectValue = selectedUsers?.firstKey()?.toString(); // pega o primeiro, se tiver mais de um temos que fazer um map
-
-        console.log("selectvalue: " + selectValue)
-        if (!selectValue) {
-            console.error("Select value não encontrado");
-            return interaction.reply({content: "Nenhum valor selecionado"});
-        }
-
-        const jogadorAlvo = await PlayerDAO.getPlayerById(selectValue, game.getGuildId());
-        console.log("jogadorAlvo: " + jogadorAlvo?.id)
-        if (!jogadorAlvo) {
-            return interaction.reply({ content: "❌ **Erro:** Esse usuário não está participando da partida atual!" });
-        }
-
-        if (!jogadorAlvo.estaVivo) {
-            return interaction.reply({ content: "👻 **Erro:** Você só pode mirar em jogadores vivos." });
-        }
-
-        if (selectValue === interaction.user.id) {
-            // mudar dependendo da habilidade
-            // return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
-        }
-
-        // const inputValues = interaction.fields.getTextInputValue('input');
-        const partida = await game.getPartida();
-        if (!partida) {
-            console.error("Partida não encontrada modal");
-            return interaction.reply({content: "Erro, contate o host do jogo"});
-        }
-        const emissor = await PlayerDAO.getPlayerById(emissorId, game.getGuildId());
-        if (!emissor) {
-            console.error("Player não encontrado modal");
-            return interaction.reply({content: "Erro, contate o host do jogo"});
-        }
-        const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
-
-        await game.getSkillManager().criarAction(emissorId, habilidade!.id, this.tipo, [selectValue]);
-        console.log("Modal submetido, alvo:", selectValue);
-        return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
-    }
 
     protected async visitarPlayer(game: Game, alvo: string, alertado: boolean): Promise<void> {
         if (alertado) {
@@ -176,8 +185,20 @@ export class Habilidade {
         }
     }
 
+    public getId(): string | undefined {
+        return this.id;
+    }
+
+    public setId(id: string): void {
+        this.id = id;
+    }
+
     public getNome(): string {
         return this.nome;
+    }
+
+    public getStatus(): string {
+        return this.status;
     }
 
     public getEtapa(): string {
@@ -188,9 +209,6 @@ export class Habilidade {
     }
     
     public getUso(): number {
-        if (this.uso === undefined) {
-            throw new Error("Habilidade não possui uso definido.");
-        }
         return this.uso;
     }
 

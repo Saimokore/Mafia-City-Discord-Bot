@@ -10,19 +10,23 @@ export const prisma = new PrismaClient({ adapter });
 
 export const ActionDAO = {
     async createAction(userId: string, guildId: string, tipo: string, etapa: number, habilidadeId: string, alvoIds?: string[], parametrosAcao?: string) {
-        return await prisma.action.create({
-            data: {
-                userId,
-                guildId,
-                tipo,
-                etapa,
-                alvos: {
-                    create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
-                },
-                habilidadeId,
-                parametrosAcao: parametrosAcao || null
-            }
-        });
+        try {
+            return await prisma.action.create({
+                data: {
+                    userId,
+                    guildId,
+                    tipo,
+                    etapa,
+                    alvos: {
+                        create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
+                    },
+                    habilidadeId,
+                    parametrosAcao: parametrosAcao || null
+                }
+            });
+        } catch (e) {
+            console.log("Erro ao criar action:", e);
+        }
     },
 
     async updateAction(id: string, dados: Prisma.ActionUpdateInput) {

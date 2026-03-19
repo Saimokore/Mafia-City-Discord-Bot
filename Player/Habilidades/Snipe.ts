@@ -1,9 +1,10 @@
-import { LabelBuilder, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuInteraction, UserSelectMenuBuilder } from "discord.js";
-import type { Game } from "../../Game.js";
+import { InteractionResponse, LabelBuilder, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuInteraction, UserSelectMenuBuilder } from "discord.js";
+import { Game } from '../../Managers/GameManager.js';
 import { Habilidade } from "../Habilidade.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import { Prisma } from '@prisma/client';
 import { HabilidadeDAO } from "../../DAOs/HabilidadeDAO.js";
+import type { Player } from "../Player.js";
 
 export type PrismaAction = Prisma.ActionGetPayload<{
     include: {
@@ -26,7 +27,7 @@ export class Snipe extends Habilidade {
         const parsedParams = JSON.parse(action.parametrosAcao || "{}");
         const acertouClasse = parsedParams.acertouClasse || false;
 
-        const alvo = action.alvos[0]!.id;
+        const alvo = action.alvos[0]!.alvoId;
         if (await this.atacarPlayer(game, alvo, action)) {
             await game.getSkillManager().criarAlerta(action.userId, "Matou o mano parabens");
             if (acertouClasse) {
@@ -91,7 +92,7 @@ export class Snipe extends Habilidade {
                         value: "Mafia_Assassino"
                     },
                     {
-                        label: "Mafia Disrupcao",
+                        label: "Mafia Disrupção",
                         value: "Mafia_Disrupcao"
                     },
                     {
@@ -112,11 +113,7 @@ export class Snipe extends Habilidade {
         const selectedClass = interaction.fields.getStringSelectValues(`select_classe_${this.getNome()}`)
 
         const partesClass = selectedClass[0]!.split('_');
-        const alinhamento = partesClass[0];
-        const classe = partesClass[1];
-        const custoAcao = 1;
-
-        let poderAtaque = 0;
+        
 
         const alvoId = selectedUsers?.firstKey()?.toString(); // pega o primeiro, se tiver mais de um temos que fazer um map
         if (!alvoId) return interaction.reply({content: "Nenhum valor selecionado"});
@@ -138,8 +135,19 @@ export class Snipe extends Habilidade {
             // return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
         }
 
+        
+    }
+
+    protected override async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade): Promise<InteractionResponse<boolean>> {
+        const selectedClass = interaction.fields.getStringSelectValues(`select_classe_${this.getNome()}`)
+        
+        const partesClass = selectedClass[0]!.split('_');
+        const alinhamento = partesClass[0];
+        const classe = partesClass[1];
+        const custoAcao = 1;
+        
         let parametrosAcao = {};
-        const cargo = game.getSkillManager().getCargoInstance(jogadorAlvo.cargo!);
+        const cargo = alvo.getCargo();
         if (cargo?.getAlinhamento() === alinhamento) {
             //ataque vira poderoso
             parametrosAcao = { 
@@ -155,19 +163,14 @@ export class Snipe extends Habilidade {
             }
         }
 
-        const emissor = await PlayerDAO.getPlayerById(emissorId, game.getGuildId());
-        if (!emissor) {
-            console.error("Player não encontrado modal");
-            return interaction.reply({content: "Erro, contate o host do jogo"});
-        }
-        const habilidade = emissor.habilidades.find(hab => hab.nome === this.getNome());
+        const habilidade = emissor.getHabilidades()?.find(hab => hab.getNome() === this.getNome());
         if (!habilidade) return interaction.reply({content: "Erro, ao achar habilidade contate o host do jogo"});
 
-        if (habilidade.uso < custoAcao) {
-            return interaction.reply({content: "Você usou não tem usos disponíveis dessa habilidade!"})
+        if (habilidade.getUso() < custoAcao) {
+            return interaction.reply({content: "Você não tem usos disponíveis dessa habilidade!"})
         }
 
-        await game.getSkillManager().criarAction(emissorId, habilidade.id, this.getTipo(), [alvoId], JSON.stringify(parametrosAcao))
+        await game.getSkillManager().criarAction(emissor.getUserId(), habilidade., this.getTipo(), [alvoId], JSON.stringify(parametrosAcao))
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

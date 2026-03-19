@@ -1,14 +1,13 @@
 import * as Class from './Classe.js';
 import { Player } from './Player.js';
 import { Habilidade } from './Habilidade.js';
-import type { Game } from '../Game.js';
+import { Game } from '../Managers/GameManager.js';
 import { PlayerDAO } from '../DAOs/PlayerDAO.js';
 import { Evangelho } from './Habilidades/Evangelho.js';
 import { PalavraDeDeus } from './Habilidades/PalavraDeDeus.js';
 import { Snipe } from './Habilidades/Snipe.js';
 import { ExecucaoPublica } from './Habilidades/ExecucaoPublica.js';
 import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
-import type { DadoImpedidaEvangelho } from './Tipos.js';
 
 export class Cargo {
     private nome: string;

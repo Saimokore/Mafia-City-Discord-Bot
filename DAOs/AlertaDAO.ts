@@ -10,13 +10,31 @@ export const prisma = new PrismaClient({ adapter });
 
 export const AlertaDAO = {
     async createAlerta(guildId: string, userId: string, etapa: number, alerta: string) {
-        return await prisma.alerta.create({
-            data: {
-                guildId,
-                userId,
-                etapa,
-                alerta
+        try {
+            const playerExists = await prisma.player.findUnique({
+                where: {
+                    guildId_userId: { 
+                        guildId: guildId,
+                        userId: userId
+                    }
+                }
+            });
+
+            if (!playerExists) {
+                console.error(`Falha ao criar alerta: Jogador com userId ${userId} não existe na guild ${guildId}.`);
+                return null; 
             }
-        });
+
+            return await prisma.alerta.create({
+                data: {
+                    guildId,
+                    userId,
+                    etapa,
+                    alerta
+                }
+            });
+        } catch (e) {
+            console.log("Erro ao criar alerta:", e);
+        }
     },
 }

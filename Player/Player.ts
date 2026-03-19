@@ -1,11 +1,9 @@
-import { Game } from "../Game.js";
+import { Game } from '../Managers/GameManager.js';
 import { Cargo } from "./Cargo.js";
 import { Habilidade } from "./Habilidade.js";
 import { Carta } from "./Carta.js";
 import { Alerta } from "./Alerta.js";
 import { Prisma } from '@prisma/client';
-import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
-import { PlayerDAO } from "../DAOs/PlayerDAO.js";
 import type { DadoExtra } from "./Tipos.js";
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{
@@ -49,7 +47,7 @@ export class Player {
 
         if (player.cargo) {
             const habilidades = player.habilidades
-                .map(h => game.getSkillManager().getHabilidadeInstance(h.nome, h.uso, h.status))
+                .map(h => game.getSkillManager().getHabilidadeInstance(h.nome, h.id, h.uso, h.status))
                 .filter(h => h !== null);
             this.cargo = game.getSkillManager().getCargoInstance(player.cargo, habilidades) || null;
         } else {
@@ -91,7 +89,11 @@ export class Player {
         Alertas: ${this.alertas.map(a => a.getAlerta()).join(", ") || "Nenhum"}`;
     }
 
-    public getHabilidades() {
+    public getHabilidade(nome: string): Habilidade | undefined {
+        return this.getHabilidades()?.find(h => h.getNome() === nome);
+    }
+
+    public getHabilidades(): Habilidade[] | undefined {
         return this.cargo?.getHabilidades();
     }
 

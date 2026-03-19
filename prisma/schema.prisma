@@ -57,7 +57,7 @@ model Player {
   actions     Action[]
   ofertas     Oferta[]
 
-  dadosExtra  String @default("{}") // JSON string com dados específicos do cargo (ex: número de vezes que usou a habilidade) extremamente importante
+  dadosExtra String @default("{}") // JSON string com dados específicos do cargo (ex: número de vezes que usou a habilidade) extremamente importante
 
   protecao    Int @default(0) // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
   quantCartas Int @default(3)
@@ -81,6 +81,8 @@ model Alerta {
   criadoEm DateTime @default(now())
 
   player Player @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
+
+  @@unique([guildId, userId, etapa, alerta])
 }
 
 model Carta {
@@ -105,7 +107,7 @@ model Action {
   etapa        Int
   habilidadeId String
   habilidade   Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
-  alvos         Alvo[]
+  alvos        Alvo[]
 
   parametrosAcao String? // JSON string com parâmetros específicos da ação (ex: número de vezes que usou a habilidade) mt importante
 
@@ -152,7 +154,7 @@ model Item {
   userId  String
   guildId String
 
-  player  Player   @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
+  player Player @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
 
   @@unique([guildId, userId, nome, etapa])
 }
@@ -168,7 +170,7 @@ model Oferta {
   item       String?
   habilidade String
   parametros String? // JSON string com parâmetros específicos da oferta (ex: número de vezes que usou a habilidade) mt importante
-  status     String @default("PENDENTE") // PENDENTE, ACEITA, RECUSADA
+  status     String  @default("PENDENTE") // PENDENTE, ACEITA, RECUSADA
   etapa      Int
 
   criadoEm DateTime @default(now())
