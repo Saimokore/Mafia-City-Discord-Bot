@@ -6,6 +6,7 @@ import { PlayerDAO } from "../DAOs/PlayerDAO.js";
 import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
 import { GuildConfigDAO } from "../DAOs/GuildConfigDAO.js";
 import { SkillManager } from "./SkillManager.js";
+import { Player } from "../Player/Player.js";
 
 export class Game {
     private guildId: string;
@@ -180,9 +181,9 @@ export class Game {
         // deixar isso pra depois
     }
     
-    public async processarMortePlayer(jogadorMortoId: string, quemAtacouId: string): Promise<boolean> {
-        const jogadorMorto = await this.playerManager.loadPlayer(jogadorMortoId);
-        const jogadorAssassino = await this.playerManager.loadPlayer(quemAtacouId);
+    public async processarMortePlayer(jogadorMortoId: string | Player, quemAtacouId: string | Player): Promise<boolean> {
+        const jogadorMorto =  jogadorMortoId instanceof Player ? jogadorMortoId : await this.playerManager.loadPlayer(jogadorMortoId);
+        const jogadorAssassino = quemAtacouId instanceof Player ? quemAtacouId : await this.playerManager.loadPlayer(quemAtacouId);
         if (!jogadorMorto || !jogadorAssassino) return false;
         
         const cargo = jogadorMorto.getCargo();

@@ -73,14 +73,6 @@ export class PlayerManager {
         await PlayerDAO.updatePlayer(player.getId(), this.game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
     }
 
-    public async getPlayerProtection(userId: string): Promise<number> {
-        const player = await PlayerDAO.getPlayerById(userId, this.guildId);
-        if (!player || !player.cargo) return 0;
-
-        const cargo = this.game.getSkillManager().getCargoInstance(player.cargo);
-        return cargo?.getProtecaoInata() || 0;
-    }
-
     public async getAllPlayers(): Promise<Player[] | null> {
         const players = await PlayerDAO.getPlayers(this.guildId);
         if (!players) return null;

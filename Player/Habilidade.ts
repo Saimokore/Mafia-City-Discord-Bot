@@ -2,15 +2,8 @@ import { StringSelectMenuInteraction,ModalBuilder, LabelBuilder, UserSelectMenuB
 import { Game } from '../Managers/GameManager.js';
 import { PlayerDAO } from '../DAOs/PlayerDAO.js';
 import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
-import { Prisma } from '@prisma/client';
 import type { Player } from './Player.js';
-
-export type PrismaAction = Prisma.ActionGetPayload<{
-    include: {
-        alvos: true,
-        habilidade: true
-    }
-}>;
+import type { Action } from './Actions.js';
 
 export class Habilidade {
     private id?: string;
@@ -90,8 +83,8 @@ export class Habilidade {
 
     protected async processarUsoModal( interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade) {
         // cria a ação genérica e responde
-        const habId = await game.getSkillManager().getHabilidadeId(this, emissor.getId());
-        await game.getSkillManager().criarAction(emissor.getId(), habId, this.tipo, [alvo.getId()]);
+        if (!this.id) return;
+        await game.getSkillManager().criarAction(emissor.getId(), this.id, this.tipo, [alvo.getId()]);
         
         return interaction.reply({ content: `Habilidade **${this.getNome()}** usada com sucesso!` });
     }
@@ -100,14 +93,13 @@ export class Habilidade {
         return false; // checa se a habilidade pode se usar em si mesma
     }
 
-    public async usarHabilidade(game: Game, action: PrismaAction): Promise<boolean> {
+    public async usarHabilidade(game: Game, action: Action): Promise<boolean> {
         // Custo padrão é 1
-        const custo = action.parametrosAcao ? this.getCustoUso(action.parametrosAcao) : 1;
-        const habilidade = action.habilidade;
+        const custo = this.getCustoUso(action.getParametros());
         
         // Atualiza o uso da habilidade, habilidades reutilizaveis tem custo de 10000
-        const valorUsoTotal = habilidade.uso - custo;
-        await HabilidadeDAO.updateHabilidade(habilidade.id, { uso: valorUsoTotal });
+        const valorUsoTotal = this.uso - custo;
+        await HabilidadeDAO.updateHabilidade(this.id!, { uso: valorUsoTotal });
 
         return await this.ativar(game, action);
     }
@@ -118,7 +110,7 @@ export class Habilidade {
         return custo;
     }
 
-    public async ativar(game: Game, action: PrismaAction): Promise<boolean> {return false;}
+    public async ativar(game: Game, action: Action): Promise<boolean> {return false;}
 
     public async ofertar(game: Game, emissorId: string, alvos: string[], nomeOferta: string, item?: string, parametros?: string): Promise<void> {
         console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvos.join(", ")} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
@@ -161,26 +153,20 @@ export class Habilidade {
         await game.getSkillManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
     }
 
-    protected async atacarPlayer(game: Game, alvo: string, action: PrismaAction): Promise<boolean> {
+    protected async atacarPlayer(game: Game, alvo: Player, action: Action): Promise<boolean> {
         // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0) > Sem Prot (0)
-        const parsedParams = JSON.parse(action.parametrosAcao || "{}");
+        const parsedParams = JSON.parse(action.getParametros());
         const poderAtaque = parsedParams.poderAtaque || 0;
 
-        const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
-        if (!playerAlvo) {
-            console.error(`Player alvo não encontrado para id ${alvo} e guildId ${game.getGuildId()}`);
-            return false;
-        }
-
-        if (poderAtaque >= playerAlvo.protecao) {
-            console.log(`Alvo ${alvo} tem proteção inferior e pode ser atacado.`);
-            game.processarMortePlayer(alvo, action.userId);
+        if (poderAtaque >= alvo.getProtecao()) {
+            console.log(`Alvo ${alvo.getUserId()} tem proteção inferior e pode ser atacado.`);
+            game.processarMortePlayer(alvo.getId(), action.getUserId());
             return true;
         } else {
             console.log(`Alvo ${alvo} tem proteção suficiente para resistir ao ataque.`);
             
-            const protInata = await game.getPlayerManager().getPlayerProtection(alvo);
-            await PlayerDAO.updatePlayer(alvo, playerAlvo.guildId, { protecao: protInata });
+            const protInata = alvo.getCargo()?.getProtecaoInata() || 0;
+            await PlayerDAO.updatePlayer(alvo.getUserId(), game.getGuildId(), { protecao: protInata });
             return false;
         }
     }

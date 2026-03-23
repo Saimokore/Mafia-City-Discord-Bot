@@ -76,6 +76,12 @@ export class SkillManager {
         }
     }
 
+    public async loadHabilidade(id: string): Promise<Hab.Habilidade | null> {
+        const h = await HabilidadeDAO.getHabilidadeById(id);
+        if (!h) return null;
+        return this.getHabilidadeInstance(h.nome, h.id, h.uso, h.status);
+    }
+
     public async criarAlerta(userId: string, alerta: string) {
         await AlertaDAO.createAlerta(this.guildId, userId, await this.game.getEtapaAtual(), alerta)
     }

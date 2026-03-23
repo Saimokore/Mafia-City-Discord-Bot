@@ -129,4 +129,7 @@ export class Player {
         return this.distrito;
     }
     
+    public getProtecao(): number {
+        return this.protecao;
+    }
 }
