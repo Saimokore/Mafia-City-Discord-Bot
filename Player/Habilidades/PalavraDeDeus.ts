@@ -1,76 +1,39 @@
-import { MessageFlags, type ModalSubmitInteraction } from "discord.js";
-import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
+import { InteractionResponse, MessageFlags, type ModalSubmitInteraction } from "discord.js";
 import { Game } from '../../Managers/GameManager.js';
 import { Habilidade } from "../Habilidade.js";
 import { ActionDAO } from "../../DAOs/ActionDAO.js";
-import { Prisma } from '@prisma/client';
-
-export type PrismaAction = Prisma.ActionGetPayload<{
-    include: {
-        alvos: true,
-        habilidade: true
-    }
-}>;
-
+import type { Action } from "../Action.js";
+import type { Player } from "../Player.js";
 
 export class PalavraDeDeus extends Habilidade {
     constructor(usos?: number, status?: string) {
         super("Palavra de Deus", "Ofensiva", 10000, "Noite", [], status || "DISPONIVEL");
     }
 
-     public override async ativar(game: Game, action: PrismaAction): Promise<boolean> {
-        const alvoId = action.alvos[0]!.id;
-        if (!alvoId) {
-            console.error(`Nenhum player encontrado para guildId ${game.getGuildId()}`);
-            return false;
-        }
+     public override async ativar(game: Game, action: Action): Promise<boolean> {
+        const alvo = action.getAlvos()[0]!;
         
-        return this.atacarPlayer(game, alvoId, action);
+        return this.atacarPlayer(game, alvo, action);
     }
 
-    public override async resolverModal(interaction: ModalSubmitInteraction, game: Game, quemUsouId: string) {
-        const selectedUsers = interaction.fields.getSelectedUsers(`select_${this.getNome()}`);
-        if (!selectedUsers) return await interaction.reply({ content: "Ocorreu um erro ao buscar suas ofertas. Tente novamente mais tarde.", flags: MessageFlags.Ephemeral });
-        const alvoId = selectedUsers.firstKey()!.toString(); // pega o primeiro, se tiver mais de um temos que fazer um map
+    protected override async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade): Promise<InteractionResponse<boolean> | undefined> {
+        const habilidade = emissor.getHabilidade(this.getNome());
 
-        const emissorPlayer = await PlayerDAO.getPlayerById(quemUsouId, game.getGuildId());
-        const alvosValidos = [];
-        if (!emissorPlayer) {
-            console.error(`Player emissor não encontrado para id ${quemUsouId} e guildId ${game.getGuildId()}`);
-            return await interaction.reply({ content: "Ocorreu um erro ao buscar suas ofertas. Tente novamente mais tarde.", flags: MessageFlags.Ephemeral });
-        }
+        let dadosExtraEmissor = emissor.getDadosExtra();
 
-        const jogadorAlvo = await PlayerDAO.getPlayerById(alvoId, game.getGuildId());
-        console.log("jogadorAlvo: " + jogadorAlvo?.id)
-        if (!jogadorAlvo) {
-            return interaction.reply({ content: "❌ **Erro:** Esse usuário não está participando da partida atual!" });
-        }
-
-        if (!jogadorAlvo.estaVivo) {
-            return interaction.reply({ content: "👻 **Erro:** Você só pode mirar em jogadores vivos." });
-        }
-
-        if (alvoId === interaction.user.id) {
-            // mudar dependendo da habilidade
-            // return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
-        }
-
-        const habilidade = emissorPlayer.habilidades.find(hab => hab.nome === this.getNome());
-
-        let dadosExtraEmissor = JSON.parse(emissorPlayer.dadosExtra || "[]");
-
-        let index = dadosExtraEmissor.findIndex((d: any) => d.tipo === "ALVOS_RECUSADOS");
-        if (index === -1) {
+        let dadosAlvos = dadosExtraEmissor.find(d => d.tipo === "ALVOS_RECUSADOS");
+        if (!dadosAlvos) {
             return interaction.reply({ content: "Você ainda não tem alvos que recusaram o arrependimento!" });
         }
-        const listaAlvos = dadosExtraEmissor[index].alvos;
+        const listaAlvos = dadosAlvos.alvos;
         
-        if (!listaAlvos.includes(alvoId)) {
+        if (!listaAlvos.includes(alvo.getId())) {
             return interaction.reply({ content: "Alvo não recusou \"Arrependimento\", use a habilidade evangelho primeiro!"})
         }
-        
-        await ActionDAO.createAction(quemUsouId, game.getGuildId(), this.getTipo(), await game.getEtapaAtual(), habilidade!.id, [alvoId]);
-        console.log("Modal submetido, alvo:", alvoId);
+
+        await ActionDAO.createAction(emissor.getId(), game.getGuildId(), this.getTipo(), await game.getEtapaAtual(), habilidade!.getId()!, [alvo.getId()]);
+        console.log("Modal submetido, alvo:", alvo.getId());
+
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }
 

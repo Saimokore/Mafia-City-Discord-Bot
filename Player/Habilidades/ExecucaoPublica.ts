@@ -1,20 +1,8 @@
-import { LabelBuilder, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, UserSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
+import { InteractionResponse, LabelBuilder, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, UserSelectMenuBuilder, type StringSelectMenuInteraction } from "discord.js";
 import { Game } from '../../Managers/GameManager.js';
 import { Habilidade } from "../Habilidade.js";
-import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
-import { Prisma } from '@prisma/client';
-import { HabilidadeDAO } from "../../DAOs/HabilidadeDAO.js";
-
-export type PrismaAction = Prisma.ActionGetPayload<{
-    include: {
-        alvos: true,
-        habilidade: {
-            include: {
-                actions: true
-            }
-        }
-    }
-}>;
+import type { Action } from "../Action.js";
+import type { Player } from "../Player.js";
 
 export class ExecucaoPublica extends Habilidade {
 
@@ -22,7 +10,7 @@ export class ExecucaoPublica extends Habilidade {
         super("ExecucaoPublica", "Instantanea", usos || 1, "Dia", ["Astral", "Instantanea", "Especial"], status || "DISPONIVEL");
     }
 
-    public override async ativar(game: Game, action: PrismaAction): Promise<boolean> {
+    public override async ativar(game: Game, action: Action): Promise<boolean> {
         return false;
     }
 
@@ -93,7 +81,8 @@ export class ExecucaoPublica extends Habilidade {
         return modal;
     }
 
-    public async resolverModal(interaction: ModalSubmitInteraction, game: Game, emissorId: string) {
+    protected override async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade): Promise<InteractionResponse<boolean> | undefined> {
+
         const selectedUsers = interaction.fields.getSelectedUsers(`select_${this.getNome()}`);
         const alvoId = selectedUsers?.firstKey()?.toString(); // pega o primeiro, se tiver mais de um temos que fazer um map
 
@@ -103,35 +92,7 @@ export class ExecucaoPublica extends Habilidade {
             return interaction.reply({content: "Nenhum valor selecionado"});
         }
 
-        const jogadorAlvo = await game.getPlayerManager().loadPlayer(alvoId);
-        console.log("jogadorAlvo: " + jogadorAlvo?.getId())
-        if (!jogadorAlvo) {
-            return interaction.reply({ content: "❌ **Erro:** Esse usuário não está participando da partida atual!" });
-        }
-
-        if (!jogadorAlvo.estaVivo) {
-            return interaction.reply({ content: "👻 **Erro:** Você só pode mirar em jogadores vivos." });
-        }
-
-        if (alvoId === interaction.user.id) {
-            // mudar dependendo da habilidade
-            // return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
-        }
-
-        const emissor = await game.getPlayerManager().loadPlayer(emissorId);
-        if (!emissor) {
-            console.error("Player não encontrado modal");
-            return interaction.reply({content: "Erro, contate o host do jogo"});
-        }
-        const habilidade = emissor.getHabilidades()?.find(hab => hab.getNome() === this.getNome()) || null;
-        if (!habilidade) {
-            console.error("Instancia da habilidade não encontrada");
-            return interaction.reply({content: "Erro, contate o host do jogo"});;
-        }
-
-        const habId = await game.getSkillManager().getHabilidadeId(habilidade, emissor.getId());
-
-        await game.getSkillManager().criarAction(emissorId, habId, this.getTipo(), [alvoId])
+        await game.getSkillManager().criarAction(emissor.getId(), this.getId()!, this.getTipo(), [alvoId])
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

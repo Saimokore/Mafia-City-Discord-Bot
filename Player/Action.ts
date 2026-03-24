@@ -2,11 +2,22 @@ import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
 import type { Game } from "../Managers/GameManager.js";
 import { Habilidade } from "./Habilidade.js";
 import { Prisma } from '@prisma/client';
+import { Player } from "./Player.js";
 
 export type PrismaAction = Prisma.ActionGetPayload<{
     include: {
-        alvos: true,
-        habilidade: true
+        habilidade: true,
+        alvos: {
+            include: { player: {
+                    include: {
+                        cartas: true,
+                        alertas: true,
+                        habilidades: true,
+                        itens: true
+                    }
+                } 
+            }
+        }
     }
 }>;
 
@@ -19,7 +30,7 @@ export class Action {
 
     private etapa: number;
     private habilidade: Habilidade | null;
-    private alvos: string[];
+    private alvos: Player[];
 
     private parametros: string;
 
@@ -31,7 +42,7 @@ export class Action {
         this.tipo = action.tipo;
         this.sucesso = action.sucesso;
         this.etapa = action.etapa;
-        this.alvos = action.alvos.map(a => a.alvoId);
+        this.alvos = action.alvos.map(a => new Player(game, a.player));
         this.parametros = action.parametrosAcao || "{}";
     }
 
@@ -59,7 +70,7 @@ export class Action {
         return this.habilidade;
     }
 
-    public getAlvos(): string[] {
+    public getAlvos(): Player[] {
         return this.alvos;
     }
 

@@ -3,7 +3,7 @@ import { Game } from '../Managers/GameManager.js';
 import { PlayerDAO } from '../DAOs/PlayerDAO.js';
 import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
 import type { Player } from './Player.js';
-import type { Action } from './Actions.js';
+import type { Action } from './Action.js';
 
 export class Habilidade {
     private id?: string;
@@ -84,7 +84,7 @@ export class Habilidade {
     protected async processarUsoModal( interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade) {
         // cria a ação genérica e responde
         if (!this.id) return;
-        await game.getSkillManager().criarAction(emissor.getId(), this.id, this.tipo, [alvo.getId()]);
+        await game.getSkillManager().criarAction(emissor.getId(), this.id, this.tipo, [alvo]);
         
         return interaction.reply({ content: `Habilidade **${this.getNome()}** usada com sucesso!` });
     }
@@ -112,7 +112,7 @@ export class Habilidade {
 
     public async ativar(game: Game, action: Action): Promise<boolean> {return false;}
 
-    public async ofertar(game: Game, emissorId: string, alvos: string[], nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+    public async ofertar(game: Game, emissorId: string, alvos: Player[], nomeOferta: string, item?: string, parametros?: string): Promise<void> {
         console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvos.join(", ")} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
         
         const partida = await game.getPartida();

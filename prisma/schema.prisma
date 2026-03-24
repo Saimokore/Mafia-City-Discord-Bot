@@ -54,8 +54,10 @@ model Player {
   itens       Item[]
   alertas     Alerta[]
   cartas      Carta[]
-  actions     Action[]
   ofertas     Oferta[]
+
+  actions     Action[] // acoes que o jogador usou
+  alvos       Alvo[] // vezes que o jogador foi o alvo de uma acao
 
   dadosExtra String @default("{}") // JSON string com dados específicos do cargo (ex: número de vezes que usou a habilidade) extremamente importante
 
@@ -118,10 +120,15 @@ model Action {
 
 model Alvo {
   id     String @id @default(uuid())
-  alvoId String
 
+  alvoId String
   actionId String
+  guildId String
+
   action   Action @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  player   Player @relation(fields: [alvoId, guildId], references: [userId, guildId], onDelete: Cascade)
+
+  @@unique([alvoId, actionId])
 }
 
 model Habilidade {

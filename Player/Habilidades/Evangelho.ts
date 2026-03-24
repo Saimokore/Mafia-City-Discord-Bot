@@ -3,29 +3,24 @@ import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import { Game } from '../../Managers/GameManager.js';
 import { Habilidade } from "../Habilidade.js";
-import { Prisma } from '@prisma/client';
 import type { DadoExtra, DadoImpedidaEvangelho } from "../Tipos.js";
+import type { Action } from "../Action.js";
+import type { ModalSubmitInteraction, InteractionResponse } from "discord.js";
 
-export type PrismaAction = Prisma.ActionGetPayload<{
-    include: {
-        alvos: true,
-        habilidade: true
-    }
-}>;
 
 export class Evangelho extends Habilidade {
     constructor(usos?: number, status?: string) {
         super("Evangelho", "Comunicacao", usos || 10000, "Dia", [], status || "DISPONIVEL");
     }
 
-    public override async ativar(game: Game, action: PrismaAction): Promise<boolean> {
-        const alvosId = action.alvos.map(a => a.id);
+    public override async ativar(game: Game, action: Action): Promise<boolean> {
+        const alvos = action.getAlvos();
 
-        await this.ofertar(game, action.userId, action.alvos.map(a => a.id), "Arrependimento");
-        console.log(`Habilidade ${this.getNome()} usada por ${action.userId} com alvo ${alvosId}.`);
+        await this.ofertar(game, action.getUserId(), alvos, "Arrependimento");
+        console.log(`Habilidade ${this.getNome()} usada por ${action.getUserId()} com alvo ${alvos.forEach(a => a.getId() + " ")}.`);
         return true;
     }
-
+    
     public override async resolverOferta(game: Game, ofertaId: string): Promise<void> {
         const oferta = await OfertaDAO.getOfertaById(ofertaId);
         if (!oferta) {

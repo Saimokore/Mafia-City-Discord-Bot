@@ -11,6 +11,8 @@ import { PalavraDeDeus } from "../Player/Habilidades/PalavraDeDeus.js";
 import { Snipe } from "../Player/Habilidades/Snipe.js";
 import { ExecucaoPublica } from "../Player/Habilidades/ExecucaoPublica.js";
 import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
+import { Player } from "../Player/Player.js";
+import { Action } from "../Player/Action.js";
 
 export class SkillManager {
     private guildId: string;
@@ -55,7 +57,7 @@ export class SkillManager {
                 continue;
             }
             
-            const sucesso = await habilidade.usarHabilidade(this.game, action)
+            const sucesso = await habilidade.usarHabilidade(this.game, new Action(this.game, action))
             await ActionDAO.updateAction(action.id, { sucesso: sucesso ? "SUCEDIDA" : "FALHA"});
         }
     }
@@ -82,27 +84,20 @@ export class SkillManager {
         return this.getHabilidadeInstance(h.nome, h.id, h.uso, h.status);
     }
 
-    public async criarAlerta(userId: string, alerta: string) {
+    public async criarAlerta(user: string | Player, alerta: string) {
+        const userId = user instanceof Player ? user.getId() : user;
         await AlertaDAO.createAlerta(this.guildId, userId, await this.game.getEtapaAtual(), alerta)
     }
 
-    public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: string[], parametros?: string): Promise<void> {
-        const partida = await PartidaDAO.getPartida(this.guildId);
-        if (!partida) {
-            console.error(`Partida não encontrada para guildId ${this.guildId}`);
-            return;
-        }
-        await ActionDAO.createAction(userId, this.guildId, tipo, partida.etapaAtual, habilidadeId, alvos, parametros);
+    public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: Player[], parametros?: string): Promise<void> {
+        await ActionDAO.createAction(userId, this.guildId, tipo, await this.game.getEtapaAtual(), habilidadeId, alvos?.map(a => a.getId()) || [], parametros);
     }
 
-    public async criarOferta(emissorId: string, alvoId: string, habilidadeNome: string, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+    public async criarOferta(emissorId: string, alvo: Player, habilidadeNome: string, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+        const alvoId = alvo.getId();
+
         console.log(`Criando oferta: Emissor ${emissorId}, Alvo ${alvoId}, Habilidade ${habilidadeNome}, Oferta ${nomeOferta}, Item ${item}, Parametros ${parametros}`);
-        const partida = await PartidaDAO.getPartida(this.guildId);
-        if (!partida) {
-            console.error(`Partida não encontrada para guildId ${this.guildId}`);
-            return;
-        }
-        await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidadeNome, partida.etapaAtual, nomeOferta, item, parametros);
+        await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidadeNome, await this.game.getEtapaAtual(), nomeOferta, item, parametros);
     }
 
     public getCargoInstance(nomeDoCargo: string, habilidades?: Hab.Habilidade[]): Cargo | null {
@@ -126,7 +121,7 @@ export class SkillManager {
             case "Palavra de Deus": hab = new PalavraDeDeus(usos, status); break;
             case "Snipe": hab = new Snipe(usos, status); break;
             case "Execucao Publica": hab = new ExecucaoPublica(usos, status); break;
-            default hab = null; break;
+            default: hab = null; break;
         }
 
         // Se a habilidade foi criada e um ID foi passado (vindo do banco), nós anexamos ele!

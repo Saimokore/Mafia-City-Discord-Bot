@@ -9,7 +9,7 @@ const adapter = new PrismaBetterSqlite3({
 export const prisma = new PrismaClient({ adapter });
 
 export const ActionDAO = {
-    async createAction(userId: string, guildId: string, tipo: string, etapa: number, habilidadeId: string, alvoIds?: string[], parametrosAcao?: string) {
+    async createAction(userId: string, guildId: string, tipo: string, etapa: number, habilidadeId: string, alvoIds: string[], parametrosAcao?: string) {
         try {
             return await prisma.action.create({
                 data: {
@@ -18,7 +18,10 @@ export const ActionDAO = {
                     tipo,
                     etapa,
                     alvos: {
-                        create: alvoIds ? alvoIds.map(alvoId => ({ alvoId })) : []
+                        create: alvoIds.map(alvoId => ({
+                            alvoId,
+                            guildId
+                        }))
                     },
                     habilidadeId,
                     parametrosAcao: parametrosAcao || null
@@ -46,7 +49,18 @@ export const ActionDAO = {
                 guildId,
                 etapa: etapa
             },
-            include: { habilidade: true, alvos: true }
+            include: { 
+                habilidade: true, 
+                alvos: { 
+                    include: { player: {
+                        include: {
+                            cartas: true,
+                            alertas: true,
+                            habilidades: true,
+                            itens: true
+                    }   }
+                } 
+            }
         });
     },
 }
