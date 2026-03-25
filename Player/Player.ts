@@ -98,6 +98,10 @@ export class Player {
         return this.cargo?.getHabilidades();
     }
 
+    public getClasse() {
+        return `${this.getAlinhamento()} ${this.cargo?.getNomeClasse()}`;
+    }
+
     public getDadosExtra(): DadoExtra[] {
         return this.dadosExtra;
     }

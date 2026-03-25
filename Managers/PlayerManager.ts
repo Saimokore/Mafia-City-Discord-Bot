@@ -51,26 +51,20 @@ export class PlayerManager {
     }
 
     public async sendPlayersStatus(): Promise<void> {
-        const players = await PlayerDAO.getPlayers(this.guildId);
-        if (!players || players.length === 0) {
-            console.error("Players não encontrados");
-            return;
-        } 
-        for (const p of players) {
-            const player = await this.loadPlayer(p.userId);
-            if (!player) {
-                console.error("Player não encontrado: " + p.id);
-                continue;
-            }
-            this.game.sendMensagemPlayer(p.userId, player.getStatus());
-        }
+        const players = await this.getAllPlayers();
+        players?.forEach(p => this.game.sendMensagemPlayer(p, p.getStatus()));
+    }
+
+    public async bloquearPlayer(alvo: Player) {
+        await this.game.getSkillManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
+        return await PlayerDAO.updatePlayer(alvo.getId(), { status: "BLOQUEADO" });
     }
 
     public async storeDadosExtra(player: Player, dados: DadoExtra) {
         //dados deve estar em {}
         const dadosExtra = player.getDadosExtra();
         dadosExtra.push(dados);
-        await PlayerDAO.updatePlayer(player.getId(), this.game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtra) });
+        await PlayerDAO.updatePlayer(player.getId(), { dadosExtra: JSON.stringify(dadosExtra) });
     }
 
     public async getAllPlayers(): Promise<Player[] | null> {

@@ -7,6 +7,7 @@ import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
 import { GuildConfigDAO } from "../DAOs/GuildConfigDAO.js";
 import { SkillManager } from "./SkillManager.js";
 import { Player } from "../Player/Player.js";
+import { OfertaDAO } from "../DAOs/OfertaDAO.js";
 
 export class Game {
     private guildId: string;
@@ -179,17 +180,18 @@ export class Game {
         return partidaObj;
     }
     
-    public async executarInstantAction() {
-        // deixar isso pra depois
-    }
-    
     public async processarMortePlayer(jogadorMorto: Player, jogadorAssassino: Player): Promise<boolean> {
         const cargo = jogadorMorto.getCargo();
         if (cargo) {
-            return cargo?.processarMorte(this, jogadorMorto, jogadorAssassino) || false;
+            return await cargo?.processarMorte(this, jogadorMorto, jogadorAssassino) || false;
         }
 
         return false;
+    }
+
+    public async getOferta(id: string) {
+        const ofertaDB = await OfertaDAO.getOfertaById(id);
+        
     }
     
     public getPlayerManager(): PlayerManager {

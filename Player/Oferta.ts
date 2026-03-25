@@ -4,9 +4,8 @@ import { Habilidade } from "./Habilidade.js";
 import { Prisma } from '@prisma/client';
 import { Player } from "./Player.js";
 
-export type PrismaAction = Prisma.ActionGetPayload<{
+export type PrismaOferta = Prisma.OfertaGetPayload<{
     include: {
-        habilidade: true,
         player: {
             include: {
                 cartas: true,
@@ -14,58 +13,38 @@ export type PrismaAction = Prisma.ActionGetPayload<{
                 habilidades: true,
                 itens: true
             }
-        },
-        alvos: {
-            include: { 
-                player: {
-                    include: {
-                        cartas: true,
-                        alertas: true,
-                        habilidades: true,
-                        itens: true
-                    }
-                } 
-            }
         }
     }
 }>;
 
 export class Action {
     private id: string;
-    private emissor: Player;
+    private nome: string;
 
-    private tipo: string;
-    private sucesso: string;
+    private emissor: Player;
+    private alvo: Player
 
     private etapa: number;
-    private habilidade: Habilidade | null;
-    private alvos: Player[];
+    private item: string; // por enquanto
 
     private parametros: string;
 
-    constructor(game: Game, action: PrismaAction) {
-        const h = action.habilidade;
+    constructor(game: Game, action: PrismaOferta) {
         this.id = action.id;
+        this.nome = action.nomeOferta;
         this.emissor = new Player(game, action.player);
-        this.habilidade = game.getSkillManager().getHabilidadeInstance(h.nome, h.id, h.uso, h.status);
-        this.tipo = action.tipo;
-        this.sucesso = action.sucesso;
         this.etapa = action.etapa;
-        this.alvos = action.alvos.map(a => new Player(game, a.player));
-        this.parametros = action.parametrosAcao || "{}";
+        this.alvo = new Player(game, action.player);
+        this.parametros = action.parametros || "{}";
     }
 
     public getId(): string {
         return this.id;
     }
 
-    public getEmissor(): Player {
-        return this.emissor;
+    public getUserId(): string {
+        return this.userId;
     }
-
-    // public getUserId(): string {
-    //     return this.emissor.getUserId();
-    // }
     
     public getTipo(): string {
         return this.tipo;

@@ -9,14 +9,14 @@ const adapter = new PrismaBetterSqlite3({
 export const prisma = new PrismaClient({ adapter });
 
 export const OfertaDAO = {
-    async createOferta(guildId: string, emissorId: string, alvoId: string, habilidade: string, etapa: number, nomeOferta: string, item?: string, parametros?: string) {
+    async createOferta(guildId: string, emissorId: string, alvoId: string, habilidadeId: string, etapa: number, nomeOferta: string, item?: string, parametros?: string) {
         try {
             return await prisma.oferta.create({
                 data: {
                     guildId,
                     emissorId,
                     alvoId,
-                    habilidade,
+                    habilidadeId,
                     etapa,
                     nomeOferta,
                     item: item || null,

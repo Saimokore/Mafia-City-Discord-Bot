@@ -144,6 +144,7 @@ model Habilidade {
 
   player  Player   @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
   actions Action[]
+  ofertas Oferta[]
 
   @@unique([guildId, userId, nome, etapa])
 }
@@ -172,15 +173,18 @@ model Oferta {
   emissorId String
   alvoId    String
 
+  habilidadeId String
+
   nomeOferta String
   item       String?
-  habilidade String
   parametros String? // JSON string com parâmetros específicos da oferta (ex: número de vezes que usou a habilidade) mt importante
   status     String  @default("PENDENTE") // PENDENTE, ACEITA, RECUSADA
   etapa      Int
 
   criadoEm DateTime @default(now())
   player   Player?  @relation(fields: [emissorId, guildId], references: [userId, guildId], onDelete: Cascade)
+
+  habilidade  Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
 
   @@unique([guildId, emissorId, alvoId, etapa, nomeOferta])
 }

@@ -1,4 +1,4 @@
-import { StringSelectMenuInteraction,ModalBuilder, LabelBuilder, UserSelectMenuBuilder, ModalSubmitInteraction, type Interaction } from 'discord.js';
+import { StringSelectMenuInteraction,ModalBuilder, LabelBuilder, UserSelectMenuBuilder, ModalSubmitInteraction, type Interaction, InteractionResponse } from 'discord.js';
 import { Game } from '../Managers/GameManager.js';
 import { PlayerDAO } from '../DAOs/PlayerDAO.js';
 import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
@@ -25,7 +25,7 @@ export abstract class Habilidade {
 
     public abstract ativar(game: Game, action: Action): Promise<boolean>;
 
-    public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
+    public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | null> {
 
         const modal = new ModalBuilder()
             .setCustomId('skill_modal_' + this.getNome())
@@ -47,7 +47,7 @@ export abstract class Habilidade {
     }
 
     // valida o target, o emissor e o alvo
-    public async resolverModal(interaction: ModalSubmitInteraction, game: Game) {
+    public async resolverModal(interaction: ModalSubmitInteraction, game: Game): Promise<InteractionResponse<boolean>> {
         // Tenta pegar o valor das duas formas usadas no seu código
         const selectedUsers = interaction.fields.getSelectedUsers(`select_target_${this.getNome()}`);
         
@@ -92,7 +92,7 @@ export abstract class Habilidade {
         return null; // Sucesso na validação!
     }
 
-    protected async processarUsoModal( interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade) {
+    protected async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, variaveisColetadas: Record<string, any>) {
         // cria a ação genérica e responde
         if (!this.id) return interaction.reply({ content: "❌ **Erro:** Habilidade sem ID registrado." });
         await game.getSkillManager().criarAction(emissor.getId(), this.id, this.tipo, [alvo]);
@@ -121,16 +121,14 @@ export abstract class Habilidade {
         return custo;
     }
 
-    public async ofertar(game: Game, emissorId: string, alvos: Player[], nomeOferta: string, item?: string, parametros?: string): Promise<void> {
-        console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvos.join(", ")} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
+    public async ofertarPlayer(game: Game, emissorId: string, alvo: Player, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+        console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvo.getUsername()} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
         
         const partida = await game.getPartida();
         if (!partida) return;
 
-        for (const alvo of alvos) {
-            await game.getSkillManager().criarOferta(emissorId, alvo, this.getNome(), nomeOferta, item, parametros);
-            await game.getSkillManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
-        }
+        await game.getSkillManager().criarOferta(emissorId, alvo, this, nomeOferta, item, parametros);
+        await game.getSkillManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
     }
 
     public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
@@ -158,11 +156,10 @@ export abstract class Habilidade {
             console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
             return;
         }
-        await PlayerDAO.updatePlayer(alvo.getId(), { status: "BLOQUEADO" });
-        await game.getSkillManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
+        await game.getPlayerManager().bloquearPlayer(alvo);
     }
 
-    protected async atacarPlayer(game: Game, alvo: Player, assassino: Player, action: Action): Promise<boolean> {
+    protected async atacarPlayer(game: Game, alvo: Player, assassino: Player, action: Action) {
         // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0) > Sem Prot (0)
         const parsedParams = JSON.parse(action.getParametros());
         const poderAtaque = parsedParams.poderAtaque || 0;
@@ -171,7 +168,7 @@ export abstract class Habilidade {
             console.log(`Alvo ${alvo.getUserId()} tem proteção inferior e pode ser atacado.`);
             await game.getSkillManager().criarAlerta(assassino, "Matou o mano parabens");
 
-            return game.processarMortePlayer(alvo, assassino);
+            await game.processarMortePlayer(alvo, assassino);
         } else {
             console.log(`Alvo ${alvo.getUsername()} tem proteção suficiente para resistir ao ataque.`);
             
@@ -179,8 +176,6 @@ export abstract class Habilidade {
             await PlayerDAO.updatePlayer(alvo.getId(), { protecao: protInata });
 
             await game.getSkillManager().criarAlerta(alvo, "voce sente que foi protegido");
-
-            return false;
         }
     }
 

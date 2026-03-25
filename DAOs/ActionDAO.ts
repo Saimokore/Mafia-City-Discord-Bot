@@ -23,6 +23,29 @@ export const ActionDAO = {
                     },
                     habilidadeId,
                     parametrosAcao: parametrosAcao || null
+                },
+                include: {
+                    habilidade: true,
+                    player: {
+                        include: {
+                            cartas: true,
+                            alertas: true,
+                            habilidades: true,
+                            itens: true
+                        }
+                    },
+                    alvos: {
+                        include: { 
+                            player: {
+                                include: {
+                                    cartas: true,
+                                    alertas: true,
+                                    habilidades: true,
+                                    itens: true
+                                }
+                            } 
+                        }
+                    }
                 }
             });
         } catch (e) {
@@ -41,27 +64,64 @@ export const ActionDAO = {
         }
     },
 
+    async getAction(id: string) {
+        try {
+            return await prisma.action.findUnique({
+                where: { id },
+                include: { 
+                    habilidade: true, 
+                    alvos: { 
+                        include: { 
+                            player: {
+                                include: {
+                                    cartas: true,
+                                    alertas: true,
+                                    habilidades: true,
+                                    itens: true
+                                }   
+                            }
+                        }
+                    } 
+                }
+            });
+        } catch (e) {
+            console.log("Erro ao buscar action:", e);
+        }
+    },
+
     async getActionsByEtapa(guildId: string, etapa: number) {
-        return await prisma.action.findMany({
-            where: {
-                guildId,
-                etapa: etapa
-            },
-            include: { 
-                habilidade: true, 
-                alvos: { 
-                    include: { 
-                        player: {
-                            include: {
-                                cartas: true,
-                                alertas: true,
-                                habilidades: true,
-                                itens: true
-                            }   
+        try {
+            return await prisma.action.findMany({
+                where: {
+                    guildId,
+                    etapa: etapa
+                },
+                include: {
+                    habilidade: true,
+                    player: {
+                        include: {
+                            cartas: true,
+                            alertas: true,
+                            habilidades: true,
+                            itens: true
+                        }
+                    },
+                    alvos: {
+                        include: { 
+                            player: {
+                                include: {
+                                    cartas: true,
+                                    alertas: true,
+                                    habilidades: true,
+                                    itens: true
+                                }
+                            } 
                         }
                     }
-                } 
-            }
-        });
+                }
+            });
+        } catch (e) {
+            console.log("Erro ao buscar actions:", e);
+        }
     },
 }

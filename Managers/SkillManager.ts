@@ -12,7 +12,7 @@ import { Snipe } from "../Player/Habilidades/Snipe.js";
 import { ExecucaoPublica } from "../Player/Habilidades/ExecucaoPublica.js";
 import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
 import { Player } from "../Player/Player.js";
-import { Action } from "../Player/Action.js";
+import { Action, type PrismaAction } from "../Player/Action.js";
 
 export class SkillManager {
     private guildId: string;
@@ -33,7 +33,7 @@ export class SkillManager {
         await this.checkOfertas();
         
         const actions = await ActionDAO.getActionsByEtapa(this.guildId, partida.etapaAtual);
-        if (actions.length === 0) {
+        if (!actions || actions.length === 0) {
             console.log(`Nenhuma ação registrada para a etapa ${partida.etapaAtual}.`);
             return;
         }
@@ -49,6 +49,10 @@ export class SkillManager {
             const habilidade = player?.getHabilidades()?.find(h => h.getId() === action.habilidadeId);
             if (!player || !habilidade) {
                 console.error(`Player/Habilidade não encontrado ${action.userId}`);
+                continue;
+            }
+
+            if (habilidade.getTipo() === "Instantanea") {
                 continue;
             }
             
@@ -88,16 +92,17 @@ export class SkillManager {
         await AlertaDAO.createAlerta(this.guildId, user.getId(), await this.game.getEtapaAtual(), alerta)
     }
 
-    public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: Player[], parametros?: string): Promise<void> {
+    public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: Player[], parametros?: string): Promise<Action> {
         const alvosIds = alvos?.map(a => a.getId());
-        await ActionDAO.createAction(userId, this.guildId, tipo, await this.game.getEtapaAtual(), habilidadeId, alvosIds || [], parametros);
+        const action = await ActionDAO.createAction(userId, this.guildId, tipo, await this.game.getEtapaAtual(), habilidadeId, alvosIds || [], parametros);
+        return new Action(this.game, action!);
     }
 
-    public async criarOferta(emissorId: string, alvo: Player, habilidadeNome: string, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+    public async criarOferta(emissorId: string, alvo: Player, habilidade: Hab.Habilidade, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
         const alvoId = alvo.getId();
 
-        console.log(`Criando oferta: Emissor ${emissorId}, Alvo ${alvoId}, Habilidade ${habilidadeNome}, Oferta ${nomeOferta}, Item ${item}, Parametros ${parametros}`);
-        await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidadeNome, await this.game.getEtapaAtual(), nomeOferta, item, parametros);
+        console.log(`Criando oferta: Emissor ${emissorId}, Alvo ${alvoId}, Habilidade ${habilidade.getNome()}, Oferta ${nomeOferta}, Item ${item}, Parametros ${parametros}`);
+        await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidade.getNome(), await this.game.getEtapaAtual(), nomeOferta, item, parametros);
     }
 
     public getCargoInstance(nomeDoCargo: string, habilidades?: Hab.Habilidade[]): Cargo | null {

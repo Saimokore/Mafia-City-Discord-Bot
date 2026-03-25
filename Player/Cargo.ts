@@ -39,7 +39,7 @@ export class Cargo {
 
     public async processarMorte(game: Game, playerMorto: Player, playerAssassino: Player): Promise<boolean> {
         await PlayerDAO.updatePlayer(playerMorto.getId(), { estaVivo: false });
-        game.getSkillManager().criarAlerta(playerMorto, "Você morreu!");
+        await game.getSkillManager().criarAlerta(playerMorto, "Você morreu!");
 
         // aqui provavelmente vou ter que guardar um dado de quem matou esse player se pa
 
@@ -126,11 +126,11 @@ export class Evangelista extends Cargo {
     }
 }
 
-export class AtiradorDeElite extends Cargo {
-    constructor(habilidades?: Habilidade[]) {
-        super("Atirador de Elite", new Class.CidadeJusticeiro(), "Comum", habilidades || [new Snipe(), new ExecucaoPublica()], 2);
-    }
-}
+// export class AtiradorDeElite extends Cargo {
+//     constructor(habilidades?: Habilidade[]) {
+//         super("Atirador de Elite", new Class.CidadeJusticeiro(), "Comum", habilidades || [new Snipe(), new ExecucaoPublica()], 2);
+//     }
+// }
 
 // export class Xerife extends Cargo {
 //     constructor() {
