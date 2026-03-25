@@ -1,6 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { log } from 'node:console';
 
 const adapter = new PrismaBetterSqlite3({
   url: "file:./dev.db",
@@ -19,8 +18,7 @@ export const ActionDAO = {
                     etapa,
                     alvos: {
                         create: alvoIds.map(alvoId => ({
-                            alvoId,
-                            guildId
+                            alvoId
                         }))
                     },
                     habilidadeId,
@@ -52,13 +50,16 @@ export const ActionDAO = {
             include: { 
                 habilidade: true, 
                 alvos: { 
-                    include: { player: {
-                        include: {
-                            cartas: true,
-                            alertas: true,
-                            habilidades: true,
-                            itens: true
-                    }   }
+                    include: { 
+                        player: {
+                            include: {
+                                cartas: true,
+                                alertas: true,
+                                habilidades: true,
+                                itens: true
+                            }   
+                        }
+                    }
                 } 
             }
         });

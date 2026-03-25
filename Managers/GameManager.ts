@@ -38,13 +38,13 @@ export class Game {
 
         const cargosDistribuidos = [...this.cargoList].sort(() => Math.random() - 0.5);
 
-        const players = await PlayerDAO.getPlayers(this.guildId);
+        const players = await this.playerManager.getAllPlayers();
         if (!players || players.length === 0) {
             console.error("Players não encontrados");
             return;
         } 
         for (const p of players) {
-            await this.criarChatPlayer(`chat-${p.username}`, p.userId);
+            await this.criarChatPlayer(p);
             
             // const cargo = cargosDistribuidos.pop();
             const cargo = "Atirador_de_elite";
@@ -55,13 +55,13 @@ export class Game {
             const cargoObj = await this.skillManager.getCargoInstance(cargo);
             const habilidades = cargoObj!.getHabilidades();
 
-            await PlayerDAO.updatePlayer(p.userId, this.guildId, { cargo: `${cargo}` });
+            await PlayerDAO.updatePlayer(p.getId(), { cargo: `${cargo}` });
             
             for (const hab of habilidades) {
-                await HabilidadeDAO.createHabilidade(hab.getNome(), p.userId, this.guildId, hab.getUso(), hab.getTipo(), hab.getEtapa());
+                await HabilidadeDAO.createHabilidade(hab.getNome(), p.getUserId(), this.guildId, hab.getUso(), hab.getTipo(), hab.getEtapa());
             }
             
-            await this.sendMensagemPlayer(p.userId, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
+            await this.sendMensagemPlayer(p, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
         }
 
         this.avancarEtapa();
@@ -74,30 +74,32 @@ export class Game {
 
     public async deletarJogo() {
         // deleto os chats privados
-        const players = await PlayerDAO.getPlayers(this.guildId);
-        if (!players || players.length === 0) {
+        const players = await this.playerManager.getAllPlayers();
+        if (!players) {
             console.error("Players não encontrados");
             return;
         } 
         for (const player of players) {
-            const userChat = await PlayerDAO.getPlayerById(player.userId, this.guildId).then(p => p?.userChat);
+            const userChat = player.getUserChat();
             if (userChat) {
                 try {
                     const channel = await this.client.channels.fetch(userChat) as TextChannel;
                     await channel.delete("Partida finalizada, limpando canais privados.");
                 } catch (error) {
-                    console.warn(`Não consegui deletar o canal do jogador ${player.userId}:`, error);
-                    await PlayerDAO.updatePlayer(player.userId, player.guildId, { userChat: null })
+                    console.warn(`Não consegui deletar o canal do jogador ${player.getUsername()}:`, error);
+                    await PlayerDAO.updatePlayer(player.getId(), { userChat: null })
                 }
             }
-            await PlayerDAO.deletePlayer(player.id);
+            await PlayerDAO.deletePlayer(player.getId());
         }
 
         //deleto a partida em si
         await PartidaDAO.deletePartida(this.guildId);
     }
 
-    public async criarChatPlayer(nome: string, userId: string): Promise<void> {
+    public async criarChatPlayer(player: Player): Promise<void> {
+        const nome = `chat-${player.getUsername()}`;
+        const userId = player.getUserId(); 
         const guild = await this.client.guilds.fetch(this.guildId);
 
         const permissoes = [
@@ -119,7 +121,7 @@ export class Game {
         });
 
         const canalId = canal.id;
-        await PlayerDAO.updatePlayer(userId, this.guildId, { userChat: canalId });
+        await PlayerDAO.updatePlayer(player.getId(), { userChat: canalId });
 
         console.log(`Canal ${canal.name} criado com sucesso!`);
     }
@@ -153,17 +155,17 @@ export class Game {
         }
     }
     
-    public async sendMensagemPlayer(userId: string, mensagem: string): Promise<void> {
+    public async sendMensagemPlayer(user: Player, mensagem: string): Promise<void> {
         try {
-            const userChat = await this.playerManager.loadPlayer(userId).then(player => player?.getUserChat());
+            const userChat = user.getUserChat();
             if (userChat) {
                 const channel = await this.client.channels.fetch(userChat) as TextChannel;
                 await channel.send(mensagem);
             } else {
-                console.warn(`O jogador ${userId} não tem um canal de chat registrado.`);
+                console.warn(`O jogador ${user.getUsername()} não tem um canal de chat registrado.`);
             }
         } catch (error) {
-            console.log(`Não consegui mandar mensagem para o user ${userId}`);
+            console.log(`Não consegui mandar mensagem para o user ${user.getUsername()}`);
         }
     }
     
@@ -181,17 +183,13 @@ export class Game {
         // deixar isso pra depois
     }
     
-    public async processarMortePlayer(jogadorMortoId: string | Player, quemAtacouId: string | Player): Promise<boolean> {
-        const jogadorMorto =  jogadorMortoId instanceof Player ? jogadorMortoId : await this.playerManager.loadPlayer(jogadorMortoId);
-        const jogadorAssassino = quemAtacouId instanceof Player ? quemAtacouId : await this.playerManager.loadPlayer(quemAtacouId);
-        if (!jogadorMorto || !jogadorAssassino) return false;
-        
+    public async processarMortePlayer(jogadorMorto: Player, jogadorAssassino: Player): Promise<boolean> {
         const cargo = jogadorMorto.getCargo();
         if (cargo) {
             return cargo?.processarMorte(this, jogadorMorto, jogadorAssassino) || false;
         }
 
-        return true;
+        return false;
     }
     
     public getPlayerManager(): PlayerManager {

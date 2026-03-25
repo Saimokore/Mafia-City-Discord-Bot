@@ -3,9 +3,9 @@ import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
 import { PlayerDAO } from "../../DAOs/PlayerDAO.js";
 import { Game } from '../../Managers/GameManager.js';
 import { Habilidade } from "../Habilidade.js";
-import type { DadoExtra, DadoImpedidaEvangelho } from "../Tipos.js";
+import type { DadoImpedidaEvangelho } from "../Tipos.js";
 import type { Action } from "../Action.js";
-import type { ModalSubmitInteraction, InteractionResponse } from "discord.js";
+import type { Player } from "../Player.js";
 
 
 export class Evangelho extends Habilidade {
@@ -30,22 +30,22 @@ export class Evangelho extends Habilidade {
 
         if (oferta.status === "PENDENTE") await OfertaDAO.updateOferta(ofertaId, false);
 
-        const alvo = oferta.alvoId;
         const status = oferta.status === "ACEITA" ? true : false;
         const parametros = oferta.parametros ? JSON.parse(oferta.parametros) : null;
+
+        const playerAlvo = await game.getPlayerManager().loadPlayer(oferta.alvoId);
         const emissor = await game.getPlayerManager().loadPlayer(oferta.emissorId);
         if (!emissor) return;
+        if (!playerAlvo || !playerAlvo.getCargo()) return;
 
         // Criar alerta para o emissor sobre a resposta do alvo
-        await game.getSkillManager().criarAlerta(emissor.getId(), `Sua oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`)
-        console.log(`A oferta para ${alvo} foi ${status ? "ACEITA" : "RECUSADA"}.`);
+        await game.getSkillManager().criarAlerta(emissor, `Sua oferta para ${playerAlvo.getUsername()} foi ${status ? "ACEITA" : "RECUSADA"}.`)
+        console.log(`A oferta para ${playerAlvo.getUsername()} foi ${status ? "ACEITA" : "RECUSADA"}.`);
 
-        const playerAlvo = await PlayerDAO.getPlayerById(alvo, game.getGuildId());
-        if (!playerAlvo || !playerAlvo.cargo) return;
 
-        await this.updateListaRecusados(game, emissor.getId(), alvo, status)
+        await this.updateListaRecusados(game, emissor, playerAlvo, status)
 
-        const cargoAlvo = game.getSkillManager().getCargoInstance(playerAlvo.cargo);
+        const cargoAlvo = playerAlvo.getCargo();
 
         if (status) {
             if (cargoAlvo?.getAlinhamento() !== "Cidade") {
@@ -61,20 +61,19 @@ export class Evangelho extends Habilidade {
                     }
                     await game.getPlayerManager().storeDadosExtra(emissor, dados)
                     
-                    game.sendMensagemPlayer(alvo, "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer.");
+                    game.sendMensagemPlayer(playerAlvo, "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer.");
                 }
             } else {
                 // CIDADE: Fica Bloqueado na noite atual
-                await this.bloquearPlayer(game, alvo);
+                await this.bloquearPlayer(game, playerAlvo);
             }
         } else {
-            game.sendMensagemPlayer(alvo, "Você recusou a palavra e seus pecados pesam sobre você...");
+            game.sendMensagemPlayer(playerAlvo, "Você recusou a palavra e seus pecados pesam sobre você...");
         }
     }
 
-    public async updateListaRecusados(game: Game, emissor: string, alvo: string, aceitou: boolean) {
-        const playerEmissor = await game.getPlayerManager().loadPlayer(emissor);
-        if (!playerEmissor) return;
+    public async updateListaRecusados(game: Game, playerEmissor: Player, alvo: Player, aceitou: boolean) {
+        const alvoId = alvo.getUserId();
 
         let dadosExtraEmissor = playerEmissor.getDadosExtra();
 
@@ -82,23 +81,23 @@ export class Evangelho extends Habilidade {
 
         if (!dadosExtraAlvos || dadosExtraAlvos.tipo != "ALVOS_RECUSADOS") {
             if (!aceitou) {
-                dadosExtraEmissor.push({ tipo: "ALVOS_RECUSADOS", alvos: [alvo] });
+                dadosExtraEmissor.push({ tipo: "ALVOS_RECUSADOS", alvos: [alvoId] });
             }
         } else {
             const listaAlvos = dadosExtraAlvos.alvos;
-            const alvoJaEstaNaLista = listaAlvos.includes(alvo);
+            const alvoJaEstaNaLista = listaAlvos.includes(alvoId);
     
             if (!aceitou) {
                 if (!alvoJaEstaNaLista) {
-                    listaAlvos.push(alvo);
+                    listaAlvos.push(alvoId);
                 }
             } else {
                 if (alvoJaEstaNaLista) {
-                    dadosExtraAlvos.alvos = listaAlvos.filter((a: string) => a !== alvo);
+                    dadosExtraAlvos.alvos = listaAlvos.filter((a: string) => a !== alvoId);
                 }
             }
     
-            await PlayerDAO.updatePlayer(emissor, game.getGuildId(), { dadosExtra: JSON.stringify(dadosExtraEmissor) });
+            await PlayerDAO.updatePlayer(playerEmissor.getId(), { dadosExtra: JSON.stringify(dadosExtraEmissor) });
         }
     }
 }

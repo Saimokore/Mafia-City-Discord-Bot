@@ -123,10 +123,9 @@ model Alvo {
 
   alvoId String
   actionId String
-  guildId String
 
   action   Action @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  player   Player @relation(fields: [alvoId, guildId], references: [userId, guildId], onDelete: Cascade)
+  player   Player @relation(fields: [alvoId], references: [id], onDelete: Cascade)
 
   @@unique([alvoId, actionId])
 }

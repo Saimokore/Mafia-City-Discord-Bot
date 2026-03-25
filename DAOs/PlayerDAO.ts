@@ -25,8 +25,19 @@ export const PlayerDAO = {
         }
     },
 
-    async updatePlayer(userId: string, guildId: string, dados: Prisma.PlayerUpdateInput) {
-        try{
+    async updatePlayer(id: string, dados: Prisma.PlayerUpdateInput) {
+        try {
+            return await prisma.player.update({
+                where: { id },
+                data: dados
+            });
+        } catch (e) {
+            console.log("Erro ao atualizar jogador:", e);
+        }
+    },
+
+    async updatePlayerByUserId(userId: string, guildId: string, dados: Prisma.PlayerUpdateInput) {
+        try {
             return await prisma.player.update({
                 where: { guildId_userId: { userId, guildId } },
                 data: dados

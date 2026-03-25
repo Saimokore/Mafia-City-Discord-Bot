@@ -38,8 +38,11 @@ export class Cargo {
     }
 
     public async processarMorte(game: Game, playerMorto: Player, playerAssassino: Player): Promise<boolean> {
-        await PlayerDAO.updatePlayer(playerMorto.getId(), game.getGuildId(), { estaVivo: false });
-        game.getSkillManager().criarAlerta(playerMorto.getId(), "Você morreu!");
+        await PlayerDAO.updatePlayer(playerMorto.getId(), { estaVivo: false });
+        game.getSkillManager().criarAlerta(playerMorto, "Você morreu!");
+
+        // aqui provavelmente vou ter que guardar um dado de quem matou esse player se pa
+
         return true;
     }
     
@@ -109,7 +112,7 @@ export class Evangelista extends Cargo {
                     await HabilidadeDAO.updateHabilidade(dadosExtraMaldicao.habilidadeId , { status: "ATIVA" });
                     
                     const novasMarcas = dadosExtra.filter((m: any) => m !== dadosExtraMaldicao);
-                    await PlayerDAO.updatePlayer(player.getUserId(), game.getGuildId(), { marcas: JSON.stringify(novasMarcas) });
+                    await PlayerDAO.updatePlayer(player.getId(), { dadosExtra: JSON.stringify(novasMarcas) });
                     
                     // await this.sendMensagemPlayer(player.userId, "🔔 O Evangelista faleceu! Sua habilidade perdida foi restaurada e pode ser usada novamente.");
                     // checar se devo realmente avisar o player que ele possui sua habilidade denovo, provavel que não

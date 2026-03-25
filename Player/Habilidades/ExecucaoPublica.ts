@@ -10,7 +10,7 @@ export class ExecucaoPublica extends Habilidade {
         super("ExecucaoPublica", "Instantanea", usos || 1, "Dia", ["Astral", "Instantanea", "Especial"], status || "DISPONIVEL");
     }
 
-    public override async ativar(game: Game, action: Action): Promise<boolean> {
+    public async ativar(game: Game, action: Action): Promise<boolean> {
         return false;
     }
 
@@ -81,7 +81,7 @@ export class ExecucaoPublica extends Habilidade {
         return modal;
     }
 
-    protected override async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade): Promise<InteractionResponse<boolean> | undefined> {
+    protected override async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade) {
 
         const selectedUsers = interaction.fields.getSelectedUsers(`select_${this.getNome()}`);
         const alvoId = selectedUsers?.firstKey()?.toString(); // pega o primeiro, se tiver mais de um temos que fazer um map
@@ -92,7 +92,7 @@ export class ExecucaoPublica extends Habilidade {
             return interaction.reply({content: "Nenhum valor selecionado"});
         }
 
-        await game.getSkillManager().criarAction(emissor.getId(), this.getId()!, this.getTipo(), [alvoId])
+        await game.getSkillManager().criarAction(emissor.getId(), this.getId()!, this.getTipo(), [alvo])
         console.log("Modal submetido, alvo:", alvoId);
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
     }

@@ -174,21 +174,6 @@ client.on('messageCreate', async (message: Message) => {
         message.reply("Jogo reiniciado neste servidor! O lobby está aberto. Digitem `!join` para entrar!");
     }
 
-    if (message.content === prefix +'oferta') {
-        const player = await game.getPlayerManager().loadPlayer(message.author.id);
-        if (!player) {
-            message.reply("Você não está nesta partida!");
-            return;
-        }
-        const habilidade = player.getCargo()?.getHabilidades()[0];
-        if (!habilidade) {
-            message.reply("Habilidade não encontrada para seu cargo.");
-            return;
-        }
-
-        habilidade.ofertar(game, message.author.id, [message.author.id], "Evalhosla");
-    }
-
     if (message.content.startsWith(prefix +'newplayer')) {
         const fakeId = message.content.replace(prefix +'newplayer ', "");
         console.log("id: " + fakeId);
@@ -211,6 +196,81 @@ client.on('messageCreate', async (message: Message) => {
             return;
         }
         await AlertaDAO.createAlerta(serverId, message.author.id, partida.getEtapaAtual(), "Você recebeu uma oferta! Digite /offer para aceitar ou recusar.")
+    }
+
+    const args = message.content.slice(prefix.length).trim().split(/ +/);
+    const command = args.shift()?.toLowerCase();
+
+    // 🛡️ 1. DAR PROTEÇÃO (!setprot <id> <valor>)
+    if (command === 'setprot') {
+        const alvoId = args[0];
+        if (!args[1]) return message.reply({content: "falta coisa no comando"});
+        const valor = parseInt(args[1]);
+
+        if (!alvoId || isNaN(valor)) {
+            return message.reply("Uso correto: `!setprot <id_do_jogador> <valor_da_protecao>`");
+        }
+
+        try {
+            await PlayerDAO.updatePlayerByUserId(alvoId, serverId, { protecao: valor });
+            message.reply(`🛡️ Proteção de **${alvoId}** alterada para **${valor}**.`);
+        } catch (e) {
+            message.reply("❌ Jogador não encontrado no banco de dados.");
+        }
+    }
+
+    // 💀 2. MATAR JOGADOR FORÇADAMENTE (!kill <id>)
+    if (command === 'kill') {
+        const alvoId = args[0];
+        if (!alvoId) return message.reply("Uso correto: `!kill <id_do_jogador>`");
+
+        try {
+            await PlayerDAO.updatePlayerByUserId(alvoId, serverId, { estaVivo: false });
+            message.reply(`💀 Jogador **${alvoId}** foi abatido pelos deuses do Debug.`);
+        } catch (e) {
+            message.reply("❌ Erro ao matar jogador.");
+        }
+    }
+
+    // 👼 3. REVIVER JOGADOR (!revive <id>)
+    if (command === 'revive') {
+        const alvoId = args[0];
+        if (!alvoId) return message.reply("Uso correto: `!revive <id_do_jogador>`");
+
+        try {
+            await PlayerDAO.updatePlayerByUserId(alvoId, serverId, { estaVivo: true });
+            message.reply(`👼 Jogador **${alvoId}** ressuscitou!`);
+        } catch (e) {
+            message.reply("❌ Erro ao reviver jogador.");
+        }
+    }
+
+    // 🎭 4. FORÇAR UM CARGO ESPECÍFICO (!setcargo <id> <Nome do Cargo>)
+    if (command === 'setcargo') {
+        const alvoId = args[0];
+        // Junta o resto dos argumentos caso o cargo tenha espaço (ex: "Atirador de Elite")
+        const nomeCargo = args.slice(1).join(" "); 
+
+        if (!alvoId || !nomeCargo) return message.reply("Uso correto: `!setcargo <id_do_jogador> <Nome_do_Cargo>`");
+
+        try {
+            await PlayerDAO.updatePlayerByUserId(alvoId, serverId, { cargo: nomeCargo });
+            message.reply(`🎭 Cargo de **${alvoId}** alterado para **${nomeCargo}**. (Nota: As habilidades precisam ser recarregadas)`);
+        } catch (e) {
+            message.reply("❌ Erro ao alterar cargo.");
+        }
+    }
+
+    // ⏩ 6. AVANÇAR ETAPA DO JOGO MANUALMENTE (!forceetapa)
+    if (command === 'forceetapa') {
+        try {
+            await game.avancarEtapa();
+            const etapaAtual = await game.getEtapaAtual();
+            message.reply(`⏩ O tempo foi acelerado! O jogo agora está na etapa **${etapaAtual}**.`);
+        } catch (e) {
+            message.reply("❌ Erro ao forçar o avanço da etapa. O Game instanciado existe?");
+            console.error(e);
+        }
     }
 });
 
@@ -435,7 +495,7 @@ client.on('interactionCreate', async interaction => {
             return;
         }
 
-        await habilidadeInstance.resolverModal(interaction, game, interaction.user.id);
+        await habilidadeInstance.resolverModal(interaction, game);
     }
 });
 

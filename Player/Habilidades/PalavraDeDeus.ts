@@ -16,7 +16,7 @@ export class PalavraDeDeus extends Habilidade {
         return this.atacarPlayer(game, alvo, action);
     }
 
-    protected override async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade): Promise<InteractionResponse<boolean> | undefined> {
+    protected override async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade) {
         const habilidade = emissor.getHabilidade(this.getNome());
 
         let dadosExtraEmissor = emissor.getDadosExtra();

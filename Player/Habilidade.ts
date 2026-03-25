@@ -5,7 +5,7 @@ import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
 import type { Player } from './Player.js';
 import type { Action } from './Action.js';
 
-export class Habilidade {
+export abstract class Habilidade {
     private id?: string;
     private nome: string;
     private tipo: string;
@@ -23,6 +23,8 @@ export class Habilidade {
         this.status = status || "DISPONIVEL";
     }
 
+    public abstract ativar(game: Game, action: Action): Promise<boolean>;
+
     public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | void> {
 
         const modal = new ModalBuilder()
@@ -33,7 +35,7 @@ export class Habilidade {
             .setLabel('Quem é o alvo?')
             .setUserSelectMenuComponent(
                 new UserSelectMenuBuilder()
-                    .setCustomId(`select_${this.getNome()}`)
+                    .setCustomId(`select_target_${this.getNome()}`)
                     .setPlaceholder('Selecione o seu alvo...')
                     .setMinValues(1)
                     .setMaxValues(1)
@@ -44,10 +46,10 @@ export class Habilidade {
         return modal;
     }
 
-    public async resolverModal(interaction: ModalSubmitInteraction, game: Game, emissorId: string) {
+    // valida o target, o emissor e o alvo
+    public async resolverModal(interaction: ModalSubmitInteraction, game: Game) {
         // Tenta pegar o valor das duas formas usadas no seu código
-        const selectedUsers = interaction.fields.getSelectedUsers(`select_${this.getNome()}`) 
-                           || interaction.fields.getSelectedUsers(`select_target_${this.getNome()}`);
+        const selectedUsers = interaction.fields.getSelectedUsers(`select_target_${this.getNome()}`);
         
         const alvoId = selectedUsers?.firstKey()?.toString();
 
@@ -56,34 +58,43 @@ export class Habilidade {
         }
 
         const jogadorAlvo = await game.getPlayerManager().loadPlayer(alvoId);
-        if (!jogadorAlvo) {
-            return interaction.reply({ content: "❌ **Erro:** Esse usuário não está participando da partida atual!" });
+        const jogadorEmissor = await game.getPlayerManager().loadPlayer(interaction.user.id);
+
+        if (!jogadorEmissor || !jogadorEmissor.estaVivo()) {
+            return interaction.reply({ content: "❌ **Erro:** Você não está vivo ou não faz parte da partida!" });
         }
 
-        if (!jogadorAlvo.estaVivo()) {
-            return interaction.reply({ content: "👻 **Erro:** Você só pode mirar em jogadores vivos." });
-        }
-
-        if (alvoId === interaction.user.id && !this.permiteAutoUso()) {
-            return interaction.reply({ content: "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!" });
-        }
-
-        const emissor = await game.getPlayerManager().loadPlayer(emissorId);
-        if (!emissor) {
-            return interaction.reply({ content: "❌ **Erro:** Emissor não encontrado. Contate o host." });
-        }
-
-        const habilidade = emissor.getHabilidades()?.find(hab => hab.getNome() === this.getNome());
+        const habilidade = jogadorEmissor.getHabilidade(this.getNome());
         if (!habilidade) {
             return interaction.reply({ content: "❌ **Erro:** Você não possui essa habilidade." });
         }
 
-        return await this.processarUsoModal(interaction, game, emissor, jogadorAlvo, habilidade);
+        const erroAlvo = this.validarAlvo(jogadorAlvo, jogadorEmissor.getId());
+        if (erroAlvo) {
+            // Se a validação retornou um texto de erro, nós paramos aqui e avisamos o usuário!
+            return interaction.reply({ content: erroAlvo });
+        }
+
+        return await this.processarUsoModal(interaction, game, jogadorEmissor, jogadorAlvo!, habilidade);
+    }
+
+    protected validarAlvo(alvo: Player | null, emissorId: string): string | null {
+        if (!alvo) {
+            return "❌ **Erro:** O jogador alvo não está participando da partida atual!";
+        }
+        if (!alvo.estaVivo()) {
+            return "👻 **Erro:** Você só pode mirar em jogadores vivos.";
+        }
+        if (alvo.getId() === emissorId && !this.permiteAutoUso()) {
+            return "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!";
+        }
+
+        return null; // Sucesso na validação!
     }
 
     protected async processarUsoModal( interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, habilidadeInstance: Habilidade) {
         // cria a ação genérica e responde
-        if (!this.id) return;
+        if (!this.id) return interaction.reply({ content: "❌ **Erro:** Habilidade sem ID registrado." });
         await game.getSkillManager().criarAction(emissor.getId(), this.id, this.tipo, [alvo]);
         
         return interaction.reply({ content: `Habilidade **${this.getNome()}** usada com sucesso!` });
@@ -110,8 +121,6 @@ export class Habilidade {
         return custo;
     }
 
-    public async ativar(game: Game, action: Action): Promise<boolean> {return false;}
-
     public async ofertar(game: Game, emissorId: string, alvos: Player[], nomeOferta: string, item?: string, parametros?: string): Promise<void> {
         console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvos.join(", ")} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
         
@@ -127,7 +136,7 @@ export class Habilidade {
     public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
 
 
-    protected async visitarPlayer(game: Game, alvo: string, alertado: boolean): Promise<void> {
+    protected async visitarPlayer(game: Game, alvo: Player, alertado: boolean): Promise<void> {
         if (alertado) {
             console.log(`alvo foi visitado e alertado.`);
         }
@@ -142,31 +151,35 @@ export class Habilidade {
         }
     }
 
-    protected async bloquearPlayer(game: Game, alvo: string): Promise<void> {
+    protected async bloquearPlayer(game: Game, alvo: Player): Promise<void> {
         // depois avisar player q foi bloqueado exceto exceções
         const partida = await game.getPartida();
         if (!partida) {
             console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
             return;
         }
-        await PlayerDAO.updatePlayer(alvo, game.getGuildId(), { status: "BLOQUEADO" });
+        await PlayerDAO.updatePlayer(alvo.getId(), { status: "BLOQUEADO" });
         await game.getSkillManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
     }
 
-    protected async atacarPlayer(game: Game, alvo: Player, action: Action): Promise<boolean> {
+    protected async atacarPlayer(game: Game, alvo: Player, assassino: Player, action: Action): Promise<boolean> {
         // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0) > Sem Prot (0)
         const parsedParams = JSON.parse(action.getParametros());
         const poderAtaque = parsedParams.poderAtaque || 0;
 
         if (poderAtaque >= alvo.getProtecao()) {
             console.log(`Alvo ${alvo.getUserId()} tem proteção inferior e pode ser atacado.`);
-            game.processarMortePlayer(alvo.getId(), action.getUserId());
-            return true;
+            await game.getSkillManager().criarAlerta(assassino, "Matou o mano parabens");
+
+            return game.processarMortePlayer(alvo, assassino);
         } else {
-            console.log(`Alvo ${alvo} tem proteção suficiente para resistir ao ataque.`);
+            console.log(`Alvo ${alvo.getUsername()} tem proteção suficiente para resistir ao ataque.`);
             
             const protInata = alvo.getCargo()?.getProtecaoInata() || 0;
-            await PlayerDAO.updatePlayer(alvo.getUserId(), game.getGuildId(), { protecao: protInata });
+            await PlayerDAO.updatePlayer(alvo.getId(), { protecao: protInata });
+
+            await game.getSkillManager().criarAlerta(alvo, "voce sente que foi protegido");
+
             return false;
         }
     }
@@ -247,24 +260,29 @@ export class Habilidade {
     }
 }
 
-export class Reputacao extends Habilidade {
-    constructor() {
-        super("Reputação", "Passiva");
-    }
+// export class Reputacao extends Habilidade {
+//     constructor() {
+//         super("Reputação", "Passiva");
+//     }
 
-}
+// }
 
-export class Prender extends Habilidade {
-    constructor() {
-        super("Prender", "Prioridade", 10000, "Noite", ["Imparavel"]);
-    }
-}
+// export class Prender extends Habilidade {
+//     constructor() {
+//         super("Prender", "Prioridade", 10000, "Noite", ["Imparavel"]);
+//     }
+// }
 
-export class Pacificacao extends Habilidade {
-    constructor() {
-        super("Pacificacao", "Prioridade", 3, "Noite", ["Dormente", "Imparavel"]);
-    }
-}
+// export class Pacificacao extends Habilidade {
+//     constructor() {
+//         super("Pacificacao", "Prioridade", 3, "Noite", ["Dormente", "Imparavel"]);
+//     }
+// }
+
+
+
+
+
 
 // export class ProcessoDeEliminacao extends Habilidade {
 //     constructor() {
@@ -392,26 +410,39 @@ export class Pacificacao extends Habilidade {
 //     }
 // }
 
-export class PunhoDeFerro extends Habilidade {
-    constructor() {
-        super("Punho de Ferro", "Passiva", 0, undefined, ["Especial"]);
-    }
 
-}
 
-export class Matar extends Habilidade {
-    constructor() {
-        super("Matar", "Ofensiva", 10000, "Noite", ["Dormente"]);
-    }
 
-}
 
-export class Massacre extends Habilidade {
-    constructor() {
-        super("Massacre", "Ofensiva", 1, "Noite", ["Especial"]);
-    }
 
-}
+
+// export class PunhoDeFerro extends Habilidade {
+//     constructor() {
+//         super("Punho de Ferro", "Passiva", 0, undefined, ["Especial"]);
+//     }
+
+// }
+
+// export class Matar extends Habilidade {
+//     constructor() {
+//         super("Matar", "Ofensiva", 10000, "Noite", ["Dormente"]);
+//     }
+
+// }
+
+// export class Massacre extends Habilidade {
+//     constructor() {
+//         super("Massacre", "Ofensiva", 1, "Noite", ["Especial"]);
+//     }
+
+// }
+
+
+
+
+
+
+
 
 // export class Plantar extends Habilidade {
 //     constructor() {

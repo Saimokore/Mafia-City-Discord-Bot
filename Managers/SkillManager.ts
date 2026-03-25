@@ -84,13 +84,13 @@ export class SkillManager {
         return this.getHabilidadeInstance(h.nome, h.id, h.uso, h.status);
     }
 
-    public async criarAlerta(user: string | Player, alerta: string) {
-        const userId = user instanceof Player ? user.getId() : user;
-        await AlertaDAO.createAlerta(this.guildId, userId, await this.game.getEtapaAtual(), alerta)
+    public async criarAlerta(user: Player, alerta: string) {
+        await AlertaDAO.createAlerta(this.guildId, user.getId(), await this.game.getEtapaAtual(), alerta)
     }
 
     public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: Player[], parametros?: string): Promise<void> {
-        await ActionDAO.createAction(userId, this.guildId, tipo, await this.game.getEtapaAtual(), habilidadeId, alvos?.map(a => a.getId()) || [], parametros);
+        const alvosIds = alvos?.map(a => a.getId());
+        await ActionDAO.createAction(userId, this.guildId, tipo, await this.game.getEtapaAtual(), habilidadeId, alvosIds || [], parametros);
     }
 
     public async criarOferta(emissorId: string, alvo: Player, habilidadeNome: string, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
@@ -105,8 +105,8 @@ export class SkillManager {
         switch (nomeDoCargo) {
             case "Evangelista": return new Evangelista(habilidades);
             case "Atirador_de_elite": return new AtiradorDeElite(habilidades);
-            case "Xerife": return new Cargo("Xerife", new Class.CidadeJusticeiro(), "Comum", [new Hab.Reputacao(), new Hab.Prender(), new Hab.Pacificacao()], 2);
-            case "Bigode": return new Cargo("Bigode", new Class.MafiaLider(), "Único", [new Hab.PunhoDeFerro(), new Hab.Matar(), new Hab.Massacre()], 2, 1);
+            // case "Xerife": return new Cargo("Xerife", new Class.CidadeJusticeiro(), "Comum", [new Hab.Reputacao(), new Hab.Prender(), new Hab.Pacificacao()], 2);
+            // case "Bigode": return new Cargo("Bigode", new Class.MafiaLider(), "Único", [new Hab.PunhoDeFerro(), new Hab.Matar(), new Hab.Massacre()], 2, 1);
             default: return null;
         }
     }

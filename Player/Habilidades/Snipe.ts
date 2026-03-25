@@ -19,10 +19,10 @@ export class Snipe extends Habilidade {
         if (!habilidade) return false;
 
         const alvo = action.getAlvos()[0];
-        if (!alvo) return false;
+        const assassino = await game.getPlayerManager().loadPlayer(action.getUserId());
+        if (!alvo || !assassino) return false;
 
-        if (await this.atacarPlayer(game, alvo, action)) {
-            await game.getSkillManager().criarAlerta(action.getUserId(), "Matou o mano parabens");
+        if (await this.atacarPlayer(game, alvo, assassino, action)) {
             if (acertouClasse) {
                 // Devolve o uso
                 const valorUsoTotal = habilidade!.getUso() + 1;
@@ -30,7 +30,6 @@ export class Snipe extends Habilidade {
             }
             return true;
         } else {
-            await game.getSkillManager().criarAlerta(action.getUserId(), "Nao matou o mano parabens");
             return false;
         }
         
@@ -126,14 +125,11 @@ export class Snipe extends Habilidade {
             }
         }
 
-        const habilidade = emissor.getHabilidades()?.find(hab => hab.getNome() === this.getNome());
-        if (!habilidade) return interaction.reply({content: "Erro, ao achar habilidade contate o host do jogo"});
-
-        if (habilidade.getUso() < custoAcao) {
+        if (this.getUso() < custoAcao) {
             return interaction.reply({content: "Você não tem usos disponíveis dessa habilidade!"})
         }
 
-        await game.getSkillManager().criarAction(emissor.getUserId(), habilidade.getId()!, this.getTipo(), [alvo.getId()], JSON.stringify(parametrosAcao))
+        await game.getSkillManager().criarAction(emissor.getUserId(), this.getId()!, this.getTipo(), [alvo], JSON.stringify(parametrosAcao))
         console.log("Modal submetido, alvo:", alvo.getId());
 
         return interaction.reply({ content: `Habilidade ${this.getNome()} usada com sucesso!` });
