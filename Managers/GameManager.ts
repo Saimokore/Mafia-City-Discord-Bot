@@ -18,6 +18,8 @@ export class Game {
     private playerManager: PlayerManager;
     private skillManager: SkillManager;
 
+    private transicaoEtapa: boolean;
+
     constructor(guildId: string, client: Client) {
         this.guildId = guildId;
         this.client = client;
@@ -27,11 +29,8 @@ export class Game {
         this.skillManager = new SkillManager(this.guildId, this);
         
         this.cargoList = ["Evangelista", "Atirador_de_elite", "Xerife", "Bigode"];
+        this.transicaoEtapa = false;
     }
-
-    // ==========================================
-    // MENSAGERIA (Interação com o Discord)
-    // ==========================================
 
     public async iniciarJogo(): Promise<void> {
         await PartidaDAO.updatePartida(this.guildId, { status: "ATIVA" });
@@ -142,7 +141,18 @@ export class Game {
     }
 
     public async avancarEtapa(): Promise<void> {
+        
+        this.setTransicaoEtapa(true);
+        await this.playerManager.carregarCache();
+
         await this.skillManager.executarActions();
+
+        await this.playerManager.commitBatch();
+        await this.skillManager.commitBatch();
+
+        this.setTransicaoEtapa(false);
+        this.playerManager.limparCache();
+        
         await this.playerManager.sendPlayersStatus();
 
         this.etapaAtual = await PartidaDAO.getPartida(this.guildId).then(p => p!.etapaAtual);
@@ -219,9 +229,13 @@ export class Game {
         return cargos;
     }
 
-    // ==========================================
-    // REGRAS DE NEGÓCIO (O Jogo em Si)
-    // ==========================================
+    public isTransicaoEtapa(): boolean {
+        return this.transicaoEtapa;
+    }
+
+    public setTransicaoEtapa(status: boolean) {
+        this.transicaoEtapa = status;
+    }
 
     public async iniciarNoite(): Promise<void> {
         await this.sendAnuncio(`Noite [${Math.floor(this.etapaAtual / 2)}]. O sol se põe... A cidade vai dormir. Nenhuma mensagem a mais será ouvida aqui.`);

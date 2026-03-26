@@ -182,7 +182,7 @@ model Oferta {
   etapa      Int
 
   criadoEm DateTime @default(now())
-  player   Player?  @relation(fields: [emissorId, guildId], references: [userId, guildId], onDelete: Cascade)
+  player   Player  @relation(fields: [emissorId, guildId], references: [userId, guildId], onDelete: Cascade)
 
   habilidade  Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
 

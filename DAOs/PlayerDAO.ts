@@ -47,7 +47,7 @@ export const PlayerDAO = {
         }
     },
 
-    async getPlayerById(userId: string, guildId: string) {
+    async getPlayerByUserId(userId: string, guildId: string) {
         try {
             return await prisma.player.findUnique({
                 where: {
@@ -57,6 +57,33 @@ export const PlayerDAO = {
                     }
                 },
                 include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, actions: true }
+            });
+        } catch (error) {
+            console.log("Erro ao procurar jogador:", error);
+        }
+    },
+
+    async getPlayerById(id: string) {
+        try {
+            return await prisma.player.findUnique({
+                where: { id },
+                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, actions: true }
+            });
+        } catch (error) {
+            console.log("Erro ao procurar jogador:", error);
+        }
+    },
+
+    async findPlayerWithUserIdOrId(user: string, guildId: string) {
+        try {
+            return await prisma.player.findFirst({
+                where: {
+                    OR: [
+                        { id: user },
+                        { AND: [{ userId: user }, { guildId }] }
+                    ]
+                },
+                include: { cartas: true, alertas: true, habilidades: true, itens: true }
             });
         } catch (error) {
             console.log("Erro ao procurar jogador:", error);

@@ -138,32 +138,11 @@ export class HabilidadeDinamica extends Habilidade {
         const gatilhoAoUsar = this.regras.gatilhos.find(g => g.evento === "AO_USAR");
         if (!gatilhoAoUsar) return interaction.reply({ content: "Essa habilidade não é ativa." });
 
-        let parametrosAcaoFinal: any = {};
-
-        // 2. Loop passando por todos os efeitos programados no JSON
-        for (const efeito of gatilhoAoUsar.efeitos) {
-            
-            // 3. Checa se o efeito passa nas condições
-            const condicoesPassaram = await this.avaliarCondicoes(efeito.condicoes, emissor, alvo, variaveisColetadas);
-            
-            if (condicoesPassaram) {
-                // 4. Se passou, adicionamos as ordens para o banco de dados
-                if (efeito.acao === "ATACAR") {
-                    parametrosAcaoFinal.poderAtaque = efeito.parametros.poderAtaque;
-                }
-                if (efeito.acao === "ALTERAR_USO") {
-                    parametrosAcaoFinal.restaurarUso = efeito.parametros.quantidade;
-                }
-                if (efeito.acao === "CRIAR_OFERTA") {
-                    parametrosAcaoFinal.restaurarUso = efeito.parametros.quantidade;
-                }
-            }
-        }
-
         // 5. Registra a ação no banco com tudo que o JSON mandou
         if (!this.getId()) return interaction.reply({ content: "ID de Habilidade não encontrado, contate um host do jogo." });
 
-        const action = await game.getSkillManager().criarAction(emissor.getId(), this.getId()!, this.getTipo(), [alvo], JSON.stringify(parametrosAcaoFinal));
+        const parametrosParaOBanco = JSON.stringify(variaveisColetadas);
+        const action = await game.getSkillManager().criarAction(emissor.getId(), this.getId()!, this.getTipo(), [alvo], JSON.stringify(parametrosParaOBanco));
         if (this.getTipo() === "Instantanea") {
             await this.ativar(game, action, "AO_USAR");
         }
@@ -178,15 +157,16 @@ export class HabilidadeDinamica extends Habilidade {
             
             // Descobre quem é o alvo da checagem
             const jogadorChecado = condicao.sujeito === "EMISSOR" ? emissor : alvo;
-            let valorDoSujeito: any;
+            let valorReal: any;
 
             // Busca o atributo no objeto do Player
-            if (condicao.atributo === "ALINHAMENTO") valorDoSujeito = jogadorChecado.getAlinhamento();
-            if (condicao.atributo === "CLASSE") valorDoSujeito = jogadorChecado.getClasse();
-            if (condicao.atributo === "CARGO") valorDoSujeito = jogadorChecado.getCargo()?.getNome();
-
-            if (condicao.atributo === "ESTA_VIVO") valorDoSujeito = jogadorChecado.estaVivo();
-            if (condicao.atributo === "PROTECAO") valorDoSujeito = jogadorChecado.getProtecao();
+            switch (condicao.atributo) {
+                case "ALINHAMENTO": valorReal = jogadorChecado.getAlinhamento(); break;
+                case "ESTA_VIVO": valorReal = jogadorChecado.estaVivo(); break;
+                case "PROTECAO": valorReal = jogadorChecado.getProtecao(); break;
+                case "CLASSE": valorReal = jogadorChecado.getClasse(); break;
+                case "CARGO": valorReal = jogadorChecado.getCargo()?.getNome(); break;
+            }
 
             // Trata o valor esperado (se for uma referência cruzada como "EMISSOR.ALINHAMENTO")
             let valorEsperado = condicao.valorEsperado;
@@ -205,9 +185,9 @@ export class HabilidadeDinamica extends Habilidade {
             }
 
             // Compara usando o operador do JSON
-            if (condicao.operador === "IGUAL_A" && valorDoSujeito !== valorEsperado) return false;
-            if (condicao.operador === "DIFERENTE_DE" && valorDoSujeito === valorEsperado) return false;
-            if (condicao.operador === "MAIOR_QUE" && valorDoSujeito < valorEsperado) return false; // tem que ver isso aqui depois
+            if (condicao.operador === "IGUAL_A" && valorReal !== valorEsperado) return false;
+            if (condicao.operador === "DIFERENTE_DE" && valorReal === valorEsperado) return false;
+            if (condicao.operador === "MAIOR_QUE" && valorReal < valorEsperado) return false; // tem que ver isso aqui depois
         }
 
         return true; // Se não parou em nenhum false, é porque passou em tudo!
@@ -219,8 +199,16 @@ export class HabilidadeDinamica extends Habilidade {
         const gatilhoResolucao = this.regras.gatilhos.find(g => g.evento === gatilhoDisparo);
         if (!gatilhoResolucao) return true; // Se não tem, retorna sucesso sem fazer nada.
 
-        const emissor = await game.getPlayerManager().loadPlayer(action.getUserId());
-        const alvos = action.getAlvos(); // Lembre-se que você alterou criarAction para receber strings, ajuste caso o getAlvos() retorne ID.
+        const emissor = await game.getPlayerManager().loadPlayer(action.getEmissorUserId());
+        const alvos = [];
+        for (const alvo of action.getAlvos()) {
+            const alvoInstance = await game.getPlayerManager().loadPlayer(alvo);
+            if (!alvoInstance)  {
+                console.error(`Não carregou player com ID ${alvo}`);
+                continue;
+            }
+            alvos.push(alvoInstance);
+        }
 
         if (!emissor || !alvos) return false;
 

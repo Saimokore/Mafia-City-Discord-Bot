@@ -25,27 +25,7 @@ export const ActionDAO = {
                     parametrosAcao: parametrosAcao || null
                 },
                 include: {
-                    habilidade: true,
-                    player: {
-                        include: {
-                            cartas: true,
-                            alertas: true,
-                            habilidades: true,
-                            itens: true
-                        }
-                    },
-                    alvos: {
-                        include: { 
-                            player: {
-                                include: {
-                                    cartas: true,
-                                    alertas: true,
-                                    habilidades: true,
-                                    itens: true
-                                }
-                            } 
-                        }
-                    }
+                    alvos: true,
                 }
             });
         } catch (e) {
@@ -68,20 +48,8 @@ export const ActionDAO = {
         try {
             return await prisma.action.findUnique({
                 where: { id },
-                include: { 
-                    habilidade: true, 
-                    alvos: { 
-                        include: { 
-                            player: {
-                                include: {
-                                    cartas: true,
-                                    alertas: true,
-                                    habilidades: true,
-                                    itens: true
-                                }   
-                            }
-                        }
-                    } 
+                include: {
+                    alvos: true,
                 }
             });
         } catch (e) {
@@ -97,27 +65,7 @@ export const ActionDAO = {
                     etapa: etapa
                 },
                 include: {
-                    habilidade: true,
-                    player: {
-                        include: {
-                            cartas: true,
-                            alertas: true,
-                            habilidades: true,
-                            itens: true
-                        }
-                    },
-                    alvos: {
-                        include: { 
-                            player: {
-                                include: {
-                                    cartas: true,
-                                    alertas: true,
-                                    habilidades: true,
-                                    itens: true
-                                }
-                            } 
-                        }
-                    }
+                    alvos: true
                 }
             });
         } catch (e) {

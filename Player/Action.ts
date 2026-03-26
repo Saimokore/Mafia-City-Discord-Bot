@@ -3,55 +3,36 @@ import type { Game } from "../Managers/GameManager.js";
 import { Habilidade } from "./Habilidade.js";
 import { Prisma } from '@prisma/client';
 import { Player } from "./Player.js";
+import { ActionDAO } from "../DAOs/ActionDAO.js";
 
 export type PrismaAction = Prisma.ActionGetPayload<{
     include: {
-        habilidade: true,
-        player: {
-            include: {
-                cartas: true,
-                alertas: true,
-                habilidades: true,
-                itens: true
-            }
-        },
-        alvos: {
-            include: { 
-                player: {
-                    include: {
-                        cartas: true,
-                        alertas: true,
-                        habilidades: true,
-                        itens: true
-                    }
-                } 
-            }
-        }
+        alvos: true
     }
 }>;
 
 export class Action {
     private id: string;
-    private emissor: Player;
+    private emissorId: string;
 
     private tipo: string;
     private sucesso: string;
 
     private etapa: number;
-    private habilidade: Habilidade | null;
-    private alvos: Player[];
+    private habilidadeId: string;
+    private alvosIds: string[];
 
     private parametros: string;
-
-    constructor(game: Game, action: PrismaAction) {
-        const h = action.habilidade;
+    
+    // alvosIds puxa o ID mesmo e não o userID
+    constructor(action: PrismaAction) {
         this.id = action.id;
-        this.emissor = new Player(game, action.player);
-        this.habilidade = game.getSkillManager().getHabilidadeInstance(h.nome, h.id, h.uso, h.status);
+        this.emissorId = action.userId;
+        this.habilidadeId = action.habilidadeId;
         this.tipo = action.tipo;
         this.sucesso = action.sucesso;
         this.etapa = action.etapa;
-        this.alvos = action.alvos.map(a => new Player(game, a.player));
+        this.alvosIds = action.alvos.map(a => a.alvoId);
         this.parametros = action.parametrosAcao || "{}";
     }
 
@@ -59,13 +40,9 @@ export class Action {
         return this.id;
     }
 
-    public getEmissor(): Player {
-        return this.emissor;
+    public getEmissorUserId(): string {
+        return this.emissorId;
     }
-
-    // public getUserId(): string {
-    //     return this.emissor.getUserId();
-    // }
     
     public getTipo(): string {
         return this.tipo;
@@ -79,12 +56,12 @@ export class Action {
         return this.etapa;
     }
 
-    public getHabilidade(): Habilidade | null {
-        return this.habilidade;
+    public getHabilidadeId(): string {
+        return this.habilidadeId;
     }
 
-    public getAlvos(): Player[] {
-        return this.alvos;
+    public getAlvos(): string[] {
+        return this.alvosIds;
     }
 
     public getParametros(): string {

@@ -17,10 +17,13 @@ import { Action, type PrismaAction } from "../Player/Action.js";
 export class SkillManager {
     private guildId: string;
     private game: Game;
+
+    private batchHabilidades: Map<string, any>;
     
     constructor(guildId: string, game: Game) {
         this.game = game;
         this.guildId = guildId;
+        this.batchHabilidades = new Map();
     }
 
     public async executarActions() {
@@ -39,7 +42,7 @@ export class SkillManager {
         }
         
         actions.sort((a, b) => {
-            const habA = this.getHabilidadeInstance(a.habilidade.nome)?.getPrioridade() || 0;
+            const habA = await this.loadHabilidade(a.habilidadeId) .getPrioridade() getHabilidadeInstance(a.habilidade.nome)?.getPrioridade() || 0;
             const habB = this.getHabilidadeInstance(b.habilidade.nome)?.getPrioridade() || 0;
             return habB - habA;
         });
@@ -64,6 +67,35 @@ export class SkillManager {
             const sucesso = await habilidade.usarHabilidade(this.game, new Action(this.game, action))
             await ActionDAO.updateAction(action.id, { sucesso: sucesso ? "SUCEDIDA" : "FALHA"});
         }
+    }
+
+    public async updateHabilidade(habilidade: Hab.Habilidade, updates: any) {
+        
+        if (updates.uso !== undefined) habilidade.setUso(updates.uso);
+        if (updates.status !== undefined) habilidade.setStatus(updates.status);
+
+
+        if (!this.game.isTransicaoEtapa()) {
+            await HabilidadeDAO.updateHabilidade(habilidade.getId()!, updates);
+            return;
+        }
+
+        const id = habilidade.getId()!;
+        const atual = this.batchHabilidades.get(id) || {};
+        this.batchHabilidades.set(id, { ...atual, ...updates });
+    }
+
+    public async commitBatch() {
+        if (this.batchHabilidades.size === 0) return;
+        
+        console.log(`[DB] Salvando ${this.batchHabilidades.size} habilidades simultaneamente...`);
+        
+        const promises = Array.from(this.batchHabilidades.entries()).map(([id, updates]) => {
+            return HabilidadeDAO.updateHabilidade(id, updates);
+        });
+
+        await Promise.all(promises);
+        this.batchHabilidades.clear();
     }
     
     public async checkOfertas(): Promise<void> {

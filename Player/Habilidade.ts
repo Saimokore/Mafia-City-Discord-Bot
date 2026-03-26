@@ -110,7 +110,7 @@ export abstract class Habilidade {
         
         // Atualiza o uso da habilidade, habilidades reutilizaveis tem custo de 10000
         const valorUsoTotal = this.uso - custo;
-        await HabilidadeDAO.updateHabilidade(this.id!, { uso: valorUsoTotal });
+        await game.getSkillManager().updateHabilidade(this, { uso: valorUsoTotal });
 
         return await this.ativar(game, action);
     }
@@ -173,7 +173,7 @@ export abstract class Habilidade {
             console.log(`Alvo ${alvo.getUsername()} tem proteção suficiente para resistir ao ataque.`);
             
             const protInata = alvo.getCargo()?.getProtecaoInata() || 0;
-            await PlayerDAO.updatePlayer(alvo.getId(), { protecao: protInata });
+            await game.getPlayerManager().updatePlayer(alvo, { protecao: protInata });
 
             await game.getSkillManager().criarAlerta(alvo, "voce sente que foi protegido");
         }

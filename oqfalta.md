@@ -1,6 +1,4 @@
-player tem que ter as habilidades separadas do cargo se pa
-
-talvez executar coisas na ram antes de atualizar a database por questoes de eficiencia
+ver como podemos guardar coisas não tão especificas das habilidades como o poder de ataque e tal corretamente e fugir um pouco dos parametrosextras
 
 Evangelista:
 - Descobrir se a habilidade Palavra de Deus só pode ser utilizada logo após a recusa da oferta ou se pode ser utilizada em qualquer etapa do jogo

@@ -137,4 +137,20 @@ export class Player {
     public getProtecao(): number {
         return this.protecao;
     }
+
+    public setEstaVivo(vivo: boolean) {
+        this.isAlive = vivo;
+    }
+
+    public setProtecao(valor: number) {
+        this.protecao = valor;
+    }
+
+    public setStatus(novoStatus: string[]) { // Ou string JSON, dependendo de como você tipou
+        this.status = novoStatus;
+    }
+
+    public setDadosExtra(dados: DadoExtra[]) { // Ou string JSON
+        this.dadosExtra = dados;
+    }
 }
