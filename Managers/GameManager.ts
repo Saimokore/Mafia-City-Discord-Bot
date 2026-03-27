@@ -198,11 +198,6 @@ export class Game {
 
         return false;
     }
-
-    public async getOferta(id: string) {
-        const ofertaDB = await OfertaDAO.getOfertaById(id);
-        
-    }
     
     public getPlayerManager(): PlayerManager {
         return this.playerManager;

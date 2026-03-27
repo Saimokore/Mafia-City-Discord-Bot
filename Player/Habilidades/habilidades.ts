@@ -101,7 +101,12 @@ export const regraEvangelho: DefinicaoHabilidade = {
                 {
                     acao: "CRIAR_OFERTA",
                     alvo: "ALVO_SELECIONADO",
-                    parametros: { nomeOferta: "Arrependimento" }
+                    parametros: { 
+                        nomeOferta: "Arrependimento",
+                        inputsAceitacao: [
+                            { idVariavel: "habilidade_sacrificada", tipoInput: "SELECIONAR_PROPRIA_HABILIDADE", texto: "Qual habilidade você sacrifica?" }
+                        ]
+                    }
                 }
             ]
         },
@@ -111,7 +116,7 @@ export const regraEvangelho: DefinicaoHabilidade = {
             evento: "AO_OFERTA_RECUSADA",
             efeitos: [
                 {
-                    acao: "ADICIONAR_MARCA",
+                    acao: "ADICIONAR_PARAMETRO",
                     alvo: "EMISSOR",
                     parametros: { tipo: "ALVOS_RECUSADOS", salvarId: "ALVO_SELECIONADO" }
                 },

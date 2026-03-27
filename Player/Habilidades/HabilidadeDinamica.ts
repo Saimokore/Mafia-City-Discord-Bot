@@ -1,10 +1,12 @@
 import { ActionRowBuilder, UserSelectMenuBuilder, StringSelectMenuBuilder, ModalBuilder, ModalSubmitInteraction, LabelBuilder, StringSelectMenuInteraction, TextInputBuilder } from "discord.js";
-import type { DefinicaoHabilidade, Efeito, Condicao } from "../ECA.js";
+import type { DefinicaoHabilidade, Efeito, Condicao, Gatilho } from "../ECA.js";
 import { Game } from "../../Managers/GameManager.js";
 import { Habilidade } from "../Habilidade.js";
 import { Player } from "../Player.js";
 import { Action } from "../Action.js";
 import { access } from "node:fs";
+import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
+import type { DadoAlvosRecusados, DadoExtra, DadoImpedidaEvangelho } from "../Tipos.js";
 
 export class HabilidadeDinamica extends Habilidade {
     private regras: DefinicaoHabilidade;
@@ -215,76 +217,96 @@ export class HabilidadeDinamica extends Habilidade {
         const variaveisColetadas = action.getParametros() ? JSON.parse(action.getParametros()) : {};
 
         for (const alvo of alvos) {
-            for (const efeito of gatilhoResolucao.efeitos) {
-                const condicoesPassaram = await this.avaliarCondicoes(efeito.condicoes, emissor, alvo, variaveisColetadas);
-                
-                if (condicoesPassaram) { 
-                    switch (efeito.acao) {
-                        case "CRIAR_OFERTA":
-                            await this.ofertarPlayer(game, emissor.getId(), alvo, efeito.parametros.nomeOferta);
-                            break;
-                        case "ATACAR":
-                            await this.atacarPlayer(game, alvo, emissor, action);
-                            break;
-                        case "BLOQUEAR":
-                            await this.bloquearPlayer(game, alvo);
-                            break;
-                    }
-                }
-            }
+            this.executarEfeitos(game, gatilhoResolucao.efeitos, emissor, alvo, variaveisColetadas, action);
         }
 
         return true;
     }
 
-    public override async resolverOferta(game: Game, ofertaId: string): Promise<void> {
-        const oferta = await game.getSkillManager().getOferta();
-        if (!oferta) {
-            console.error(`Oferta não encontrada para o ID: ${ofertaId}`);
-            return;
+    public async executarEfeitos(game: Game, efeitos: Efeito[], emissor: Player, alvo: Player, variaveisColetadas: Record<string, any>, action?: Action) {
+        for (const efeito of efeitos) {
+            const condicoesPassaram = await this.avaliarCondicoes(efeito.condicoes, emissor, alvo, variaveisColetadas);
+            
+            if (condicoesPassaram) { 
+                switch (efeito.acao) {
+                    case "CRIAR_OFERTA":
+                        // O ofertarPlayer agora precisa saber se tem inputs extras (você ajusta ele dps)
+                        await this.ofertarPlayer(game, emissor.getId(), alvo, efeito.parametros.nomeOferta);
+                        break;
+                    case "ATACAR":
+                        await this.atacarPlayer(game, alvo, emissor, action!);
+                        break;
+                    case "BLOQUEAR":
+                        const statusAlvo = alvo.getStatus();
+                        if (!statusAlvo.includes("BLOQUEADO")) {
+                            statusAlvo.push("BLOQUEADO");
+                            await game.getPlayerManager().updatePlayer(alvo, { status: JSON.stringify(statusAlvo) });
+                            await game.getSkillManager().criarAlerta(alvo, "Você foi bloqueado essa noite!");
+                        }
+                        break;
+                    case "ADICIONAR_MARCA":
+                        const marcas = alvo.getMarcas();
+                        if (!marcas.includes(efeito.parametros.marca)) {
+                            marcas.push(efeito.parametros.marca);
+                            await game.getPlayerManager().updatePlayer(alvo, { marcas: JSON.stringify(marcas) });
+                        }
+                        break;
+                    case "REMOVER_MARCA":
+                        let marcasAtuais = alvo.getMarcas() || [];
+                        marcasAtuais = marcasAtuais.filter(m => m !== efeito.parametros.marca);
+                        await game.getPlayerManager().updatePlayer(alvo, { marcas: JSON.stringify(marcasAtuais) });
+                        break;
+                    case "IMPEDIR_HABILIDADE":
+                        await this.impedirHabilidadeDinamica(game, alvo, emissor, efeito, variaveisColetadas);
+                        break;
+                    case "ENVIAR_ALERTA":
+                        await game.getSkillManager().criarAlerta(alvo, efeito.parametros.texto);
+                        break;
+                }
+            }
+        }
+    }
+
+    private async impedirHabilidadeDinamica(game: Game, alvo: Player, emissor: Player, efeito: Efeito, variaveisColetadas: Record<string, any>) {
+        let nomeHabilidade = efeito.parametros.nomeHabilidade;
+
+        if (typeof nomeHabilidade === "string" && nomeHabilidade.startsWith("VARIAVEL.")) {
+            const varName = nomeHabilidade.split(".")[1];
+            nomeHabilidade = variaveisColetadas[varName!]; 
         }
 
-        if (oferta.status === "PENDENTE") await OfertaDAO.updateOferta(ofertaId, false);
+        const habilidadeParaImpedir = alvo.getHabilidade(nomeHabilidade);
+        if (habilidadeParaImpedir) {
+            await game.getSkillManager().updateHabilidade(habilidadeParaImpedir, { status: "IMPEDIDA" });
 
-        const status = oferta.status === "ACEITA" ? true : false;
-        const parametros = oferta.parametros ? JSON.parse(oferta.parametros) : null;
+            const dadosExtra = alvo.getDadosExtra();
+            dadosExtra.push({
+                tipo: efeito.parametros.salvarEmExtra, // ex: "IMPEDIDA_EVANGELHO"
+                habilidadeId: habilidadeParaImpedir.getId()!,
+                emissorId: emissor.getId() // Quem causou o bloqueio
+            });
+            await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(dadosExtra) });
+        }
+    }
+
+    public override async resolverOferta(game: Game, ofertaId: string, statusResposta: "ACEITA" | "RECUSADA"): Promise<void> {
+        
+        const oferta = await OfertaDAO.getOfertaById(ofertaId);
+        if (!oferta) return;
+
+        await OfertaDAO.updateOferta(ofertaId, statusResposta === "ACEITA" ? true : false);
 
         const playerAlvo = await game.getPlayerManager().loadPlayer(oferta.alvoId);
         const emissor = await game.getPlayerManager().loadPlayer(oferta.emissorId);
-        if (!emissor) return;
-        if (!playerAlvo || !playerAlvo.getCargo()) return;
+        if (!emissor || !playerAlvo) return;
 
-        // Criar alerta para o emissor sobre a resposta do alvo
-        await game.getSkillManager().criarAlerta(emissor, `Sua oferta para ${playerAlvo.getUsername()} foi ${status ? "ACEITA" : "RECUSADA"}.`)
-        console.log(`A oferta para ${playerAlvo.getUsername()} foi ${status ? "ACEITA" : "RECUSADA"}.`);
+        const variaveisColetadas = oferta.parametros ? JSON.parse(oferta.parametros) : {};
 
+        const gatilhoEsperado = statusResposta === "ACEITA" ? "AO_OFERTA_ACEITA" : "AO_OFERTA_RECUSADA";
+        
+        const gatilhoResolucao = this.regras.gatilhos.find(g => g.evento === gatilhoEsperado);
+        if (!gatilhoResolucao) return; // Se a habilidade não faz nada quando aceita/recusa, acaba aqui.
 
-        await this.updateListaRecusados(game, emissor, playerAlvo, status)
-
-        const cargoAlvo = playerAlvo.getCargo();
-
-        if (status) {
-            if (cargoAlvo?.getAlinhamento() !== "Cidade") {
-                const habId = String(parametros?.habilidadePerdidaId);
-                
-                if (habId) {
-                    await HabilidadeDAO.updateHabilidade(habId, { status: "IMPEDIDA" });
-
-                    const dados: DadoImpedidaEvangelho = {
-                        tipo: "IMPEDIDA_EVANGELHO",
-                        habilidadeId: habId,
-                        evangelistaId: emissor.getId()
-                    }
-                    await game.getPlayerManager().storeDadosExtra(emissor, dados)
-                    
-                    game.sendMensagemPlayer(playerAlvo, "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer.");
-                }
-            } else {
-                // CIDADE: Fica Bloqueado na noite atual
-                await this.bloquearPlayer(game, playerAlvo);
-            }
-        } else {
-            game.sendMensagemPlayer(playerAlvo, "Você recusou a palavra e seus pecados pesam sobre você...");
-        }
+        await this.executarEfeitos(game, gatilhoResolucao.efeitos, emissor, playerAlvo, variaveisColetadas);
     }
 }

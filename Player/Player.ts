@@ -76,7 +76,11 @@ export class Player {
         return this.cargo.getAlinhamento();
     }
 
-    public getStatus(): string {
+    public getStatus(): string[] {
+        return this.status;
+    }
+
+    public getInfo(): string {
         return `Nome: ${this.username}
         Cargo: ${this.cargo ? this.cargo.getNome() : "Sem cargo"}
         Vivo: ${this.isAlive}
@@ -88,6 +92,10 @@ export class Player {
         Itens: ${this.items.map(i => i.getNome()).join(", ") || "Nenhum"}
         Habilidades: ${this.cargo ? this.cargo.getHabilidades().map(h => h.getNome()).join(", ") : "Nenhuma"}
         Alertas: ${this.alertas.map(a => a.getAlerta()).join(", ") || "Nenhum"}`;
+    }
+
+    public getMarcas(): string[] {
+        return this.marcas;
     }
 
     public getHabilidade(nome: string): Habilidade | undefined {

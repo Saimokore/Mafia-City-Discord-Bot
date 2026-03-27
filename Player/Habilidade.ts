@@ -131,7 +131,7 @@ export abstract class Habilidade {
         await game.getSkillManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
     }
 
-    public async resolverOferta(game: Game, ofertaId: string): Promise<void> {}
+    public async resolverOferta(game: Game, ofertaId: string, statusResposta: "ACEITA" | "RECUSADA"): Promise<void> {}
 
 
     protected async visitarPlayer(game: Game, alvo: Player, alertado: boolean): Promise<void> {
@@ -159,10 +159,13 @@ export abstract class Habilidade {
         await game.getPlayerManager().bloquearPlayer(alvo);
     }
 
-    protected async atacarPlayer(game: Game, alvo: Player, assassino: Player, action: Action) {
+    protected async atacarPlayer(game: Game, alvo: Player, assassino: Player, action?: Action) {
         // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0) > Sem Prot (0)
-        const parsedParams = JSON.parse(action.getParametros());
-        const poderAtaque = parsedParams.poderAtaque || 0;
+        let poderAtaque = 0;
+        if (action) {
+            const parsedParams = JSON.parse(action.getParametros());
+            poderAtaque = parsedParams.poderAtaque;
+        }
 
         if (poderAtaque >= alvo.getProtecao()) {
             console.log(`Alvo ${alvo.getUserId()} tem proteção inferior e pode ser atacado.`);

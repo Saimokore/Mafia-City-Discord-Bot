@@ -1,7 +1,7 @@
 export type DadoImpedidaEvangelho = {
     tipo: "IMPEDIDA_EVANGELHO";
     habilidadeId: string;
-    evangelistaId: string;
+    emissorId: string;
 }
 
 export type DadoAlvosRecusados = {

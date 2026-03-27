@@ -6,7 +6,8 @@ export type AtributoSujeito = "ALINHAMENTO" | "CLASSE" | "ESTA_VIVO" | "PROTECAO
 
 export type Operador = "IGUAL_A" | "DIFERENTE_DE" | "MAIOR_QUE";
 
-export type TipoAcao = "ATACAR" | "ALTERAR_USO" | "PROTEGER" | "BLOQUEAR" | "CRIAR_OFERTA" | "ADICIONAR_MARCA" | "ENVIAR_ALERTA" | "REMOVER_MARCA" | "IMPEDIR_HABILIDADE";
+export type TipoAcao = "ATACAR" | "ALTERAR_USO" | "PROTEGER" | "BLOQUEAR" | "CRIAR_OFERTA" | "ADICIONAR_MARCA" | 
+"ADICIONAR_PARAMETRO" | "ENVIAR_ALERTA" | "REMOVER_MARCA" | "IMPEDIR_HABILIDADE" | "REMOVER_PARAMETRO";
 
 export interface Condicao {
     sujeito: Sujeito;
