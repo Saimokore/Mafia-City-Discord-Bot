@@ -19,7 +19,7 @@ export const regraSnipe: DefinicaoHabilidade = {
             texto: "Qual a classe do alvo?" // O usuário escolhe ex: "Cidade_Justiceiro"
         }
     ],
-
+    
     gatilhos: [
         {
             evento: "AO_USAR", // O Motor vai agendar isso para a resolução da Noite
@@ -92,9 +92,8 @@ export const regraEvangelho: DefinicaoHabilidade = {
             texto: "A quem você deseja pregar o Evangelho?"
         }
     ],
-
+    
     gatilhos: [
-        // GATILHO 1: O que acontece na hora que o usuário clica em Usar no Discord
         {
             evento: "AO_AVANCAR_ETAPA",
             efeitos: [
@@ -110,7 +109,7 @@ export const regraEvangelho: DefinicaoHabilidade = {
                 }
             ]
         },
-
+        
         // GATILHO 2: O que o jogo faz se o Alvo apertar no botão "Recusar"
         {
             evento: "AO_OFERTA_RECUSADA",
@@ -127,7 +126,7 @@ export const regraEvangelho: DefinicaoHabilidade = {
                 }
             ]
         },
-
+        
         // GATILHO 3: O que o jogo faz se o Alvo apertar no botão "Aceitar"
         {
             evento: "AO_OFERTA_ACEITA",
@@ -178,6 +177,23 @@ export const regraEvangelho: DefinicaoHabilidade = {
                     ]
                 }
             ]
+        },
+
+        {
+            evento: "AO_MORRER",
+            efeitos: [
+                {
+                    acao: "RESTAURAR_HABILIDADE_IMPEDIDA", 
+                    alvo: "TODOS_JOGADORES",
+                    parametros: { tipoDadoExtra: "IMPEDIDA_EVANGELHO" }
+                }
+            ]
         }
     ]
 };
+
+
+export const RegrasHabilidades: Record<string, DefinicaoHabilidade> = {
+    "EVANGELHO": regraEvangelho,
+    "SNIPE": regraSnipe
+}

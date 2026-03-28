@@ -5,124 +5,40 @@ import { Game } from '../Managers/GameManager.js';
 import { PlayerDAO } from '../DAOs/PlayerDAO.js';
 import { Evangelho } from './Habilidades/Evangelho.js';
 import { PalavraDeDeus } from './Habilidades/PalavraDeDeus.js';
-import { Snipe } from './Habilidades/Snipe.js';
-import { ExecucaoPublica } from './Habilidades/ExecucaoPublica.js';
 import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
+import type { DefinicaoCargo } from './ECA.js';
+import { ClassesDoJogo } from './Habilidades/classes.js';
 
 export class Cargo {
-    private nome: string;
-    private classe: Class.Classe;
-    private raridade: string;
+    private definicao: DefinicaoCargo;
     private habilidades: Habilidade[];
-    private complexidade: number;
-    private protecaoInata: number;
-    
-    
-    constructor(nome: string, classe: Class.Classe, raridade: string, habilidades: Habilidade[], complexidade: number, protecaoInata?: number) {
-        this.nome = nome;
-        this.classe = classe;
-        this.raridade = raridade;
+
+    constructor(definicao: DefinicaoCargo, habilidades: Habilidade[]) {
+        this.definicao = definicao;
         this.habilidades = habilidades;
-        this.complexidade = complexidade;
-        this.protecaoInata = protecaoInata ? protecaoInata : 0;
     }
 
-    public usarHabilidade(indice: number, quemUsou: Player, alvo?: Player): string | void {
-        if (this.habilidades.length === 0) {
-            console.error("Este cargo não possui habilidades.");
-        }
-        if (indice < 0 || indice >= this.habilidades.length) {
-            console.error("Índice de habilidade inválido.");
-        }
-        // repetivel e gratis provavelmente entra aqui
-    }
-
-    public async processarMorte(game: Game, playerMorto: Player, playerAssassino: Player): Promise<boolean> {
-        await PlayerDAO.updatePlayer(playerMorto.getId(), { estaVivo: false });
-        await game.getSkillManager().criarAlerta(playerMorto, "Você morreu!");
-
-        // aqui provavelmente vou ter que guardar um dado de quem matou esse player se pa
-
-        return true;
-    }
-    
     public getNome(): string {
-        return this.nome;
+        return this.definicao.nome;
     }
-    
-    public setNome(nome: string): void {
-        this.nome = nome;
-    }
-    
-    public getNomeClasse(): string {
-        return this.classe.getNome();
-    }
-    
+
+    // Olha que genial: Ele vai no dicionário de classes sozinho!
     public getAlinhamento(): string {
-        return this.classe.getAlinhamento();
+        const classeDef = ClassesDoJogo[this.definicao.classe];
+        return classeDef ? classeDef.alinhamento : "Desconhecido";
     }
-    
-    public getRaridade(): string {
-        return this.raridade;
+
+    public getNomeClasse(): string {
+        const classeDef = ClassesDoJogo[this.definicao.classe];
+        return classeDef ? classeDef.nome : "Desconhecida";
     }
-    
+
+    public getProtecaoInata(): number {
+        return this.definicao.protecaoInata;
+    }
+
     public getHabilidades(): Habilidade[] {
         return this.habilidades;
-    }
-    
-    public getProtecaoInata(): number {
-        return this.protecaoInata;
-    }
-    
-    public getComplexidade(): number {
-        return this.complexidade;
-    }
-
-    public setClasse(classe: Class.Classe): void {
-        this.classe = classe;
-    }
-
-    public setRaridade(raridade: string): void {
-        this.raridade = raridade;
-    }
-
-    public setHabilidades(habilidades: Habilidade[]): void {
-        this.habilidades = habilidades;
-    }
-
-    public setComplexidade(complexidade: number): void {
-        this.complexidade = complexidade;
-    }
-}
-
-export class Evangelista extends Cargo {
-    constructor(habilidades?: Habilidade[]) {
-        super("Evangelista", new Class.CidadeJusticeiro(), "Comum", habilidades || [new Evangelho(), new PalavraDeDeus()], 1);
-    }
-
-    public override async processarMorte(game: Game, playerMorto: Player, playerAssassino: Player): Promise<boolean> {
-        const todosJogadores = await game.getPlayerManager().getAllPlayers();
-        if (todosJogadores && todosJogadores.length > 0) {
-            for (const player of todosJogadores) {
-                const dadosExtra = player.getDadosExtra();
-                
-                const dadosExtraMaldicao = dadosExtra.find(m => m.tipo === "IMPEDIDA_EVANGELHO" && m.evangelistaId === playerMorto.getId());
-                
-                if (dadosExtraMaldicao && dadosExtraMaldicao.tipo === "IMPEDIDA_EVANGELHO") {
-                    await HabilidadeDAO.updateHabilidade(dadosExtraMaldicao.habilidadeId , { status: "ATIVA" });
-                    
-                    const novasMarcas = dadosExtra.filter((m: any) => m !== dadosExtraMaldicao);
-                    await PlayerDAO.updatePlayer(player.getId(), { dadosExtra: JSON.stringify(novasMarcas) });
-                    
-                    // await this.sendMensagemPlayer(player.userId, "🔔 O Evangelista faleceu! Sua habilidade perdida foi restaurada e pode ser usada novamente.");
-                    // checar se devo realmente avisar o player que ele possui sua habilidade denovo, provavel que não
-                }
-            }
-        } else {
-            console.error("Players não encontrados");
-        }
-        
-        return super.processarMorte(game, playerMorto, playerAssassino);
     }
 }
 

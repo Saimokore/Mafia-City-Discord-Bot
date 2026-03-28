@@ -1,13 +1,13 @@
 
 export type TipoGatilho = "AO_USAR" | "AO_MORRER" | "AO_SER_ATACADO" | "AO_AVANCAR_ETAPA" | "AO_OFERTA_ACEITA" | "AO_OFERTA_RECUSADA";
 
-export type Sujeito = "EMISSOR" | "ALVO_SELECIONADO" | "ATACANTE" | "ACAO_ANTERIOR";
+export type Sujeito = "EMISSOR" | "ALVO_SELECIONADO" | "ATACANTE" | "ACAO_ANTERIOR" | "TODOS_JOGADORES";
 export type AtributoSujeito = "ALINHAMENTO" | "CLASSE" | "ESTA_VIVO" | "PROTECAO" | "CARGO" | "FOI_SUCEDIDA";
 
 export type Operador = "IGUAL_A" | "DIFERENTE_DE" | "MAIOR_QUE";
 
 export type TipoAcao = "ATACAR" | "ALTERAR_USO" | "PROTEGER" | "BLOQUEAR" | "CRIAR_OFERTA" | "ADICIONAR_MARCA" | 
-"ADICIONAR_PARAMETRO" | "ENVIAR_ALERTA" | "REMOVER_MARCA" | "IMPEDIR_HABILIDADE" | "REMOVER_PARAMETRO";
+"ADICIONAR_PARAMETRO" | "ENVIAR_ALERTA" | "REMOVER_MARCA" | "IMPEDIR_HABILIDADE" | "RESTAURAR_HABILIDADE_IMPEDIDA" | "REMOVER_PARAMETRO";
 
 export interface Condicao {
     sujeito: Sujeito;
@@ -42,4 +42,20 @@ export interface DefinicaoHabilidade {
     modificadores: string[];
     inputs: Input[];
     gatilhos: Gatilho[];
+}
+
+export interface DefinicaoCargo {
+    nome: string;
+    classe: string;
+    raridade: string;
+    habilidadesIniciais: string[];
+    complexidade: number;
+    protecaoInata: number;
+    gatilhos?: Gatilho[];
+}
+
+export interface DefinicaoClasse {
+    nome: string;
+    alinhamento: "CIDADE" | "MAFIA" | "NEUTRO";
+    gatilhos?: Gatilho[];
 }

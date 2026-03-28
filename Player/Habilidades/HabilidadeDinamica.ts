@@ -6,13 +6,13 @@ import { Player } from "../Player.js";
 import { Action } from "../Action.js";
 import { access } from "node:fs";
 import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
-import type { DadoAlvosRecusados, DadoExtra, DadoImpedidaEvangelho } from "../Tipos.js";
 
 export class HabilidadeDinamica extends Habilidade {
     private regras: DefinicaoHabilidade;
 
-    constructor(regras: DefinicaoHabilidade, usosAgendados?: number, statusAtual?: string) {
+    constructor(regras: DefinicaoHabilidade, id?: string, usosAgendados?: number, statusAtual?: string) {
         super(regras.nome, regras.tipo, usosAgendados || regras.usosMaximos, regras.etapa, regras.modificadores, statusAtual);
+        if (id) this.setId(id);
         this.regras = regras;
     }
 
@@ -195,29 +195,32 @@ export class HabilidadeDinamica extends Habilidade {
         return true; // Se não parou em nenhum false, é porque passou em tudo!
     }
 
-    // O método ativar (AVANCAR ETAPA) usaria a mesma lógica, mas aplicando os efeitos de fato!
-    public override async ativar(game: Game, action: Action, gatilhoDisparo: string = "AO_AVANCAR_ETAPA"): Promise<boolean> {
-    
+    public override async ativar(game: Game, action: Action | null, gatilhoDisparo: string = "AO_AVANCAR_ETAPA", emissorOpcional?: Player): Promise<boolean> {
+        
         const gatilhoResolucao = this.regras.gatilhos.find(g => g.evento === gatilhoDisparo);
-        if (!gatilhoResolucao) return true; // Se não tem, retorna sucesso sem fazer nada.
+        if (!gatilhoResolucao) return true;
 
-        const emissor = await game.getPlayerManager().loadPlayer(action.getEmissorUserId());
-        const alvos = [];
-        for (const alvo of action.getAlvos()) {
-            const alvoInstance = await game.getPlayerManager().loadPlayer(alvo);
-            if (!alvoInstance)  {
-                console.error(`Não carregou player com ID ${alvo}`);
-                continue;
+        const emissor = action ? await game.getPlayerManager().loadPlayer(action.getEmissorUserId()) : emissorOpcional;
+        if (!emissor) return false;
+
+        let alvos: Player[] = [];
+
+        if (gatilhoResolucao.efeitos.some(e => e.alvo === "TODOS_JOGADORES")) {
+            alvos = await game.getPlayerManager().getAllPlayers() || [];
+        } else if (action) {
+            for (const alvoId of action.getAlvos()) {
+                const alvoInstance = await game.getPlayerManager().loadPlayer(alvoId);
+                if (alvoInstance) alvos.push(alvoInstance);
+                else console.error(`Não carregou player com ID ${alvoId}`);
             }
-            alvos.push(alvoInstance);
         }
 
-        if (!emissor || !alvos) return false;
+        if (alvos.length === 0) return false;
 
-        const variaveisColetadas = action.getParametros() ? JSON.parse(action.getParametros()) : {};
+        const variaveisColetadas = (action && action.getParametros()) ? JSON.parse(action.getParametros()) : {};
 
         for (const alvo of alvos) {
-            this.executarEfeitos(game, gatilhoResolucao.efeitos, emissor, alvo, variaveisColetadas, action);
+            await this.executarEfeitos(game, gatilhoResolucao.efeitos, emissor, alvo, variaveisColetadas, action || undefined);
         }
 
         return true;
@@ -262,6 +265,26 @@ export class HabilidadeDinamica extends Habilidade {
                     case "ENVIAR_ALERTA":
                         await game.getSkillManager().criarAlerta(alvo, efeito.parametros.texto);
                         break;
+                    case "RESTAURAR_HABILIDADE_IMPEDIDA":
+                        const tipoMaldicao = efeito.parametros.tipoDadoExtra;
+                        const dadosExtraAlvo = alvo.getDadosExtra() || [];
+
+                        const marcaMaldicao = dadosExtraAlvo.find(m => 
+                            m.tipo === tipoMaldicao && 
+                            (m as any).emissorId === emissor.getId()
+                        );
+
+                        if (marcaMaldicao) {
+                            const habBloqueada = alvo.getHabilidades()?.find(h => h.getId() === (marcaMaldicao as any).habilidadeId);
+                            
+                            if (habBloqueada) {
+                                await game.getSkillManager().updateHabilidade(habBloqueada, { status: "DISPONIVEL" });
+                            }
+
+                            const novosDados = dadosExtraAlvo.filter(m => m !== marcaMaldicao);
+                            await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(novosDados) });
+                        }
+                        break;
                 }
             }
         }
@@ -283,7 +306,7 @@ export class HabilidadeDinamica extends Habilidade {
             dadosExtra.push({
                 tipo: efeito.parametros.salvarEmExtra, // ex: "IMPEDIDA_EVANGELHO"
                 habilidadeId: habilidadeParaImpedir.getId()!,
-                emissorId: emissor.getId() // Quem causou o bloqueio
+                emissorId: emissor.getId()
             });
             await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(dadosExtra) });
         }

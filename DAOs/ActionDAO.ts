@@ -26,6 +26,7 @@ export const ActionDAO = {
                 },
                 include: {
                     alvos: true,
+                    habilidade: true
                 }
             });
         } catch (e) {
@@ -50,6 +51,7 @@ export const ActionDAO = {
                 where: { id },
                 include: {
                     alvos: true,
+                    habilidade: true
                 }
             });
         } catch (e) {
@@ -65,7 +67,8 @@ export const ActionDAO = {
                     etapa: etapa
                 },
                 include: {
-                    alvos: true
+                    alvos: true,
+                    habilidade: true
                 }
             });
         } catch (e) {

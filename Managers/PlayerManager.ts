@@ -125,7 +125,7 @@ export class PlayerManager {
 
     public async sendPlayersStatus(): Promise<void> {
         const players = await this.getAllPlayers();
-        players?.forEach(p => this.game.sendMensagemPlayer(p, p.getStatus()));
+        players?.forEach(p => this.game.sendMensagemPlayer(p, p.getInfo()));
     }
 
     public async bloquearPlayer(alvo: Player) {

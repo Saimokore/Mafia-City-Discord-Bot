@@ -1,18 +1,16 @@
 import { Game } from "./GameManager.js";
-import { AtiradorDeElite, Cargo, Evangelista } from "../Player/Cargo.js";
-import * as Hab from "../Player/Habilidade.js";
-import * as Class from "../Player/Classe.js";
+import { Cargo } from "../Player/Cargo.js";
 import { PartidaDAO } from "../DAOs/PartidaDAO.js";
 import { ActionDAO } from "../DAOs/ActionDAO.js";
 import { OfertaDAO } from "../DAOs/OfertaDAO.js";
 import { AlertaDAO } from "../DAOs/AlertaDAO.js";
-import { Evangelho } from "../Player/Habilidades/Evangelho.js";
-import { PalavraDeDeus } from "../Player/Habilidades/PalavraDeDeus.js";
-import { Snipe } from "../Player/Habilidades/Snipe.js";
-import { ExecucaoPublica } from "../Player/Habilidades/ExecucaoPublica.js";
 import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
 import { Player } from "../Player/Player.js";
 import { Action, type PrismaAction } from "../Player/Action.js";
+import { regraEvangelho, RegrasHabilidades, regraSnipe } from "../Player/Habilidades/habilidades.js";
+import type { Habilidade } from "../Player/Habilidade.js";
+import { HabilidadeDinamica } from "../Player/Habilidades/HabilidadeDinamica.js";
+import { CargosDoJogo } from "../Player/Habilidades/cargos.js";
 
 export class SkillManager {
     private guildId: string;
@@ -42,8 +40,8 @@ export class SkillManager {
         }
         
         actions.sort((a, b) => {
-            const habA = await this.loadHabilidade(a.habilidadeId) .getPrioridade() getHabilidadeInstance(a.habilidade.nome)?.getPrioridade() || 0;
-            const habB = this.getHabilidadeInstance(b.habilidade.nome)?.getPrioridade() || 0;
+            const habA = this.getHabilidadeInstance(a.habilidade.nome, a.habilidade.id)?.getPrioridade() || 0;
+            const habB = this.getHabilidadeInstance(b.habilidade.nome, b.habilidade.id)?.getPrioridade() || 0;
             return habB - habA;
         });
         
@@ -64,12 +62,12 @@ export class SkillManager {
                 continue;
             }
             
-            const sucesso = await habilidade.usarHabilidade(this.game, new Action(this.game, action))
+            const sucesso = await habilidade.usarHabilidade(this.game, new Action(action))
             await ActionDAO.updateAction(action.id, { sucesso: sucesso ? "SUCEDIDA" : "FALHA"});
         }
     }
 
-    public async updateHabilidade(habilidade: Hab.Habilidade, updates: any) {
+    public async updateHabilidade(habilidade: Habilidade, updates: any) {
         
         if (updates.uso !== undefined) habilidade.setUso(updates.uso);
         if (updates.status !== undefined) habilidade.setStatus(updates.status);
@@ -109,15 +107,9 @@ export class SkillManager {
                 const habilidade = await this.game.getPlayerManager().getHabilidadePlayer(oferta.emissorId, oferta.habilidade);
                 if (!habilidade) continue;
                 
-                await habilidade.resolverOferta(this.game, oferta.id);
+                await habilidade.resolverOferta(this.game, oferta.id, oferta.status === "ACEITA" ? "ACEITA" : "RECUSADA");
             }
         }
-    }
-
-    public async loadHabilidade(id: string): Promise<Hab.Habilidade | null> {
-        const h = await HabilidadeDAO.getHabilidadeById(id);
-        if (!h) return null;
-        return this.getHabilidadeInstance(h.nome, h.id, h.uso, h.status);
     }
 
     public async criarAlerta(user: Player, alerta: string) {
@@ -127,45 +119,67 @@ export class SkillManager {
     public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: Player[], parametros?: string): Promise<Action> {
         const alvosIds = alvos?.map(a => a.getId());
         const action = await ActionDAO.createAction(userId, this.guildId, tipo, await this.game.getEtapaAtual(), habilidadeId, alvosIds || [], parametros);
-        return new Action(this.game, action!);
+        return new Action(action!);
     }
 
-    public async criarOferta(emissorId: string, alvo: Player, habilidade: Hab.Habilidade, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+    public async criarOferta(emissorId: string, alvo: Player, habilidade: Habilidade, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
         const alvoId = alvo.getId();
 
         console.log(`Criando oferta: Emissor ${emissorId}, Alvo ${alvoId}, Habilidade ${habilidade.getNome()}, Oferta ${nomeOferta}, Item ${item}, Parametros ${parametros}`);
         await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidade.getNome(), await this.game.getEtapaAtual(), nomeOferta, item, parametros);
     }
 
-    public getCargoInstance(nomeDoCargo: string, habilidades?: Hab.Habilidade[]): Cargo | null {
-        if (!nomeDoCargo) return null;
-        switch (nomeDoCargo) {
-            case "Evangelista": return new Evangelista(habilidades);
-            case "Atirador_de_elite": return new AtiradorDeElite(habilidades);
-            // case "Xerife": return new Cargo("Xerife", new Class.CidadeJusticeiro(), "Comum", [new Hab.Reputacao(), new Hab.Prender(), new Hab.Pacificacao()], 2);
-            // case "Bigode": return new Cargo("Bigode", new Class.MafiaLider(), "Único", [new Hab.PunhoDeFerro(), new Hab.Matar(), new Hab.Massacre()], 2, 1);
-            default: return null;
+    public getCargoInstance(nomeDoCargo: string, habilidadesCarregadas?: Habilidade[]): Cargo | null {
+        const defCargo = CargosDoJogo[nomeDoCargo];
+        if (!defCargo) return null;
+
+        let habilidadesDoCargo: Habilidade[] = [];
+
+        if (habilidadesCarregadas && habilidadesCarregadas.length > 0) {
+            habilidadesDoCargo = habilidadesCarregadas;
+        } 
+
+        // se for no inicio do jogo, instanciamos as habilidades iniciais
+        else {
+            for (const nomeHab of defCargo.habilidadesIniciais) {
+                const regraJSON = RegrasHabilidades[nomeHab]; // Pega a regraSnipe, etc
+                if (regraJSON) {
+                    habilidadesDoCargo.push(new HabilidadeDinamica(regraJSON));
+                }
+            }
         }
+
+        return new Cargo(defCargo, habilidadesDoCargo);
     }
 
-    public getHabilidadeInstance(nomeDaHabilidade: string, id?: string, usos?: number, status?: string): Hab.Habilidade | null {
-        if (!nomeDaHabilidade) return null;
-    
-        let hab: Hab.Habilidade | null = null;
+    public getHabilidadeInstance(nomeDaHabilidade: string, id?: string, usos?: number, status?: string): Habilidade | null {
+        const regraJSON = RegrasHabilidades[nomeDaHabilidade];
+        if (!regraJSON) return null;
 
-        switch (nomeDaHabilidade) {
-            case "Evangelho": hab = new Evangelho(usos, status); break;
-            case "Palavra de Deus": hab = new PalavraDeDeus(usos, status); break;
-            case "Snipe": hab = new Snipe(usos, status); break;
-            case "Execucao Publica": hab = new ExecucaoPublica(usos, status); break;
-            default: hab = null; break;
-        }
-
-        // Se a habilidade foi criada e um ID foi passado (vindo do banco), nós anexamos ele!
-        if (hab && id) {
-            hab.setId(id);
-        }
-
+        const hab = new HabilidadeDinamica(regraJSON, id, usos, status);
+        if (id) hab.setId(id);
+        
         return hab;
     }
+
+    // public getHabilidadeInstance(nomeDaHabilidade: string, id?: string, usos?: number, status?: string): Hab.Habilidade | null {
+    //     if (!nomeDaHabilidade) return null;
+    
+    //     let hab: Hab.Habilidade | null = null;
+
+    //     switch (nomeDaHabilidade) {
+    //         case "Evangelho": hab = new Evangelho(usos, status); break;
+    //         case "Palavra de Deus": hab = new PalavraDeDeus(usos, status); break;
+    //         case "Snipe": hab = new Snipe(usos, status); break;
+    //         case "Execucao Publica": hab = new ExecucaoPublica(usos, status); break;
+    //         default: hab = null; break;
+    //     }
+
+    //     // Se a habilidade foi criada e um ID foi passado (vindo do banco), nós anexamos ele!
+    //     if (hab && id) {
+    //         hab.setId(id);
+    //     }
+
+    //     return hab;
+    // }
 }

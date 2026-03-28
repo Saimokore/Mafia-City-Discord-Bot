@@ -159,7 +159,7 @@ client.on('messageCreate', async (message: Message) => {
 
         if (!player) return message.reply("Você não está nesta partida!");
 
-        message.reply(player.getStatus());
+        message.reply(player.getInfo());
     }
 
     if (message.content === prefix +'ping') {

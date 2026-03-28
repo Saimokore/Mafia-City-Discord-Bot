@@ -23,7 +23,7 @@ export abstract class Habilidade {
         this.status = status || "DISPONIVEL";
     }
 
-    public abstract ativar(game: Game, action: Action): Promise<boolean>;
+    public abstract ativar(game: Game, action: Action | null, gatilhoDisparo?: string): Promise<boolean>;
 
     public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string): Promise<ModalBuilder | null> {
 
@@ -247,6 +247,10 @@ export abstract class Habilidade {
 
     public setUso(uso: number): void {
         this.uso = uso;
+    }
+
+    public setStatus(status: string): void {
+        this.status = status;
     }
 
     public setTipo(tipo: string): void {

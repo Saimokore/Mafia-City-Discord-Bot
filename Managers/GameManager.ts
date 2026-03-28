@@ -47,7 +47,7 @@ export class Game {
             await this.criarChatPlayer(p);
             
             // const cargo = cargosDistribuidos.pop();
-            const cargo = "Atirador_de_elite";
+            const cargo = "ATIRADOR_DE_ELITE";
             if (!cargo) {
                 console.error("Cargo não encontrado (IniciarJogo)")
                 return;
@@ -191,12 +191,14 @@ export class Game {
     }
     
     public async processarMortePlayer(jogadorMorto: Player, jogadorAssassino: Player): Promise<boolean> {
-        const cargo = jogadorMorto.getCargo();
-        if (cargo) {
-            return await cargo?.processarMorte(this, jogadorMorto, jogadorAssassino) || false;
+        await this.playerManager.updatePlayer(jogadorMorto, { estaVivo: false });
+
+        const habilidadesDoMorto = jogadorMorto.getHabilidades() || [];
+        for (const hab of habilidadesDoMorto) {
+            await hab.ativar(this, null, "AO_MORRER"); 
         }
 
-        return false;
+        return true;
     }
     
     public getPlayerManager(): PlayerManager {
