@@ -6,6 +6,7 @@ import type { Prisma } from "@prisma/client";
 import { platform } from "node:os";
 import type { DadoExtra } from "../Player/Tipos.js";
 import type { Habilidade } from "../Player/Habilidade.js";
+import type { HabilidadeDinamica } from "../Player/Habilidades/HabilidadeDinamica.js";
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{
     include: {
@@ -31,7 +32,7 @@ export class PlayerManager {
         this.batchUpdates = new Map();
     }
 
-    public async buildOferta(ofertaId: string, emissorId: string, nomeOferta: string, habilidadeNome: string) {
+    public async buildOferta(ofertaId: string, emissorId: string, nomeOferta: string) {
         const player = await this.loadPlayer(emissorId);
         const embed = new EmbedBuilder()
             .setTitle(`Uma Oferta foi feita para você!`)
@@ -140,8 +141,8 @@ export class PlayerManager {
         await PlayerDAO.updatePlayer(player.getId(), { dadosExtra: JSON.stringify(dadosExtra) });
     }
 
-    public async getHabilidadePlayer(playerId: string, nomeHabilidade: string): Promise<Habilidade | undefined> {
+    public async getHabilidadePlayer(playerId: string, nomeHabilidadeOuId: string): Promise<HabilidadeDinamica | undefined> {
         const player = await this.loadPlayer(playerId);
-        return player?.getHabilidade(nomeHabilidade);
+        return player?.getHabilidade(nomeHabilidadeOuId);
     }
 }

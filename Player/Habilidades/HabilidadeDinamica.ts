@@ -9,14 +9,23 @@ import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
 
 export class HabilidadeDinamica extends Habilidade {
     private regras: DefinicaoHabilidade;
+    private conditionEval: ConditionEvaluator;
+    private effectHandler: EffectHandler;
+    private skillModalBuilder: SkillModalBuilder;
 
-    constructor(regras: DefinicaoHabilidade, id?: string, usosAgendados?: number, statusAtual?: string) {
+    constructor(regras: DefinicaoHabilidade, usosAgendados?: number, statusAtual?: string) {
         super(regras.nome, regras.tipo, usosAgendados || regras.usosMaximos, regras.etapa, regras.modificadores, statusAtual);
-        if (id) this.setId(id);
         this.regras = regras;
+        this.conditionEval = new ConditionEvaluator();
+        this.effectHandler = new EffectHandler();
+        this.skillModalBuilder = new SkillModalBuilder();
     }
 
-    public override async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string) {
+    public async ativarHabilidade(game: Game, action: Action): Promise<boolean> {
+        return await this.ativar(game, action);
+    }
+
+    public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string) {
         // Se não precisa de input, a habilidade ativa direto (ex: passivas ou habilidades simples)
         if (!this.regras.inputs || this.regras.inputs.length === 0) return null; 
 
@@ -84,7 +93,7 @@ export class HabilidadeDinamica extends Habilidade {
         return modal;
     }
 
-    public override async resolverModal(interaction: ModalSubmitInteraction, game: Game) {
+    public async resolverModal(interaction: ModalSubmitInteraction, game: Game) {
         
         // Essa caixinha vai guardar tudo que o usuário respondeu
         const variaveisColetadas: Record<string, any> = {};
@@ -135,16 +144,12 @@ export class HabilidadeDinamica extends Habilidade {
     }
 
     // O gatilho principal quando alguém aperta "Confirmar" no Modal
-    protected override async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, variaveisColetadas: Record<string, any>) {
-        
-        const gatilhoAoUsar = this.regras.gatilhos.find(g => g.evento === "AO_USAR");
-        if (!gatilhoAoUsar) return interaction.reply({ content: "Essa habilidade não é ativa." });
+    protected async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, variaveisColetadas: Record<string, any>) {
 
-        // 5. Registra a ação no banco com tudo que o JSON mandou
         if (!this.getId()) return interaction.reply({ content: "ID de Habilidade não encontrado, contate um host do jogo." });
 
         const parametrosParaOBanco = JSON.stringify(variaveisColetadas);
-        const action = await game.getSkillManager().criarAction(emissor.getId(), this.getId()!, this.getTipo(), [alvo], JSON.stringify(parametrosParaOBanco));
+        const action = await game.getSkillManager().criarAction(emissor.getUserId(), this.getId()!, this.getTipo(), [alvo], JSON.stringify(parametrosParaOBanco));
         if (this.getTipo() === "Instantanea") {
             await this.ativar(game, action, "AO_USAR");
         }
@@ -181,8 +186,6 @@ export class HabilidadeDinamica extends Habilidade {
 
             if (typeof valorEsperado === "string" && valorEsperado.startsWith("NUMERO.")) {
                 const nomeDaVariavel = valorEsperado.split(".")[1];
-                const numeroParsed = parseInt(nomeDaVariavel!);
-                if (isNaN(numeroParsed)) break; // isso parece errado
                 valorEsperado = variaveisColetadas[nomeDaVariavel!];
             }
 
@@ -195,7 +198,7 @@ export class HabilidadeDinamica extends Habilidade {
         return true; // Se não parou em nenhum false, é porque passou em tudo!
     }
 
-    public override async ativar(game: Game, action: Action | null, gatilhoDisparo: string = "AO_AVANCAR_ETAPA", emissorOpcional?: Player): Promise<boolean> {
+    public async ativar(game: Game, action: Action | null, gatilhoDisparo: string = "AO_AVANCAR_ETAPA", emissorOpcional?: Player): Promise<boolean> {
         
         const gatilhoResolucao = this.regras.gatilhos.find(g => g.evento === gatilhoDisparo);
         if (!gatilhoResolucao) return true;
@@ -312,7 +315,7 @@ export class HabilidadeDinamica extends Habilidade {
         }
     }
 
-    public override async resolverOferta(game: Game, ofertaId: string, statusResposta: "ACEITA" | "RECUSADA"): Promise<void> {
+    public async resolverOferta(game: Game, ofertaId: string, statusResposta: "ACEITA" | "RECUSADA"): Promise<void> {
         
         const oferta = await OfertaDAO.getOfertaById(ofertaId);
         if (!oferta) return;
@@ -331,5 +334,83 @@ export class HabilidadeDinamica extends Habilidade {
         if (!gatilhoResolucao) return; // Se a habilidade não faz nada quando aceita/recusa, acaba aqui.
 
         await this.executarEfeitos(game, gatilhoResolucao.efeitos, emissor, playerAlvo, variaveisColetadas);
+    }
+
+    protected validarAlvo(alvo: Player | null, emissorId: string): string | null {
+        if (!alvo) {
+            return "❌ **Erro:** O jogador alvo não está participando da partida atual!";
+        }
+        if (!alvo.estaVivo()) {
+            return "👻 **Erro:** Você só pode mirar em jogadores vivos.";
+        }
+        if (alvo.getId() === emissorId && !this.permiteAutoUso()) {
+            return "❌ **Erro:** Você não pode usar essa habilidade em si mesmo!";
+        }
+
+        return null;
+    }
+
+    public permiteAutoUso(): boolean {
+        const permiteAutoUso = this.regras.permiteAutoUso;
+        if (!permiteAutoUso) return false;
+        return permiteAutoUso;
+    }
+
+    public async ofertarPlayer(game: Game, emissorId: string, alvo: Player, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+        console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvo.getUsername()} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
+        
+        const partida = await game.getPartida();
+        if (!partida) return;
+
+        await game.getSkillManager().criarOferta(emissorId, alvo, this, nomeOferta, item, parametros);
+        await game.getSkillManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
+    }
+
+    protected async visitarPlayer(game: Game, alvo: Player, alertado: boolean): Promise<void> {
+        if (alertado) {
+            console.log(`alvo foi visitado e alertado.`);
+        }
+        // depois avisar player q visitou exceto exceções
+        const partida = await game.getPartida();
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
+            return;
+        }
+        if (alertado) {
+            await game.getSkillManager().criarAlerta(alvo, `Você foi visitado essa noite!`);
+        }
+    }
+
+    protected async bloquearPlayer(game: Game, alvo: Player): Promise<void> {
+        // depois avisar player q foi bloqueado exceto exceções
+        const partida = await game.getPartida();
+        if (!partida) {
+            console.error(`Partida não encontrada para guildId ${game.getGuildId()}`);
+            return;
+        }
+        await game.getPlayerManager().bloquearPlayer(alvo);
+    }
+
+    protected async atacarPlayer(game: Game, alvo: Player, assassino: Player, action?: Action) {
+        // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0) > Sem Prot (0)
+        let poderAtaque = 0;
+        if (action) {
+            const parsedParams = JSON.parse(action.getParametros());
+            poderAtaque = parsedParams.poderAtaque;
+        }
+
+        if (poderAtaque >= alvo.getProtecao()) {
+            console.log(`Alvo ${alvo.getUserId()} tem proteção inferior e pode ser atacado.`);
+            await game.getSkillManager().criarAlerta(assassino, "Matou o mano parabens");
+
+            await game.processarMortePlayer(alvo, assassino);
+        } else {
+            console.log(`Alvo ${alvo.getUsername()} tem proteção suficiente para resistir ao ataque.`);
+            
+            const protInata = alvo.getCargo()?.getProtecaoInata() || 0;
+            await game.getPlayerManager().updatePlayer(alvo, { protecao: protInata });
+
+            await game.getSkillManager().criarAlerta(alvo, "voce sente que foi protegido");
+        }
     }
 }

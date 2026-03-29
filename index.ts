@@ -88,7 +88,7 @@ client.on('messageCreate', async (message: Message) => {
     }
 
     if (message.content === prefix +'join') {
-        const existingPlayer = await PlayerDAO.getPlayerById(message.author.id, serverId);
+        const existingPlayer = await PlayerDAO.getPlayerByUserId(message.author.id, serverId);
         if (existingPlayer) {
             message.reply("Você já está no jogo!");
             return;
@@ -178,7 +178,7 @@ client.on('messageCreate', async (message: Message) => {
         const fakeId = message.content.replace(prefix +'newplayer ', "");
         console.log("id: " + fakeId);
 
-        const existingPlayer = await PlayerDAO.getPlayerById(fakeId, serverId);
+        const existingPlayer = await PlayerDAO.getPlayerByUserId(fakeId, serverId);
         if (existingPlayer) {
             message.reply("Você já está no jogo!");
             return;
@@ -284,6 +284,8 @@ client.on('interactionCreate', async interaction => {
     const game = new Game(serverId, client);
 
     if (interaction.isChatInputCommand() && interaction.commandName === 'action') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
         const player = await game.getPlayerManager().loadPlayer(interaction.user.id);
         const partida = await game.getPartida();
         if (!partida) {
@@ -292,17 +294,17 @@ client.on('interactionCreate', async interaction => {
         }
         
         if (!player || !player.estaVivo()) {
-            return interaction.reply({ content: "Você não pode agir agora." });
+            return interaction.editReply({ content: "Você não pode agir agora." });
         }
 
         if (player.getUserChat() != interaction.channelId) {
-            return interaction.reply({ content: `Use o comando no seu chat privado <#${player.getUserChat()}>`, flags: MessageFlags.Ephemeral })
+            return interaction.editReply({ content: `Use o comando no seu chat privado <#${player.getUserChat()}>` })
         } 
 
         // Pega as habilidades da classe dele
-        const habilidades = player.getCargo()?.getHabilidades();
+        const habilidades = player.getHabilidades();
         if (!habilidades || habilidades.length === 0) {
-            return interaction.reply({ content: "Você não possui habilidades para usar." });
+            return interaction.editReply({ content: "Você não possui habilidades para usar." });
         }
         const habilidadesFiltradas = habilidades.filter(hab => hab.getTipo() === "Passiva" || 
             hab.getEtapa() != "Atemporal" || hab.getEtapa() != partida.getTempoEtapa());
@@ -320,7 +322,7 @@ client.on('interactionCreate', async interaction => {
 
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
-        await interaction.reply({ components: [row] });
+        await interaction.editReply({ components: [row] });
         return;
     }
 
@@ -369,7 +371,7 @@ client.on('interactionCreate', async interaction => {
             return;
         }
         
-        return interaction.reply(await game.getPlayerManager().buildOferta(oferta.id, oferta.emissorId, oferta.nomeOferta, oferta.habilidade));
+        return interaction.reply(await game.getPlayerManager().buildOferta(oferta.id, oferta.emissorId, oferta.nomeOferta));
     }
 
     if (interaction.isStringSelectMenu() && interaction.customId === 'select_habilidade_inicial') {
@@ -401,7 +403,7 @@ client.on('interactionCreate', async interaction => {
         const offerId = partes[4];
 
         if (accept && nomeOferta === "Arrependimento") {
-            const playerAlvo = await PlayerDAO.getPlayerById(interaction.user.id, serverId);
+            const playerAlvo = await PlayerDAO.getPlayerByUserId(interaction.user.id, serverId);
             if (!playerAlvo || !playerAlvo.cargo) {
                 console.error("Player alvo não encontrado no banco de dados para oferta de Arrependimento.");
                 return interaction.reply({ content: "Erro interno ao processar a oferta. Player não encontrado.", flags: MessageFlags.Ephemeral });
@@ -468,7 +470,7 @@ client.on('interactionCreate', async interaction => {
             return;
         }
         
-        return interaction.reply(await game.getPlayerManager().buildOferta(oferta.id, oferta.emissorId, oferta.nomeOferta, oferta.habilidade));
+        return interaction.reply(await game.getPlayerManager().buildOferta(oferta.id, oferta.emissorId, oferta.nomeOferta));
     }
 
     if (interaction.isModalSubmit() && interaction.customId.startsWith('skill_modal_')) {

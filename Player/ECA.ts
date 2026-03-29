@@ -39,6 +39,7 @@ export interface DefinicaoHabilidade {
     tipo: string;
     etapa: string;
     usosMaximos: number;
+    permiteAutoUso?: boolean;
     modificadores: string[];
     inputs: Input[];
     gatilhos: Gatilho[];

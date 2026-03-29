@@ -5,6 +5,7 @@ import { Carta } from "./Carta.js";
 import { Alerta } from "./Alerta.js";
 import { Prisma } from '@prisma/client';
 import type { DadoExtra } from "./Tipos.js";
+import type { HabilidadeDinamica } from './Habilidades/HabilidadeDinamica.js';
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{
     include: {
@@ -30,7 +31,7 @@ export class Player {
 
     private status: string[];
     private marcas: string[];
-    private items: Habilidade[];
+    private items: HabilidadeDinamica[];
     private alertas: Alerta[];
 
     private userChat: string;
@@ -47,8 +48,10 @@ export class Player {
 
         if (player.cargo) {
             const habilidades = player.habilidades
-                .map(h => game.getSkillManager().getHabilidadeInstance(h.nome, h.id, h.uso, h.status))
-                .filter(h => h !== null);
+                .map(h => {
+                    return game.getSkillManager().getHabilidadeInstance(h.nome, h.id, h.uso, h.status);
+                })
+                .filter((h): h is HabilidadeDinamica => !!h);
             this.cargo = game.getSkillManager().getCargoInstance(player.cargo, habilidades) || null;
         } else {
             this.cargo = null;
@@ -98,11 +101,11 @@ export class Player {
         return this.marcas;
     }
 
-    public getHabilidade(nome: string): Habilidade | undefined {
-        return this.getHabilidades()?.find(h => h.getNome() === nome);
+    public getHabilidade(nomeOuId: string): HabilidadeDinamica | undefined {
+        return this.getHabilidades()?.find(h => h.getNome() === nomeOuId || h.getId() === nomeOuId);
     }
 
-    public getHabilidades(): Habilidade[] | undefined {
+    public getHabilidades(): HabilidadeDinamica[] | undefined {
         return this.cargo?.getHabilidades();
     }
 

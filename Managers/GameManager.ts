@@ -74,23 +74,24 @@ export class Game {
 
     public async deletarJogo() {
         // deleto os chats privados
-        const players = await this.playerManager.getAllPlayers();
-        if (!players) {
-            console.error("Players não encontrados");
-            return;
-        } 
-        for (const player of players) {
-            const userChat = player.getUserChat();
-            if (userChat) {
-                try {
-                    const channel = await this.client.channels.fetch(userChat) as TextChannel;
-                    await channel.delete("Partida finalizada, limpando canais privados.");
-                } catch (error) {
-                    console.warn(`Não consegui deletar o canal do jogador ${player.getUsername()}:`, error);
-                    await PlayerDAO.updatePlayer(player.getId(), { userChat: null })
+        try {
+            const players = await this.playerManager.getAllPlayers();
+            if (!players) throw new Error("Players não encontrados");
+            for (const player of players) {
+                const userChat = player.getUserChat();
+                if (userChat) {
+                    try {
+                        const channel = await this.client.channels.fetch(userChat) as TextChannel;
+                        await channel.delete("Partida finalizada, limpando canais privados.");
+                    } catch (error) {
+                        console.warn(`Não consegui deletar o canal do jogador ${player.getUsername()}:`, error);
+                        await PlayerDAO.updatePlayer(player.getId(), { userChat: null })
+                    }
                 }
+                await PlayerDAO.deletePlayer(player.getId());
             }
-            await PlayerDAO.deletePlayer(player.getId());
+        } catch (error) {
+            console.error("Players não encontrados: " + error);
         }
 
         //deleto a partida em si

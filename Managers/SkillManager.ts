@@ -6,9 +6,8 @@ import { OfertaDAO } from "../DAOs/OfertaDAO.js";
 import { AlertaDAO } from "../DAOs/AlertaDAO.js";
 import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
 import { Player } from "../Player/Player.js";
-import { Action, type PrismaAction } from "../Player/Action.js";
-import { regraEvangelho, RegrasHabilidades, regraSnipe } from "../Player/Habilidades/habilidades.js";
-import type { Habilidade } from "../Player/Habilidade.js";
+import { Action } from "../Player/Action.js";
+import { RegrasHabilidades } from "../Player/Habilidades/habilidades.js";
 import { HabilidadeDinamica } from "../Player/Habilidades/HabilidadeDinamica.js";
 import { CargosDoJogo } from "../Player/Habilidades/cargos.js";
 
@@ -62,12 +61,12 @@ export class SkillManager {
                 continue;
             }
             
-            const sucesso = await habilidade.usarHabilidade(this.game, new Action(action))
+            const sucesso = await habilidade.ativarHabilidade(this.game, new Action(action))
             await ActionDAO.updateAction(action.id, { sucesso: sucesso ? "SUCEDIDA" : "FALHA"});
         }
     }
 
-    public async updateHabilidade(habilidade: Habilidade, updates: any) {
+    public async updateHabilidade(habilidade: HabilidadeDinamica, updates: any) {
         
         if (updates.uso !== undefined) habilidade.setUso(updates.uso);
         if (updates.status !== undefined) habilidade.setStatus(updates.status);
@@ -104,7 +103,7 @@ export class SkillManager {
         }
         for (const oferta of ofertas) {
             if (oferta.etapa == await this.game.getEtapaAtual() - 1) {
-                const habilidade = await this.game.getPlayerManager().getHabilidadePlayer(oferta.emissorId, oferta.habilidade);
+                const habilidade = await this.game.getPlayerManager().getHabilidadePlayer(oferta.emissorId, oferta.habilidadeId);
                 if (!habilidade) continue;
                 
                 await habilidade.resolverOferta(this.game, oferta.id, oferta.status === "ACEITA" ? "ACEITA" : "RECUSADA");
@@ -117,23 +116,24 @@ export class SkillManager {
     }
 
     public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: Player[], parametros?: string): Promise<Action> {
-        const alvosIds = alvos?.map(a => a.getId());
+        const alvosIds = alvos?.map(a => a.getUserId());
+        console.log(`Criando action: User ${userId}, Habilidade ${habilidadeId}, Tipo ${tipo}, Alvos ${alvosIds}, Parametros ${parametros}`);
         const action = await ActionDAO.createAction(userId, this.guildId, tipo, await this.game.getEtapaAtual(), habilidadeId, alvosIds || [], parametros);
         return new Action(action!);
     }
 
-    public async criarOferta(emissorId: string, alvo: Player, habilidade: Habilidade, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
+    public async criarOferta(emissorId: string, alvo: Player, habilidade: HabilidadeDinamica, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
         const alvoId = alvo.getId();
 
         console.log(`Criando oferta: Emissor ${emissorId}, Alvo ${alvoId}, Habilidade ${habilidade.getNome()}, Oferta ${nomeOferta}, Item ${item}, Parametros ${parametros}`);
         await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidade.getNome(), await this.game.getEtapaAtual(), nomeOferta, item, parametros);
     }
 
-    public getCargoInstance(nomeDoCargo: string, habilidadesCarregadas?: Habilidade[]): Cargo | null {
+    public getCargoInstance(nomeDoCargo: string, habilidadesCarregadas?: HabilidadeDinamica[]): Cargo | null {
         const defCargo = CargosDoJogo[nomeDoCargo];
         if (!defCargo) return null;
 
-        let habilidadesDoCargo: Habilidade[] = [];
+        let habilidadesDoCargo: HabilidadeDinamica[] = [];
 
         if (habilidadesCarregadas && habilidadesCarregadas.length > 0) {
             habilidadesDoCargo = habilidadesCarregadas;
@@ -152,34 +152,14 @@ export class SkillManager {
         return new Cargo(defCargo, habilidadesDoCargo);
     }
 
-    public getHabilidadeInstance(nomeDaHabilidade: string, id?: string, usos?: number, status?: string): Habilidade | null {
+    public getHabilidadeInstance(nomeDaHabilidade: string, id?: string, usos?: number, status?: string): HabilidadeDinamica | null {
         const regraJSON = RegrasHabilidades[nomeDaHabilidade];
         if (!regraJSON) return null;
 
-        const hab = new HabilidadeDinamica(regraJSON, id, usos, status);
+        const hab = new HabilidadeDinamica(regraJSON, usos, status);
         if (id) hab.setId(id);
+        console.log(`Instanciando habilidade ${nomeDaHabilidade} com ID ${hab.getId()}, usos ${usos}, status ${status}`);
         
         return hab;
     }
-
-    // public getHabilidadeInstance(nomeDaHabilidade: string, id?: string, usos?: number, status?: string): Hab.Habilidade | null {
-    //     if (!nomeDaHabilidade) return null;
-    
-    //     let hab: Hab.Habilidade | null = null;
-
-    //     switch (nomeDaHabilidade) {
-    //         case "Evangelho": hab = new Evangelho(usos, status); break;
-    //         case "Palavra de Deus": hab = new PalavraDeDeus(usos, status); break;
-    //         case "Snipe": hab = new Snipe(usos, status); break;
-    //         case "Execucao Publica": hab = new ExecucaoPublica(usos, status); break;
-    //         default: hab = null; break;
-    //     }
-
-    //     // Se a habilidade foi criada e um ID foi passado (vindo do banco), nós anexamos ele!
-    //     if (hab && id) {
-    //         hab.setId(id);
-    //     }
-
-    //     return hab;
-    // }
 }

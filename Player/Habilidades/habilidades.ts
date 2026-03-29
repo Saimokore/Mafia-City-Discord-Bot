@@ -22,7 +22,7 @@ export const regraSnipe: DefinicaoHabilidade = {
     
     gatilhos: [
         {
-            evento: "AO_USAR", // O Motor vai agendar isso para a resolução da Noite
+            evento: "AO_AVANCAR_ETAPA", // O Motor vai agendar isso para a resolução da Noite
             efeitos: [
                 // EFEITO 1: Dano Extra (Se acertar apenas o Alinhamento)
                 {
@@ -194,6 +194,6 @@ export const regraEvangelho: DefinicaoHabilidade = {
 
 
 export const RegrasHabilidades: Record<string, DefinicaoHabilidade> = {
-    "EVANGELHO": regraEvangelho,
-    "SNIPE": regraSnipe
+    "Evangelho": regraEvangelho,
+    "Snipe": regraSnipe
 }

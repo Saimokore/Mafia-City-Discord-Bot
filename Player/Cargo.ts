@@ -1,19 +1,12 @@
-import * as Class from './Classe.js';
-import { Player } from './Player.js';
-import { Habilidade } from './Habilidade.js';
-import { Game } from '../Managers/GameManager.js';
-import { PlayerDAO } from '../DAOs/PlayerDAO.js';
-import { Evangelho } from './Habilidades/Evangelho.js';
-import { PalavraDeDeus } from './Habilidades/PalavraDeDeus.js';
-import { HabilidadeDAO } from '../DAOs/HabilidadeDAO.js';
 import type { DefinicaoCargo } from './ECA.js';
 import { ClassesDoJogo } from './Habilidades/classes.js';
+import type { HabilidadeDinamica } from './Habilidades/HabilidadeDinamica.js';
 
 export class Cargo {
     private definicao: DefinicaoCargo;
-    private habilidades: Habilidade[];
+    private habilidades: HabilidadeDinamica[];
 
-    constructor(definicao: DefinicaoCargo, habilidades: Habilidade[]) {
+    constructor(definicao: DefinicaoCargo, habilidades: HabilidadeDinamica[]) {
         this.definicao = definicao;
         this.habilidades = habilidades;
     }
@@ -37,7 +30,7 @@ export class Cargo {
         return this.definicao.protecaoInata;
     }
 
-    public getHabilidades(): Habilidade[] {
+    public getHabilidades(): HabilidadeDinamica[] {
         return this.habilidades;
     }
 }
