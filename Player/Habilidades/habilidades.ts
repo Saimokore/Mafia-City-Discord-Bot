@@ -1,4 +1,24 @@
 import type { DefinicaoHabilidade } from "../ECA.js";
+import {
+    TipoSujeito, TipoGatilho, TipoInput,
+    TipoAcao, TipoAtributo, TipoOperador,
+} from "../ECA.js";
+
+// ============================================================
+//  Snipe
+// ============================================================
+//
+//  Lógica:
+//    1. Ataque poderoso (2) se o alinhamento do palpite bater → FOI_SUCEDIDA = (morreu)
+//    2. Ataque básico   (0) se o alinhamento errar
+//    3. Restaura 1 uso se acertou a CLASSE em cheio E o alvo morreu (FOI_SUCEDIDA)
+//
+//  Convenções usadas:
+//    - alvo              → TipoSujeito.Alvo   ("ALVO")
+//    - emissor           → TipoSujeito.Emissor ("EMISSOR")
+//    - acao anterior     → TipoSujeito.AcaoAnterior ("ACAO_ANTERIOR")
+//    - variavel do modal → "VARIAVEL.<idVariavel>"
+//    - ALTERAR_USO usa   → parametros.quantidade (positivo = restaura)
 
 export const regraSnipe: DefinicaoHabilidade = {
     nome: "Snipe",
@@ -6,70 +26,74 @@ export const regraSnipe: DefinicaoHabilidade = {
     etapa: "Noite",
     usosMaximos: 2,
     modificadores: ["Dormente"],
-    
+
     inputs: [
         {
             idVariavel: "alvo_principal",
-            tipoInput: "SELECIONAR_JOGADOR",
+            tipoInput: TipoInput.SelecionarJogador,
             texto: "Quem é o alvo do seu tiro?"
         },
         {
             idVariavel: "palpite_classe",
-            tipoInput: "SELECIONAR_CLASSE",
-            texto: "Qual a classe do alvo?" // O usuário escolhe ex: "Cidade_Justiceiro"
+            tipoInput: TipoInput.SelecionarClasse,
+            texto: "Qual a classe do alvo?"
         }
     ],
-    
+
     gatilhos: [
         {
-            evento: "AO_AVANCAR_ETAPA", // O Motor vai agendar isso para a resolução da Noite
+            evento: TipoGatilho.AoAvancarEtapa,
             efeitos: [
-                // EFEITO 1: Dano Extra (Se acertar apenas o Alinhamento)
+                // Efeito 1: Ataque poderoso se acertou o alinhamento do palpite
                 {
-                    acao: "ATACAR",
-                    alvo: "ALVO_SELECIONADO",
+                    acao: TipoAcao.Atacar,
+                    alvo: TipoSujeito.Alvo,
                     parametros: { poderAtaque: 2 },
                     condicoes: [
                         {
-                            sujeito: "ALVO_SELECIONADO",
-                            atributo: "ALINHAMENTO",
-                            operador: "IGUAL_A",
-                            // O interpretador pega "Cidade_Justiceiro" e isola a parte "Cidade"
-                            valorEsperado: "VARIAVEL.palpite_classe_alinhamento" 
-                        }
-                    ]
-                },
-                // EFEITO 2: Dano Padrão (Se errar o Alinhamento)
-                {
-                    acao: "ATACAR",
-                    alvo: "ALVO_SELECIONADO",
-                    parametros: { poderAtaque: 0 }, // Ou 1, dependendo do seu balanceamento
-                    condicoes: [
-                        {
-                            sujeito: "ALVO_SELECIONADO",
-                            atributo: "ALINHAMENTO",
-                            operador: "DIFERENTE_DE",
+                            sujeito: TipoSujeito.Alvo,
+                            atributo: TipoAtributo.Alinhamento,
+                            operador: TipoOperador.IgualA,
+                            // O motor resolve "VARIAVEL.palpite_classe_alinhamento"
+                            // buscando variaveis["palpite_classe_alinhamento"]
+                            // Esse campo deve ser populado no pré-processamento do modal
+                            // a partir do valor de "palpite_classe" (ex: "Cidade_Justiceiro" → "Cidade")
                             valorEsperado: "VARIAVEL.palpite_classe_alinhamento"
                         }
                     ]
                 },
-                // EFEITO 3: Devolve a bala (Se acertou a Classe em cheio E o alvo morreu)
+                // Efeito 2: Ataque básico se errou o alinhamento
                 {
-                    acao: "ALTERAR_USO",
-                    alvo: "EMISSOR",
-                    parametros: { quantidade: 1 }, // Soma +1 aos usos atuais
+                    acao: TipoAcao.Atacar,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { poderAtaque: 0 },
                     condicoes: [
                         {
-                            sujeito: "ALVO_SELECIONADO",
-                            atributo: "CLASSE",
-                            operador: "IGUAL_A",
-                            valorEsperado: "VARIAVEL.palpite_classe_nome" // Compara com "Justiceiro"
+                            sujeito: TipoSujeito.Alvo,
+                            atributo: TipoAtributo.Alinhamento,
+                            operador: TipoOperador.DiferenteDe,
+                            valorEsperado: "VARIAVEL.palpite_classe_alinhamento"
+                        }
+                    ]
+                },
+                // Efeito 3: Devolve a bala se acertou a classe E o alvo morreu
+                {
+                    acao: TipoAcao.AlterarUso,
+                    alvo: TipoSujeito.Emissor,
+                    parametros: { quantidade: 1 },
+                    condicoes: [
+                        {
+                            sujeito: TipoSujeito.Alvo,
+                            atributo: TipoAtributo.Classe,
+                            operador: TipoOperador.IgualA,
+                            // "VARIAVEL.palpite_classe_nome" → ex: "Justiceiro"
+                            valorEsperado: "VARIAVEL.palpite_classe_nome"
                         },
                         {
-                            sujeito: "ACAO_ANTERIOR", // Lê o ataque feito no Efeito 1 ou 2
-                            atributo: "FOI_SUCEDIDA",
-                            operador: "IGUAL_A",
-                            valorEsperado: true // Só ganha a bala se o alvo realmente morreu
+                            sujeito: TipoSujeito.AcaoAnterior,
+                            atributo: TipoAtributo.FoiSucedida,
+                            operador: TipoOperador.IgualA,
+                            valorEsperado: true
                         }
                     ]
                 }
@@ -77,6 +101,20 @@ export const regraSnipe: DefinicaoHabilidade = {
         }
     ]
 };
+
+// ============================================================
+//  Evangelho
+// ============================================================
+//
+//  Lógica:
+//    Dia → oferece "Arrependimento" ao alvo
+//    Recusa → registra alvo em dadosExtra do emissor
+//    Aceita → se Cidade: bloqueia; se não-Cidade: impede habilidade
+//    Morte do emissor → restaura todas as habilidades impedidas por ele
+//
+//  Nota: SELECIONAR_PROPRIA_HABILIDADE não existe no TipoInput.
+//        Substituído por TEXTO — o jogador digita o nome da habilidade.
+//        Quando esse TipoInput for adicionado ao sistema, basta trocar aqui.
 
 export const regraEvangelho: DefinicaoHabilidade = {
     nome: "Evangelho",
@@ -84,94 +122,96 @@ export const regraEvangelho: DefinicaoHabilidade = {
     etapa: "Dia",
     usosMaximos: 10000,
     modificadores: [],
-    
+
     inputs: [
         {
             idVariavel: "alvo_principal",
-            tipoInput: "SELECIONAR_JOGADOR",
+            tipoInput: TipoInput.SelecionarJogador,
             texto: "A quem você deseja pregar o Evangelho?"
         }
     ],
-    
+
     gatilhos: [
+        // Gatilho 1: Criar oferta ao avançar a etapa
         {
-            evento: "AO_AVANCAR_ETAPA",
+            evento: TipoGatilho.AoAvancarEtapa,
             efeitos: [
                 {
-                    acao: "CRIAR_OFERTA",
-                    alvo: "ALVO_SELECIONADO",
-                    parametros: { 
-                        nomeOferta: "Arrependimento",
-                        inputsAceitacao: [
-                            { idVariavel: "habilidade_sacrificada", tipoInput: "SELECIONAR_PROPRIA_HABILIDADE", texto: "Qual habilidade você sacrifica?" }
-                        ]
-                    }
+                    acao: TipoAcao.CriarOferta,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { nomeOferta: "Arrependimento" }
                 }
             ]
         },
-        
-        // GATILHO 2: O que o jogo faz se o Alvo apertar no botão "Recusar"
+
+        // Gatilho 2: Alvo recusou
         {
-            evento: "AO_OFERTA_RECUSADA",
+            evento: TipoGatilho.AoOfertaRecusada,
             efeitos: [
                 {
-                    acao: "ADICIONAR_PARAMETRO",
-                    alvo: "EMISSOR",
-                    parametros: { tipo: "ALVOS_RECUSADOS", salvarId: "ALVO_SELECIONADO" }
+                    acao: TipoAcao.AdicionarParametro,
+                    alvo: TipoSujeito.Emissor,
+                    parametros: { tipo: "ALVOS_RECUSADOS", alvoId: "VARIAVEL.alvo_principal" }
                 },
                 {
-                    acao: "ENVIAR_ALERTA",
-                    alvo: "ALVO_SELECIONADO",
+                    acao: TipoAcao.EnviarAlerta,
+                    alvo: TipoSujeito.Alvo,
                     parametros: { texto: "Você recusou a palavra e seus pecados pesam sobre você..." }
                 }
             ]
         },
-        
-        // GATILHO 3: O que o jogo faz se o Alvo apertar no botão "Aceitar"
+
+        // Gatilho 3: Alvo aceitou
         {
-            evento: "AO_OFERTA_ACEITA",
+            evento: TipoGatilho.AoOfertaAceita,
             efeitos: [
+                // Remove o registro de recusa caso existisse
                 {
-                    acao: "REMOVER_MARCA",
-                    alvo: "EMISSOR",
-                    parametros: { tipo: "ALVOS_RECUSADOS", removerId: "ALVO_SELECIONADO" }
+                    acao: TipoAcao.RemoverParametro,
+                    alvo: TipoSujeito.Emissor,
+                    parametros: { tipo: "ALVOS_RECUSADOS" }
                 },
-                // Efeito se for da CIDADE: Fica bloqueado!
+                // Se for Cidade: bloqueia
                 {
-                    acao: "BLOQUEAR",
-                    alvo: "ALVO_SELECIONADO",
+                    acao: TipoAcao.Bloquear,
+                    alvo: TipoSujeito.Alvo,
                     condicoes: [
                         {
-                            sujeito: "ALVO_SELECIONADO",
-                            atributo: "ALINHAMENTO",
-                            operador: "IGUAL_A",
+                            sujeito: TipoSujeito.Alvo,
+                            atributo: TipoAtributo.Alinhamento,
+                            operador: TipoOperador.IgualA,
                             valorEsperado: "Cidade"
                         }
                     ]
                 },
-                // Efeitos se NÃO for da Cidade: Perde Habilidade!
+                // Se não for Cidade: impede habilidade
                 {
-                    acao: "IMPEDIR_HABILIDADE",
-                    alvo: "ALVO_SELECIONADO",
-                    parametros: { duracao: "ATE_EMISSOR_MORRER", salvarEmExtra: "IMPEDIDA_EVANGELHO" },
+                    acao: TipoAcao.ImpedirHabilidade,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: {
+                        // TODO: quando TipoInput.SelecionarPropriaHabilidade existir,
+                        // trocar por: nomeHabilidade: "VARIAVEL.habilidade_sacrificada"
+                        nomeHabilidade: "VARIAVEL.habilidade_sacrificada",
+                        salvarEmExtra: "IMPEDIDA_EVANGELHO"
+                    },
                     condicoes: [
                         {
-                            sujeito: "ALVO_SELECIONADO",
-                            atributo: "ALINHAMENTO",
-                            operador: "DIFERENTE_DE",
+                            sujeito: TipoSujeito.Alvo,
+                            atributo: TipoAtributo.Alinhamento,
+                            operador: TipoOperador.DiferenteDe,
                             valorEsperado: "Cidade"
                         }
                     ]
                 },
                 {
-                    acao: "ENVIAR_ALERTA",
-                    alvo: "ALVO_SELECIONADO",
+                    acao: TipoAcao.EnviarAlerta,
+                    alvo: TipoSujeito.Alvo,
                     parametros: { texto: "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer." },
                     condicoes: [
                         {
-                            sujeito: "ALVO_SELECIONADO",
-                            atributo: "ALINHAMENTO",
-                            operador: "DIFERENTE_DE",
+                            sujeito: TipoSujeito.Alvo,
+                            atributo: TipoAtributo.Alinhamento,
+                            operador: TipoOperador.DiferenteDe,
                             valorEsperado: "Cidade"
                         }
                     ]
@@ -179,12 +219,13 @@ export const regraEvangelho: DefinicaoHabilidade = {
             ]
         },
 
+        // Gatilho 4: Evangelista morreu → restaura todas as habilidades que ele impediu
         {
-            evento: "AO_MORRER",
+            evento: TipoGatilho.AoMorrer,
             efeitos: [
                 {
-                    acao: "RESTAURAR_HABILIDADE_IMPEDIDA", 
-                    alvo: "TODOS_JOGADORES",
+                    acao: TipoAcao.RestaurarHabilidadeImpedida,
+                    alvo: TipoSujeito.TodosJogadores,
                     parametros: { tipoDadoExtra: "IMPEDIDA_EVANGELHO" }
                 }
             ]
@@ -192,8 +233,11 @@ export const regraEvangelho: DefinicaoHabilidade = {
     ]
 };
 
+// ============================================================
+//  Registro central
+// ============================================================
 
 export const RegrasHabilidades: Record<string, DefinicaoHabilidade> = {
     "Evangelho": regraEvangelho,
-    "Snipe": regraSnipe
-}
+    "Snipe":     regraSnipe,
+};

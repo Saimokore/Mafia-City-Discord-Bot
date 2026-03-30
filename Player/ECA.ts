@@ -1,24 +1,69 @@
 
-export type TipoGatilho = "AO_USAR" | "AO_MORRER" | "AO_SER_ATACADO" | "AO_AVANCAR_ETAPA" | "AO_OFERTA_ACEITA" | "AO_OFERTA_RECUSADA";
+export enum TipoSujeito {
+    Emissor = "EMISSOR",
+    Alvo    = "ALVO",
+    Atacante = "ATACANTE",
+    AcaoAnterior = "ACAO_ANTERIOR",
+    TodosJogadores = "TODOS_JOGADORES"
+}
 
-export type Sujeito = "EMISSOR" | "ALVO_SELECIONADO" | "ATACANTE" | "ACAO_ANTERIOR" | "TODOS_JOGADORES";
-export type AtributoSujeito = "ALINHAMENTO" | "CLASSE" | "ESTA_VIVO" | "PROTECAO" | "CARGO" | "FOI_SUCEDIDA";
+export enum TipoGatilho {
+    AoAvancarEtapa    = "AO_AVANCAR_ETAPA",
+    AoUsar            = "AO_USAR",
+    AoMorrer          = "AO_MORRER",
+    AoSerAtacado      = "AO_SER_ATACADO",
+    AoOfertaAceita    = "AO_OFERTA_ACEITA",
+    AoOfertaRecusada  = "AO_OFERTA_RECUSADA",
+}
 
-export type Operador = "IGUAL_A" | "DIFERENTE_DE" | "MAIOR_QUE";
+export enum TipoInput {
+    SelecionarJogador = "SELECIONAR_JOGADOR",
+    SelecionarClasse  = "SELECIONAR_CLASSE",
+    SelecionarCargo   = "SELECIONAR_CARGO",
+    Numero            = "NUMERO",
+    Texto             = "TEXTO",
+}
+ 
+export enum TipoAcao {
+    CriarOferta                 = "CRIAR_OFERTA",
+    Atacar                      = "ATACAR",
+    AlterarUso                  = "ALTERAR_USO",
+    Proteger                    = "PROTEGER",
+    Bloquear                    = "BLOQUEAR",
+    AdicionarMarca              = "ADICIONAR_MARCA",
+    AdicionarParametro          = "ADICIONAR_PARAMETRO",
+    EnviarAlerta                = "ENVIAR_ALERTA",
+    RemoverMarca                = "REMOVER_MARCA",
+    ImpedirHabilidade           = "IMPEDIR_HABILIDADE",
+    RestaurarHabilidadeImpedida = "RESTAURAR_HABILIDADE_IMPEDIDA",
+    RemoverParametro            = "REMOVER_PARAMETRO",
+}
 
-export type TipoAcao = "ATACAR" | "ALTERAR_USO" | "PROTEGER" | "BLOQUEAR" | "CRIAR_OFERTA" | "ADICIONAR_MARCA" | 
-"ADICIONAR_PARAMETRO" | "ENVIAR_ALERTA" | "REMOVER_MARCA" | "IMPEDIR_HABILIDADE" | "RESTAURAR_HABILIDADE_IMPEDIDA" | "REMOVER_PARAMETRO";
+export enum TipoAtributo {
+    Alinhamento = "ALINHAMENTO",
+    EstaVivo    = "ESTA_VIVO",
+    Protecao    = "PROTECAO",
+    Classe      = "CLASSE",
+    Cargo       = "CARGO",
+    FoiSucedida = "FOI_SUCEDIDA",
+}
+ 
+export enum TipoOperador {
+    IgualA     = "IGUAL_A",
+    DiferenteDe = "DIFERENTE_DE",
+    MaiorQue   = "MAIOR_QUE",
+}
 
 export interface Condicao {
-    sujeito: Sujeito;
-    atributo: AtributoSujeito;
-    operador: Operador;
+    sujeito: TipoSujeito;
+    atributo: TipoAtributo;
+    operador: TipoOperador;
     valorEsperado: any; // pode ser string, numero, ou referência a outro sujeito
 }
 
 export interface Efeito {
     acao: TipoAcao;
-    alvo: Sujeito;
+    alvo: TipoSujeito;
     parametros?: any; // ex: { poderAtaque: 2 }
     condicoes?: Condicao[]; // sem condição sempre executa
 }
@@ -30,7 +75,7 @@ export interface Gatilho {
 
 export interface Input {
     idVariavel: string,
-    tipoInput: string, // SELECIONAR_JOGADOR, SELECIONAR_CLASSE, SELECIONAR_CARGO, NUMERO, TEXTO, ...
+    tipoInput: TipoInput, // SELECIONAR_JOGADOR, SELECIONAR_CLASSE, SELECIONAR_CARGO, NUMERO, TEXTO, ...
     texto: string
 }
 
@@ -57,6 +102,6 @@ export interface DefinicaoCargo {
 
 export interface DefinicaoClasse {
     nome: string;
-    alinhamento: "CIDADE" | "MAFIA" | "NEUTRO";
+    alinhamento: "Cidade" | "Mafia" | "Neutro";
     gatilhos?: Gatilho[];
 }
