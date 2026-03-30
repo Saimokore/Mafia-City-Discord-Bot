@@ -34,7 +34,6 @@ export class HabilidadeDinamica extends Habilidade {
 
     public async resolverModal(interaction: ModalSubmitInteraction, game: Game) {
         
-        // Essa caixinha vai guardar tudo que o usuário respondeu
         const variaveis: Record<string, unknown> = {};
         let alvoPrincipalId: string | null = null;
 
@@ -46,7 +45,17 @@ export class HabilidadeDinamica extends Habilidade {
                 variaveis[input.idVariavel] = id;
                 if (!alvoPrincipalId) alvoPrincipalId = id ?? null;
             } else if (input.tipoInput === "SELECIONAR_CLASSE" || input.tipoInput === "SELECIONAR_CARGO") {
-                variaveis[input.idVariavel] = interaction.fields.getStringSelectValues(customId)[0];
+
+                const valorSelecionado = interaction.fields.getStringSelectValues(customId)[0];
+                
+                variaveis[input.idVariavel] = valorSelecionado;
+
+                if (valorSelecionado && typeof valorSelecionado === "string" && valorSelecionado.includes('_')) {
+                    const partes = valorSelecionado.split('_');
+                    
+                    variaveis[`${input.idVariavel}_alinhamento`] = partes[0]; // Cidade
+                    variaveis[`${input.idVariavel}_nome`] = partes.slice(1).join('_'); // Justiceiro
+                }
             } else {
                 // TEXTO ou NUMERO
                 variaveis[input.idVariavel] = interaction.fields.getTextInputValue(customId);
@@ -77,8 +86,6 @@ export class HabilidadeDinamica extends Habilidade {
         const oferta = await OfertaDAO.getOfertaById(ofertaId);
         if (!oferta) return;
 
-        await OfertaDAO.updateOferta(ofertaId, statusResposta === "ACEITA" ? true : false);
-
         const playerAlvo = await game.getPlayerManager().loadPlayer(oferta.alvoId);
         const emissor = await game.getPlayerManager().loadPlayer(oferta.emissorId);
         if (!emissor || !playerAlvo) return;
@@ -91,6 +98,30 @@ export class HabilidadeDinamica extends Habilidade {
         if (!gatilho) return;
 
         await this.executarEfeitos(game, gatilho.efeitos, emissor, playerAlvo, variaveis);
+    }
+
+    // vai ser pra resolver todos os inputs provenientes dos players, tipo selecionar alvo, classe, cargo, ou responder texto/numero
+    public async resolverInput(game: Game, interaction: StringSelectMenuInteraction | ModalSubmitInteraction, alvo: Player, emissor?: Player): Promise<void> {
+        const variaveis: Record<string, unknown> = {};
+        
+        // skill_input_Evangelho_1234_habilidade_sacrificada
+        const partes = interaction.customId.split('_');
+        const idVariavel = partes.slice(4).join('_'); 
+
+        if (interaction.isStringSelectMenu()) {
+            variaveis[idVariavel] = interaction.values[0];
+        } else if (interaction.isModalSubmit()) {
+            variaveis[idVariavel] = interaction.fields.getTextInputValue(idVariavel);
+        }
+
+        variaveis["customId"] = idVariavel;
+
+        const gatilho = this.regras.gatilhos.find(g => g.evento === TipoGatilho.AoResolverInput);
+        if (!gatilho) return;
+
+        if (emissor) {
+            await this.executarEfeitos(game, gatilho.efeitos, emissor, alvo, variaveis);
+        }
     }
 
     public async ativar(game: Game, action: Action | null, gatilhoDisparo: string = TipoGatilho.AoAvancarEtapa, emissorOpcional?: Player): Promise<boolean> {
@@ -119,17 +150,18 @@ export class HabilidadeDinamica extends Habilidade {
     }
 
     public async executarEfeitos(game: Game, efeitos: Efeito[], emissor: Player, alvo: Player, variaveis: Record<string, unknown>, action?: Action) {
+        let resultadoAnterior = { foiSucedida: false };
+
         for (const efeito of efeitos) {
-            const condicoesOk = await this.conditionEval.avaliar(efeito.condicoes, emissor, alvo, variaveis);
+            const condicoesOk = await this.conditionEval.avaliar(game, efeito.condicoes, emissor, alvo, variaveis, resultadoAnterior);
             if (!condicoesOk) continue;
  
-            await this.effectHandler.executar({
+            resultadoAnterior = await this.effectHandler.executar({
                 game, efeito, emissor, alvo, variaveis, action,
                 habilidade: this,
             });
         }
     }
-
 
     // HELPERS
 
@@ -143,21 +175,19 @@ export class HabilidadeDinamica extends Habilidade {
         await game.getSkillManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
     }
 
-    public async atacarPlayer(game: Game, alvo: Player, assassino: Player, action?: Action): Promise<void> {
+    public async atacarPlayer(game: Game, alvo: Player, assassino: Player, action?: Action): Promise<boolean> {
         // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa(3) > Ataque Poderoso(2) > Prot Basica(1) > Ataque Basico(0)
-        let poderAtaque = 0;
-        if (action) {
-            const params = JSON.parse(action.getParametros());
-            poderAtaque  = params.poderAtaque;
-        }
+        let poderAtaque = action ? JSON.parse(action.getParametros()).poderAtaque : 0;
  
         if (poderAtaque >= alvo.getProtecao()) {
             await game.getSkillManager().criarAlerta(assassino, "Você eliminou o alvo!");
             await game.processarMortePlayer(alvo, assassino);
+            return true;
         } else {
             const protInata = alvo.getCargo()?.getProtecaoInata() ?? 0;
             await game.getPlayerManager().updatePlayer(alvo, { protecao: protInata });
             await game.getSkillManager().criarAlerta(alvo, "Você sente que foi protegido!");
+            return false;
         }
     }
 

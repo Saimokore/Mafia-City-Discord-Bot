@@ -8,6 +8,8 @@ import { PlayerDAO } from './DAOs/PlayerDAO.js';
 import { OfertaDAO } from './DAOs/OfertaDAO.js';
 import { HabilidadeDAO } from './DAOs/HabilidadeDAO.js';
 import { AlertaDAO } from './DAOs/AlertaDAO.js';
+import type { Player } from './Player/Player.js';
+import type { HabilidadeDinamica } from './Player/Habilidades/HabilidadeDinamica.js';
 
 dotenv.config();
 
@@ -498,6 +500,30 @@ client.on('interactionCreate', async interaction => {
         }
 
         await habilidadeInstance.resolverModal(interaction, game);
+    }
+
+    if ((interaction.isStringSelectMenu() || interaction.isModalSubmit()) && interaction.customId.startsWith('skill_input_')) {
+        await interaction.deferUpdate();
+
+        const partes = interaction.customId.split('_');
+
+        const nomeHabilidade = partes[2];
+        const emissorId = partes[3];
+
+        const alvoPlayer = await game.getPlayerManager().loadPlayer(interaction.user.id);
+        const emissorPlayer = await game.getPlayerManager().loadPlayer(emissorId!);
+
+        if (!alvoPlayer || !emissorPlayer) {
+            await interaction.followUp({ content: "❌ Erro: Jogador não encontrado.", flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const habilidade = emissorPlayer.getHabilidade(nomeHabilidade!);
+        if (habilidade) {
+            await (habilidade as HabilidadeDinamica).resolverInput(game, interaction as any, alvoPlayer, emissorPlayer);
+            
+            await interaction.editReply({ content: "✅ Resposta registrada!", components: [] });
+        }
     }
 });
 

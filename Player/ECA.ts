@@ -1,10 +1,16 @@
 
+export enum Alinhamento {
+    Cidade = "Cidade",
+    Mafia   = "Mafia",
+    Neutro  = "Neutro"
+}
+
 export enum TipoSujeito {
     Emissor = "EMISSOR",
     Alvo    = "ALVO",
-    Atacante = "ATACANTE",
     AcaoAnterior = "ACAO_ANTERIOR",
-    TodosJogadores = "TODOS_JOGADORES"
+    TodosJogadores = "TODOS_JOGADORES",
+    Input = "INPUT"
 }
 
 export enum TipoGatilho {
@@ -14,9 +20,11 @@ export enum TipoGatilho {
     AoSerAtacado      = "AO_SER_ATACADO",
     AoOfertaAceita    = "AO_OFERTA_ACEITA",
     AoOfertaRecusada  = "AO_OFERTA_RECUSADA",
+    AoResolverInput   = "AO_RESOLVER_INPUT",
 }
 
 export enum TipoInput {
+    SelecionarPropriaHabilidade = "SELECIONAR_PROPRIA_HABILIDADE",
     SelecionarJogador = "SELECIONAR_JOGADOR",
     SelecionarClasse  = "SELECIONAR_CLASSE",
     SelecionarCargo   = "SELECIONAR_CARGO",
@@ -37,6 +45,8 @@ export enum TipoAcao {
     ImpedirHabilidade           = "IMPEDIR_HABILIDADE",
     RestaurarHabilidadeImpedida = "RESTAURAR_HABILIDADE_IMPEDIDA",
     RemoverParametro            = "REMOVER_PARAMETRO",
+    CriarInput                  = "CRIAR_INPUT",
+    AtualizarOferta             = "ATUALIZAR_OFERTA",
 }
 
 export enum TipoAtributo {
@@ -46,6 +56,7 @@ export enum TipoAtributo {
     Classe      = "CLASSE",
     Cargo       = "CARGO",
     FoiSucedida = "FOI_SUCEDIDA",
+    CustomId          = "CUSTOM_ID",
 }
  
 export enum TipoOperador {
@@ -58,7 +69,7 @@ export interface Condicao {
     sujeito: TipoSujeito;
     atributo: TipoAtributo;
     operador: TipoOperador;
-    valorEsperado: any; // pode ser string, numero, ou referência a outro sujeito
+    valorEsperado: Alinhamento | string | number | boolean; // pode ser string, numero, ou referência a outro sujeito
 }
 
 export interface Efeito {

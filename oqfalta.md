@@ -1,4 +1,4 @@
-ver como podemos guardar coisas não tão especificas das habilidades como o poder de ataque e tal corretamente e fugir um pouco dos parametrosextras
+Basicamente depois que enviar um input de resolução de algo se ele não for
 
 Evangelista:
 - Descobrir se a habilidade Palavra de Deus só pode ser utilizada logo após a recusa da oferta ou se pode ser utilizada em qualquer etapa do jogo

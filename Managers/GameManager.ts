@@ -213,6 +213,10 @@ export class Game {
     public getGuildId(): string {
         return this.guildId;
     }
+
+    public getClient(): Client {
+        return this.client;
+    }
     
     public async getEtapaAtual(): Promise<number> {
         this.etapaAtual = await PartidaDAO.getPartida(this.guildId).then(p => p!.etapaAtual);

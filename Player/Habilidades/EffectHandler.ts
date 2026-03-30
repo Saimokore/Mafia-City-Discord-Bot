@@ -1,10 +1,12 @@
-import { type Efeito, TipoAcao } from "../ECA.js";
+import { type Efeito, TipoAcao, TipoInput } from "../ECA.js";
 import { Game }        from "../../Managers/GameManager.js";
 import { Player }      from "../Player.js";
 import { Action }      from "../Action.js";
 import { HabilidadeDinamica } from "./HabilidadeDinamica.js";
+import { ActionRowBuilder, StringSelectMenuBuilder, TextChannel } from "discord.js";
+import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
 
-type EfeitoHandlerFn = (ctx: EfeitoContext) => Promise<void>;
+type EfeitoHandlerFn = (ctx: EfeitoContext) => Promise<ResultadoAcaoAnterior | void>;
 
 interface EfeitoContext {
     game:      Game;
@@ -16,12 +18,17 @@ interface EfeitoContext {
     habilidade: HabilidadeDinamica;
 }
 
+export interface ResultadoAcaoAnterior {
+    foiSucedida: boolean;
+}
+
 const criarOfertaHandler: EfeitoHandlerFn = async ({ habilidade, game, emissor, alvo, efeito }) => {
     await habilidade.ofertarPlayer(game, emissor.getId(), alvo, efeito.parametros.nomeOferta);
 };
 
 const atacarHandler: EfeitoHandlerFn = async ({ habilidade, game, alvo, emissor, action }) => {
-    await habilidade.atacarPlayer(game, alvo, emissor, action);
+    const matou = await habilidade.atacarPlayer(game, alvo, emissor, action);
+    return { foiSucedida: matou };
 };
 
 const bloquearHandler: EfeitoHandlerFn = async ({ game, alvo }) => {
@@ -106,6 +113,49 @@ const restaurarHabilidadeImpedidaHandler: EfeitoHandlerFn = async ({ game, alvo,
     await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(novosDados) });
 };
 
+const criarInputHandler: EfeitoHandlerFn = async ({ habilidade, game, emissor, alvo, efeito }) => {
+    const params = efeito.parametros;
+    
+    const customId = `skill_input_${habilidade.getNome()}_${emissor.getUserId()}_${params.idVariavel}`;
+
+    let componentes: any[] = [];
+
+    if (params.tipoInput === TipoInput.SelecionarPropriaHabilidade) {
+        const habilidades = alvo.getHabilidades()?.filter(h => h.getStatus() !== "IMPEDIDA") || [];
+        
+        if (habilidades.length === 0) {
+            await game.getSkillManager().criarAlerta(alvo, "Você não possui habilidades ativas para sacrificar/selecionar.");
+            return;
+        }
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(customId)
+            .setPlaceholder(params.texto)
+            .addOptions(habilidades.map(hab => ({
+                label: hab.getNome(),
+                value: hab.getNome()
+            })));
+
+        componentes = [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu)];
+    }
+
+    const channelId = alvo.getUserChat();
+    const channel = await game.getClient().channels.fetch(channelId) as TextChannel;
+    if (channel) {
+        await channel.send({ content: `⚠️ **Ação Exigida:** ${params.texto}`, components: componentes });
+    }
+};
+
+const atualizarOferta: EfeitoHandlerFn = async ({ habilidade, game, emissor, alvo, efeito }) => {
+    const ofertas = await OfertaDAO.getOfertasForPlayerId(game.getGuildId(), alvo.getUserId());
+    const etapaAtual = await game.getEtapaAtual();
+
+    const oferta = ofertas?.find(o => o.nomeOferta === efeito.parametros.nomeOferta && o.etapa === etapaAtual);
+    if (!oferta) return;
+
+    await OfertaDAO.updateOferta(oferta.id, efeito.parametros.valorOferta);
+};
+
 const HANDLERS: Record<TipoAcao, EfeitoHandlerFn> = {
     [TipoAcao.CriarOferta]:                 criarOfertaHandler,
     [TipoAcao.Atacar]:                      atacarHandler,
@@ -119,18 +169,17 @@ const HANDLERS: Record<TipoAcao, EfeitoHandlerFn> = {
     [TipoAcao.ImpedirHabilidade]:           impedirHabilidadeHandler,
     [TipoAcao.RestaurarHabilidadeImpedida]: restaurarHabilidadeImpedidaHandler,
     [TipoAcao.RemoverParametro]:            removerParametroHandler,
+    [TipoAcao.CriarInput]:                  criarInputHandler,
+    [TipoAcao.AtualizarOferta]:             atualizarOferta,
 };
 
 export class EffectHandler {
 
-    public async executar(ctx: EfeitoContext): Promise<void> {
+    public async executar(ctx: EfeitoContext): Promise<ResultadoAcaoAnterior> {
         const handler = HANDLERS[ctx.efeito.acao as TipoAcao];
+        if (!handler) return { foiSucedida: false };
 
-        if (!handler) {
-            console.warn(`[EffectHandler] Ação desconhecida: "${ctx.efeito.acao}"`);
-            return;
-        }
-
-        await handler(ctx);
+        const resultado = await handler(ctx);
+        return resultado || { foiSucedida: true };
     }
 }

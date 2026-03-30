@@ -1,21 +1,56 @@
+import type { Game } from "../../Managers/GameManager.js";
 import { TipoAtributo, TipoSujeito, type Condicao, TipoOperador } from "../ECA.js";
 import { Player } from "../Player.js";
+import type { ResultadoAcaoAnterior } from "./EffectHandler.js";
 
 export class ConditionEvaluator {
 
-    public async avaliar(condicoes: Condicao[] | undefined, emissor: Player, alvo: Player, variaveis: Record<string, unknown>): Promise<boolean> {
+    public async avaliar(game: Game, condicoes: Condicao[] | undefined, emissor: Player, alvo: Player, variaveis: Record<string, unknown>, resultadoAnterior?: ResultadoAcaoAnterior): Promise<boolean> {
         if (!condicoes || condicoes.length === 0) return true;
 
         for (const condicao of condicoes) {
-            const passou = this.avaliarUma(condicao, emissor, alvo, variaveis);
+            const passou = await this.avaliarUma(game, condicao, emissor, alvo, variaveis, resultadoAnterior);
             if (!passou) return false;
         }
 
         return true;
     }
 
-    private avaliarUma(condicao: Condicao, emissor: Player, alvo: Player, variaveis: Record<string, unknown>): boolean {
-        const sujeito   = condicao.sujeito === TipoSujeito.Emissor ? emissor : alvo;
+    private async avaliarUma(game: Game, condicao: Condicao, emissor: Player, alvo: Player, variaveis: Record<string, unknown>, resultadoAnterior?: ResultadoAcaoAnterior): Promise<boolean> {
+        if (condicao.sujeito === TipoSujeito.TodosJogadores) {
+            const players = await game.getPlayerManager().getAllPlayers();
+            if (!players) return false;
+
+            for (const p of players) {
+                const valorReal = this.resolverAtributo(p, condicao.atributo as TipoAtributo);
+                const valorEsperado = this.resolverValorEsperado(condicao.valorEsperado, emissor, variaveis);
+
+                if (!this.comparar(condicao.operador as TipoOperador, valorReal, valorEsperado)) {
+                    return false;
+                }
+            }
+            return true;
+        } 
+        
+        if (condicao.sujeito === TipoSujeito.AcaoAnterior) {
+            const valorReal = condicao.atributo === TipoAtributo.FoiSucedida ? (resultadoAnterior?.foiSucedida ?? false) : false;
+            const valorEsperado = this.resolverValorEsperado(condicao.valorEsperado, emissor, variaveis);
+            
+            return this.comparar(condicao.operador as TipoOperador, valorReal, valorEsperado);
+        }
+
+        if (condicao.sujeito === TipoSujeito.Input) {
+            let valorReal: unknown;
+            
+            if (condicao.atributo === TipoAtributo.CustomId) {
+                valorReal = variaveis["customId"]; 
+            }
+
+            const valorEsperado = this.resolverValorEsperado(condicao.valorEsperado, emissor, variaveis);
+            return this.comparar(condicao.operador as TipoOperador, valorReal, valorEsperado);
+        }
+
+        const sujeito = condicao.sujeito === TipoSujeito.Emissor ? emissor : alvo;
         const valorReal = this.resolverAtributo(sujeito, condicao.atributo as TipoAtributo);
         const valorEsperado = this.resolverValorEsperado(condicao.valorEsperado, emissor, variaveis);
 
