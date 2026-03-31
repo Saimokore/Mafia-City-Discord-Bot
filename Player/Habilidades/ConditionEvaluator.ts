@@ -54,10 +54,13 @@ export class ConditionEvaluator {
         const valorReal = this.resolverAtributo(sujeito, condicao.atributo as TipoAtributo);
         const valorEsperado = this.resolverValorEsperado(condicao.valorEsperado, emissor, variaveis);
 
+        console.log(`[ConditionEvaluator] Avaliando condição para jogador ${sujeito.getUserId()}: atributo ${condicao.atributo} com valor real "${valorReal}" contra valor esperado "${valorEsperado}" usando operador ${condicao.operador}`);
+
         return this.comparar(condicao.operador as TipoOperador, valorReal, valorEsperado);
     }
 
     private resolverAtributo(jogador: Player, atributo: TipoAtributo): unknown {
+        console.log(`[ConditionEvaluator] Resolvendo atributo ${atributo} para jogador ${jogador.getUserId()}`);
         switch (atributo) {
             case TipoAtributo.Alinhamento: return jogador.getAlinhamento();
             case TipoAtributo.EstaVivo:    return jogador.estaVivo();
@@ -71,6 +74,7 @@ export class ConditionEvaluator {
     }
 
     private resolverValorEsperado(raw: unknown, emissor: Player, variaveis: Record<string, unknown>): unknown {
+        console.log(`[ConditionEvaluator] Resolvendo valor esperado a partir de "${raw}"`);
         if (typeof raw !== "string") return raw;
 
         if (raw === "EMISSOR.ALINHAMENTO") return emissor.getAlinhamento();
@@ -91,16 +95,24 @@ export class ConditionEvaluator {
             return numero;
         }
 
+        if (raw.startsWith("VARIAVEL.")) {
+            const nomeDaVariavel = raw.slice("VARIAVEL.".length);
+            return variaveis[nomeDaVariavel];
+        }
+
         return raw;
     }
 
     private comparar(operador: TipoOperador, real: unknown, esperado: unknown): boolean {
+        const valorReal = typeof real === "string" ? real.toLowerCase() : real;
+        const valorEsperado = typeof esperado === "string" ? esperado.toLowerCase() : esperado;
+
         switch (operador) {
             case TipoOperador.IgualA:
-                return real === esperado;
+                return valorReal === valorEsperado;
 
             case TipoOperador.DiferenteDe:
-                return real !== esperado;
+                return valorReal !== valorEsperado;
 
             case TipoOperador.MaiorQue:
                 if (typeof real !== "number" || typeof esperado !== "number") {
@@ -108,6 +120,12 @@ export class ConditionEvaluator {
                     return false;
                 }
                 return real > esperado;
+            case TipoOperador.MenorQue:
+                if (typeof real !== "number" || typeof esperado !== "number") {
+                    console.warn(`[ConditionEvaluator] MENOR_QUE usado com valores não-numéricos:`, { real, esperado });
+                    return false;
+                }
+                return real < esperado;
 
             default:
                 console.warn(`[ConditionEvaluator] Operador desconhecido: ${operador}`);

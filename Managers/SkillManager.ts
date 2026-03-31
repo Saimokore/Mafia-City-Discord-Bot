@@ -112,13 +112,15 @@ export class SkillManager {
     }
 
     public async criarAlerta(user: Player, alerta: string) {
-        await AlertaDAO.createAlerta(this.guildId, user.getId(), await this.game.getEtapaAtual(), alerta)
+        await AlertaDAO.createAlerta(this.guildId, user.getUserId(), await this.game.getEtapaAtual(), alerta)
     }
 
     public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: Player[], parametros?: string): Promise<Action> {
-        const alvosIds = alvos?.map(a => a.getUserId());
+        const alvosIds = alvos?.map(a => a.getId());
+
         console.log(`Criando action: User ${userId}, Habilidade ${habilidadeId}, Tipo ${tipo}, Alvos ${alvosIds}, Parametros ${parametros}`);
         const action = await ActionDAO.createAction(userId, this.guildId, tipo, await this.game.getEtapaAtual(), habilidadeId, alvosIds || [], parametros);
+
         return new Action(action!);
     }
 
@@ -136,11 +138,10 @@ export class SkillManager {
         let habilidadesDoCargo: HabilidadeDinamica[] = [];
 
         if (habilidadesCarregadas && habilidadesCarregadas.length > 0) {
+            console.log(`Usando habilidades carregadas para o cargo ${nomeDoCargo}...`);
             habilidadesDoCargo = habilidadesCarregadas;
-        } 
-
-        // se for no inicio do jogo, instanciamos as habilidades iniciais
-        else {
+        } else {
+            console.log(`Carregando habilidades para o cargo ${nomeDoCargo}...`);
             for (const nomeHab of defCargo.habilidadesIniciais) {
                 const regraJSON = RegrasHabilidades[nomeHab]; // Pega a regraSnipe, etc
                 if (regraJSON) {

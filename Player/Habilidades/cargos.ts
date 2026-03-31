@@ -6,7 +6,7 @@ export const CargosDoJogo: Record<string, DefinicaoCargo> = {
         nome: "Evangelista",
         classe: "CIDADE_JUSTICEIRO", // Tem que ser exatamente a chave do ClassesDoJogo
         raridade: "COMUM",
-        habilidadesIniciais: ["EVANGELHO"],
+        habilidadesIniciais: ["Evangelho"],
         complexidade: 1,
         protecaoInata: 1
     },
@@ -14,7 +14,7 @@ export const CargosDoJogo: Record<string, DefinicaoCargo> = {
         nome: "Atirador de Elite",
         classe: "CIDADE_JUSTICEIRO",
         raridade: "COMUM",
-        habilidadesIniciais: ["SNIPE"],
+        habilidadesIniciais: ["Snipe"],
         complexidade: 2,
         protecaoInata: 0
     },

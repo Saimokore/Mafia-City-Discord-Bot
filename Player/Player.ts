@@ -38,7 +38,7 @@ export class Player {
 
     private dadosExtra: DadoExtra[];
 
-    private protecao: number; // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa (3) > Ataque Poderoso(2) > Prot Basica (1) > Ataque Basico (0)
+    private protecao: number;
 
     constructor(game: Game, player: PrismaPlayer) {
         this.id = player.id;
@@ -110,7 +110,7 @@ export class Player {
     }
 
     public getClasse() {
-        return `${this.getAlinhamento()} ${this.cargo?.getNomeClasse()}`;
+        return `${this.getAlinhamento()}_${this.cargo?.getNomeClasse()}`;
     }
 
     public getDadosExtra(): DadoExtra[] {

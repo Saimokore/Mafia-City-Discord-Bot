@@ -199,6 +199,8 @@ export class Game {
             await hab.ativar(this, null, "AO_MORRER"); 
         }
 
+        await this.getSkillManager().criarAlerta(jogadorMorto, "Você morreu!");
+
         return true;
     }
     

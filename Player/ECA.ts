@@ -25,11 +25,12 @@ export enum TipoGatilho {
 
 export enum TipoInput {
     SelecionarPropriaHabilidade = "SELECIONAR_PROPRIA_HABILIDADE",
-    SelecionarJogador = "SELECIONAR_JOGADOR",
-    SelecionarClasse  = "SELECIONAR_CLASSE",
-    SelecionarCargo   = "SELECIONAR_CARGO",
-    Numero            = "NUMERO",
-    Texto             = "TEXTO",
+    SelecionarJogador           = "SELECIONAR_JOGADOR",
+    SelecionarJogadores         = "SELECIONAR_JOGADORES",
+    SelecionarClasse            = "SELECIONAR_CLASSE",
+    SelecionarCargo             = "SELECIONAR_CARGO",
+    Numero                      = "NUMERO",
+    Texto                       = "TEXTO",
 }
  
 export enum TipoAcao {
@@ -63,6 +64,7 @@ export enum TipoOperador {
     IgualA     = "IGUAL_A",
     DiferenteDe = "DIFERENTE_DE",
     MaiorQue   = "MAIOR_QUE",
+    MenorQue   = "MENOR_QUE",
 }
 
 export interface Condicao {
@@ -77,6 +79,8 @@ export interface Efeito {
     alvo: TipoSujeito;
     parametros?: any; // ex: { poderAtaque: 2 }
     condicoes?: Condicao[]; // sem condição sempre executa
+    aoSuceder?: Efeito[]; // efeitos encadeados que só ocorrem se este efeito for bem sucedido
+    aoFalhar?: Efeito[];   // efeitos encadeados que só ocorrem se este efeito falhar
 }
 
 export interface Gatilho {

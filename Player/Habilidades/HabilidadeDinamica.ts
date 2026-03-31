@@ -1,5 +1,5 @@
 import { ActionRowBuilder, UserSelectMenuBuilder, StringSelectMenuBuilder, ModalBuilder, ModalSubmitInteraction, LabelBuilder, StringSelectMenuInteraction, TextInputBuilder } from "discord.js";
-import { type DefinicaoHabilidade, type Efeito, type Condicao, type Gatilho, TipoGatilho, TipoSujeito } from "../ECA.js";
+import { type DefinicaoHabilidade, type Efeito, type Condicao, type Gatilho, TipoGatilho, TipoSujeito, TipoInput } from "../ECA.js";
 import { Game } from "../../Managers/GameManager.js";
 import { Habilidade } from "../Habilidade.js";
 import { Player } from "../Player.js";
@@ -9,6 +9,15 @@ import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
 import { ConditionEvaluator } from "./ConditionEvaluator.js";
 import { EffectHandler } from "./EffectHandler.js";
 import { SkillModalBuilder } from "./SkillModalBuilder.js";
+
+export enum PoderAtaqueProtecao {
+    AtaqueBasico = 1,
+    ProtecaoBasica = 2,
+    AtaquePoderoso = 3,
+    ProtecaoPoderosa = 4,
+    Obliteracao = 5,
+    Invencibilidade = 6
+}
 
 export class HabilidadeDinamica extends Habilidade {
     private regras: DefinicaoHabilidade;
@@ -35,16 +44,51 @@ export class HabilidadeDinamica extends Habilidade {
     public async resolverModal(interaction: ModalSubmitInteraction, game: Game) {
         
         const variaveis: Record<string, unknown> = {};
-        let alvoPrincipalId: string | null = null;
+        
+        const alvos = [];
+        const emissor = await game.getPlayerManager().loadPlayer(interaction.user.id);
+        
+        if (!emissor?.estaVivo()) {
+            return interaction.reply({ content: "❌ **Erro:** Você não está vivo ou não faz parte da partida!" });
+        }
+
+        if (!emissor.getHabilidade(this.getNome())) {
+            return interaction.reply({ content: "❌ **Erro:** Você não possui essa habilidade." });
+        }
 
         for (const input of this.regras.inputs ?? []) {
-            const customId = `input_${this.getNome()}_${input.idVariavel}`;
+            const customId = `input_${this.getNome()}_${input.idVariavel}`;            
 
-            if (input.tipoInput === "SELECIONAR_JOGADOR") {
+            if (input.tipoInput === TipoInput.SelecionarJogador) {
+
                 const id = interaction.fields.getSelectedUsers(customId)?.firstKey()?.toString();
                 variaveis[input.idVariavel] = id;
-                if (!alvoPrincipalId) alvoPrincipalId = id ?? null;
-            } else if (input.tipoInput === "SELECIONAR_CLASSE" || input.tipoInput === "SELECIONAR_CARGO") {
+
+                const player = await game.getPlayerManager().loadPlayer(id!);
+                if (!player) break;
+
+                alvos.push(player);
+
+            } else if (input.tipoInput === TipoInput.SelecionarJogadores) {
+
+                const ids = interaction.fields.getSelectedUsers(customId)?.keys() ?? [];
+                variaveis[input.idVariavel] = ids;
+
+                for (const id of ids) {
+                    const alvo = await game.getPlayerManager().loadPlayer(id);
+                    if (!alvo) {
+                        console.error(`Player com ID ${id} não encontrado ao resolver modal da habilidade ${this.getNome()}`);
+                        continue;
+                    }
+                    const erroAlvo = this.validarAlvo(alvo, emissor.getId());
+                    if (erroAlvo) {
+                        console.error(`Erro ao validar alvo selecionado: ${erroAlvo}`)
+                        continue;
+                    }
+                    alvos.push(alvo);
+                }
+
+            } else if (input.tipoInput === TipoInput.SelecionarClasse || input.tipoInput === TipoInput.SelecionarCargo) {
 
                 const valorSelecionado = interaction.fields.getStringSelectValues(customId)[0];
                 
@@ -62,23 +106,7 @@ export class HabilidadeDinamica extends Habilidade {
             }
         }
 
-        const emissor = await game.getPlayerManager().loadPlayer(interaction.user.id);
-        const alvo = alvoPrincipalId ? await game.getPlayerManager().loadPlayer(alvoPrincipalId) : null;
-        
-        if (!emissor?.estaVivo()) {
-            return interaction.reply({ content: "❌ **Erro:** Você não está vivo ou não faz parte da partida!" });
-        }
-
-        if (!emissor.getHabilidade(this.getNome())) {
-            return interaction.reply({ content: "❌ **Erro:** Você não possui essa habilidade." });
-        }
-
-        const erroAlvo = this.validarAlvo(alvo, emissor.getId());
-        if (erroAlvo) {
-            return interaction.reply({ content: erroAlvo });
-        }
-
-        return await this.processarUsoModal(interaction, game, emissor, alvo!, variaveis);
+        return await this.processarUsoModal(interaction, game, emissor, variaveis, alvos);
     }
 
     public async resolverOferta(game: Game, ofertaId: string, statusResposta: "ACEITA" | "RECUSADA"): Promise<void> {
@@ -160,13 +188,19 @@ export class HabilidadeDinamica extends Habilidade {
                 game, efeito, emissor, alvo, variaveis, action,
                 habilidade: this,
             });
+
+            if (efeito.aoSuceder && resultadoAnterior.foiSucedida) {
+                await this.executarEfeitos(game, efeito.aoSuceder, emissor, alvo, variaveis, action);
+            } else if (efeito.aoFalhar && !resultadoAnterior.foiSucedida) {
+                await this.executarEfeitos(game, efeito.aoFalhar, emissor, alvo, variaveis, action);
+            }
         }
     }
 
     // HELPERS
 
     public async ofertarPlayer(game: Game, emissorId: string, alvo: Player, nomeOferta: string, item?: string, parametros?: string): Promise<void> {
-        console.log(`Criando oferta do jogador ${emissorId} para os alvos ${alvo.getUsername()} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
+        console.log(`[HabilidadeDinamica] Criando oferta do jogador ${emissorId} para os alvos ${alvo.getUsername()} com a habilidade ${this.getNome()} e oferta ${nomeOferta}.`);
         
         const partida = await game.getPartida();
         if (!partida) return;
@@ -175,9 +209,8 @@ export class HabilidadeDinamica extends Habilidade {
         await game.getSkillManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
     }
 
-    public async atacarPlayer(game: Game, alvo: Player, assassino: Player, action?: Action): Promise<boolean> {
-        // Prot Invencibilidade(5) > Obliteracao(4) > Prot Poderosa(3) > Ataque Poderoso(2) > Prot Basica(1) > Ataque Basico(0)
-        let poderAtaque = action ? JSON.parse(action.getParametros()).poderAtaque : 0;
+    public async atacarPlayer(game: Game, poderAtaque: PoderAtaqueProtecao, alvo: Player, assassino: Player, action?: Action): Promise<boolean> {
+        console.log(`[HabilidadeDinamica] Poder de ataque: ${poderAtaque} e proteção do alvo: ${alvo.getProtecao()}`);
  
         if (poderAtaque >= alvo.getProtecao()) {
             await game.getSkillManager().criarAlerta(assassino, "Você eliminou o alvo!");
@@ -249,7 +282,7 @@ export class HabilidadeDinamica extends Habilidade {
 
     // METODOS INTERNOS
 
-    protected async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, alvo: Player, variaveis: Record<string, unknown>): Promise<unknown> {
+    protected async processarUsoModal(interaction: ModalSubmitInteraction, game: Game, emissor: Player, variaveis: Record<string, unknown>, alvos?: Player[]): Promise<unknown> {
         if (!this.getId()) {
             return interaction.reply({ content: "ID de Habilidade não encontrado, contate um host do jogo." });
         }
@@ -259,7 +292,7 @@ export class HabilidadeDinamica extends Habilidade {
             emissor.getUserId(),
             this.getId()!,
             this.getTipo(),
-            [alvo],
+            alvos,
             JSON.stringify(variaveis),
         );
  

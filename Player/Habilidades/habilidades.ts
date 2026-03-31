@@ -4,6 +4,7 @@ import {
     TipoAcao, TipoAtributo, TipoOperador,
     Alinhamento,
 } from "../ECA.js";
+import { PoderAtaqueProtecao } from "./HabilidadeDinamica.js";
 
 export const regraSnipe: DefinicaoHabilidade = {
     nome: "Snipe",
@@ -32,45 +33,41 @@ export const regraSnipe: DefinicaoHabilidade = {
                 {
                     acao: TipoAcao.Atacar,
                     alvo: TipoSujeito.Alvo,
-                    parametros: { poderAtaque: 2 },
+                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso },
                     condicoes: [
                         {
                             sujeito: TipoSujeito.Alvo,
                             atributo: TipoAtributo.Alinhamento,
                             operador: TipoOperador.IgualA,
                             valorEsperado: "VARIAVEL.palpite_classe_alinhamento"
+                        }
+                    ],
+                    aoSuceder: [
+                        {
+                            acao: TipoAcao.AlterarUso,
+                            alvo: TipoSujeito.Emissor,
+                            parametros: { quantidade: 1 },
+                            condicoes: [
+                                {
+                                    sujeito: TipoSujeito.Alvo,
+                                    atributo: TipoAtributo.Classe,
+                                    operador: TipoOperador.IgualA,
+                                    valorEsperado: "VARIAVEL.palpite_classe_nome"
+                                },
+                            ]
                         }
                     ]
                 },
                 {
                     acao: TipoAcao.Atacar,
                     alvo: TipoSujeito.Alvo,
-                    parametros: { poderAtaque: 0 },
+                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaqueBasico },
                     condicoes: [
                         {
                             sujeito: TipoSujeito.Alvo,
                             atributo: TipoAtributo.Alinhamento,
                             operador: TipoOperador.DiferenteDe,
                             valorEsperado: "VARIAVEL.palpite_classe_alinhamento"
-                        }
-                    ]
-                },
-                {
-                    acao: TipoAcao.AlterarUso,
-                    alvo: TipoSujeito.Emissor,
-                    parametros: { quantidade: 1 },
-                    condicoes: [
-                        {
-                            sujeito: TipoSujeito.Alvo,
-                            atributo: TipoAtributo.Classe,
-                            operador: TipoOperador.IgualA,
-                            valorEsperado: "VARIAVEL.palpite_classe_nome"
-                        },
-                        {
-                            sujeito: TipoSujeito.AcaoAnterior,
-                            atributo: TipoAtributo.FoiSucedida,
-                            operador: TipoOperador.IgualA,
-                            valorEsperado: true
                         }
                     ]
                 }
@@ -181,15 +178,7 @@ export const regraEvangelho: DefinicaoHabilidade = {
                     parametros: {
                         nomeHabilidade: "VARIAVEL.habilidade_sacrificada",
                         salvarEmExtra: "IMPEDIDA_EVANGELHO"
-                    },
-                    condicoes: [
-                        {
-                            sujeito: TipoSujeito.Input,
-                            atributo: TipoAtributo.CustomId,
-                            operador: TipoOperador.IgualA,
-                            valorEsperado: "habilidade_sacrificada"
-                        }
-                    ]
+                    }
                 },
                 {
                     acao: TipoAcao.EnviarAlerta,

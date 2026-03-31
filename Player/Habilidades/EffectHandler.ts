@@ -26,8 +26,8 @@ const criarOfertaHandler: EfeitoHandlerFn = async ({ habilidade, game, emissor, 
     await habilidade.ofertarPlayer(game, emissor.getId(), alvo, efeito.parametros.nomeOferta);
 };
 
-const atacarHandler: EfeitoHandlerFn = async ({ habilidade, game, alvo, emissor, action }) => {
-    const matou = await habilidade.atacarPlayer(game, alvo, emissor, action);
+const atacarHandler: EfeitoHandlerFn = async ({ habilidade, game, alvo, emissor, action, efeito }) => {
+    const matou = await habilidade.atacarPlayer(game, efeito.parametros.poderAtaque, alvo, emissor, action);
     return { foiSucedida: matou };
 };
 
