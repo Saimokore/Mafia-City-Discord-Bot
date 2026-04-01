@@ -48,6 +48,8 @@ export enum TipoAcao {
     RemoverParametro            = "REMOVER_PARAMETRO",
     CriarInput                  = "CRIAR_INPUT",
     AtualizarOferta             = "ATUALIZAR_OFERTA",
+    EnviarHabilidade            = "ENVIAR_HABILIDADE",
+    EnviarItem                  = "ENVIAR_ITEM",
 }
 
 export enum TipoAtributo {
@@ -74,13 +76,13 @@ export interface Condicao {
     valorEsperado: Alinhamento | string | number | boolean; // pode ser string, numero, ou referência a outro sujeito
 }
 
-export interface Efeito {
-    acao: TipoAcao;
+export interface Efeito<A extends TipoAcao = TipoAcao> {
+    acao: A;
     alvo: TipoSujeito;
-    parametros?: any; // ex: { poderAtaque: 2 }
-    condicoes?: Condicao[]; // sem condição sempre executa
-    aoSuceder?: Efeito[]; // efeitos encadeados que só ocorrem se este efeito for bem sucedido
-    aoFalhar?: Efeito[];   // efeitos encadeados que só ocorrem se este efeito falhar
+    parametros?: A extends keyof MapaParametrosAcao ? MapaParametrosAcao[A] : never;
+    condicoes?: Condicao[];
+    aoSuceder?: Efeito[];
+    aoFalhar?: Efeito[];
 }
 
 export interface Gatilho {
@@ -119,4 +121,60 @@ export interface DefinicaoClasse {
     nome: string;
     alinhamento: "Cidade" | "Mafia" | "Neutro";
     gatilhos?: Gatilho[];
+}
+
+export interface MapaParametrosAcao {
+    [TipoAcao.CriarOferta]: {
+        nomeOferta: string;
+    };
+    [TipoAcao.AtualizarOferta]: {
+        nomeOferta: string;
+        valorOferta: boolean;
+    };
+    [TipoAcao.Atacar]: {
+        poderAtaque?: number;
+    };
+    [TipoAcao.AlterarUso]: {
+        quantidade?: number;
+    };
+    [TipoAcao.Proteger]: {
+        nivelProtecao?: number;
+    };
+    [TipoAcao.Bloquear]: undefined; // Sem parâmetros
+    [TipoAcao.AdicionarMarca]: {
+        tipo: string;
+        alvoId: string;
+    };
+    [TipoAcao.RemoverMarca]: {
+        tipo: string;
+        alvoId: string;
+    };
+    [TipoAcao.AdicionarParametro]: {
+        nome: string;
+        alvoId: string;
+    };
+    [TipoAcao.RemoverParametro]: {
+        tipo: string;
+    };
+    [TipoAcao.EnviarAlerta]: {
+        texto: string;
+    };
+    [TipoAcao.ImpedirHabilidade]: {
+        nomeHabilidade: string;
+        salvarDados: string;
+    };
+    [TipoAcao.RestaurarHabilidadeImpedida]: {
+        tipoDadoExtra: string;
+    };
+    [TipoAcao.CriarInput]: {
+        idVariavel: string;
+        tipoInput: TipoInput;
+        texto: string;
+    };
+    [TipoAcao.EnviarHabilidade]: {
+        nomeHabilidade: string;
+    };
+    [TipoAcao.EnviarItem]: {
+        nomeItem: string;
+    };
 }

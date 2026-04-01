@@ -170,7 +170,7 @@ model Oferta {
   id      String @id @default(uuid())
   guildId String
 
-  emissorId String
+  emissorId String // actual id
   alvoId    String
 
   habilidadeId String
@@ -182,7 +182,7 @@ model Oferta {
   etapa      Int
 
   criadoEm DateTime @default(now())
-  player   Player  @relation(fields: [emissorId, guildId], references: [userId, guildId], onDelete: Cascade)
+  player   Player  @relation(fields: [emissorId], references: [id], onDelete: Cascade)
 
   habilidade  Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
 

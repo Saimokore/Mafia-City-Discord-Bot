@@ -19,6 +19,7 @@ export class Game {
     private skillManager: SkillManager;
 
     private transicaoEtapa: boolean;
+    private isTeste: boolean = false;
 
     constructor(guildId: string, client: Client) {
         this.guildId = guildId;
@@ -47,7 +48,7 @@ export class Game {
             await this.criarChatPlayer(p);
             
             // const cargo = cargosDistribuidos.pop();
-            const cargo = "ATIRADOR_DE_ELITE";
+            const cargo = "EVANGELISTA";
             if (!cargo) {
                 console.error("Cargo não encontrado (IniciarJogo)")
                 return;
@@ -249,6 +250,14 @@ export class Game {
     public async iniciarDia(): Promise<void> {
         await this.sendAnuncio(`Dia amanhece [${Math.floor(this.etapaAtual / 2)}]`);
         // await destrancarCanal();
+    }
+
+    public setTeste(isTeste: boolean) {
+        this.isTeste = isTeste;
+    }
+
+    public getIsTeste(): boolean {
+        return this.isTeste;
     }
 
 }

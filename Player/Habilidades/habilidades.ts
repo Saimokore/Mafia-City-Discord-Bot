@@ -177,7 +177,7 @@ export const regraEvangelho: DefinicaoHabilidade = {
                     alvo: TipoSujeito.Alvo,
                     parametros: {
                         nomeHabilidade: "VARIAVEL.habilidade_sacrificada",
-                        salvarEmExtra: "IMPEDIDA_EVANGELHO"
+                        salvarDados: "IMPEDIDA_EVANGELHO"
                     }
                 },
                 {
@@ -214,8 +214,38 @@ export const regraEvangelho: DefinicaoHabilidade = {
     ]
 };
 
+export const regraMassacre: DefinicaoHabilidade = {
+    nome: "Massacre",
+    tipo: "Comunicacao",
+    etapa: "Dia",
+    usosMaximos: 10000,
+    modificadores: [],
+
+    inputs: [
+        {
+            idVariavel: "alvo_principal",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "A quem você deseja pregar o Evangelho?"
+        }
+    ],
+    gatilhos: [
+        {
+            evento: TipoGatilho.AoAvancarEtapa,
+            efeitos: [
+                {
+                    acao: TipoAcao.Atacar,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso }
+                }
+            ]
+        
+        }
+    ]
+}
+
 
 export const RegrasHabilidades: Record<string, DefinicaoHabilidade> = {
-    "Evangelho": regraEvangelho,
-    "Snipe":     regraSnipe,
+    "EVANGELHO": regraEvangelho,
+    "SNIPE":     regraSnipe,
+    "MASSACRE":  regraMassacre
 };

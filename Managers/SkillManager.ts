@@ -112,6 +112,8 @@ export class SkillManager {
     }
 
     public async criarAlerta(user: Player, alerta: string) {
+        if (this.game.getIsTeste()) return;
+
         await AlertaDAO.createAlerta(this.guildId, user.getUserId(), await this.game.getEtapaAtual(), alerta)
     }
 
@@ -128,11 +130,11 @@ export class SkillManager {
         const alvoId = alvo.getId();
 
         console.log(`Criando oferta: Emissor ${emissorId}, Alvo ${alvoId}, Habilidade ${habilidade.getNome()}, Oferta ${nomeOferta}, Item ${item}, Parametros ${parametros}`);
-        await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidade.getNome(), await this.game.getEtapaAtual(), nomeOferta, item, parametros);
+        await OfertaDAO.createOferta(this.guildId, emissorId, alvoId, habilidade.getId()!, await this.game.getEtapaAtual(), nomeOferta, item, parametros);
     }
 
     public getCargoInstance(nomeDoCargo: string, habilidadesCarregadas?: HabilidadeDinamica[]): Cargo | null {
-        const defCargo = CargosDoJogo[nomeDoCargo];
+        const defCargo = CargosDoJogo[nomeDoCargo.toUpperCase()];
         if (!defCargo) return null;
 
         let habilidadesDoCargo: HabilidadeDinamica[] = [];
@@ -143,7 +145,7 @@ export class SkillManager {
         } else {
             console.log(`Carregando habilidades para o cargo ${nomeDoCargo}...`);
             for (const nomeHab of defCargo.habilidadesIniciais) {
-                const regraJSON = RegrasHabilidades[nomeHab]; // Pega a regraSnipe, etc
+                const regraJSON = RegrasHabilidades[nomeHab.toUpperCase()]; // Pega a regraSnipe, etc
                 if (regraJSON) {
                     habilidadesDoCargo.push(new HabilidadeDinamica(regraJSON));
                 }
@@ -153,8 +155,8 @@ export class SkillManager {
         return new Cargo(defCargo, habilidadesDoCargo);
     }
 
-    public getHabilidadeInstance(nomeDaHabilidade: string, id?: string, usos?: number, status?: string): HabilidadeDinamica | null {
-        const regraJSON = RegrasHabilidades[nomeDaHabilidade];
+    public getHabilidadeInstance(nomeDaHabilidade: string, id?: string, usos?: number, status?: string,): HabilidadeDinamica | null {
+        const regraJSON = RegrasHabilidades[nomeDaHabilidade.toUpperCase()];
         if (!regraJSON) return null;
 
         const hab = new HabilidadeDinamica(regraJSON, usos, status);

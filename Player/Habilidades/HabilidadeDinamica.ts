@@ -223,28 +223,6 @@ export class HabilidadeDinamica extends Habilidade {
             return false;
         }
     }
-
-    public async impedirHabilidadeDinamica(game: Game, alvo: Player, emissor: Player, efeito: Efeito, variaveis: Record<string, unknown>): Promise<void> {
-        let nomeHabilidade: string = efeito.parametros.nomeHabilidade;
- 
-        if (nomeHabilidade.startsWith("VARIAVEL.")) {
-            const varName  = nomeHabilidade.split(".")[1]!;
-            nomeHabilidade = variaveis[varName] as string;
-        }
- 
-        const habAlvo = alvo.getHabilidade(nomeHabilidade);
-        if (!habAlvo) return;
- 
-        await game.getSkillManager().updateHabilidade(habAlvo, { status: "IMPEDIDA" });
- 
-        const dadosExtra = alvo.getDadosExtra();
-        dadosExtra.push({
-            tipo:         efeito.parametros.salvarEmExtra,
-            habilidadeId: habAlvo.getId()!,
-            emissorId:    emissor.getId(),
-        });
-        await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(dadosExtra) });
-    }
  
     public permiteAutoUso(): boolean {
         return this.regras.permiteAutoUso ?? false;

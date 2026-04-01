@@ -6,6 +6,7 @@ import { Alerta } from "./Alerta.js";
 import { Prisma } from '@prisma/client';
 import type { DadoExtra } from "./Tipos.js";
 import type { HabilidadeDinamica } from './Habilidades/HabilidadeDinamica.js';
+import type { MapaParametrosAcao } from './ECA.js';
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{
     include: {
@@ -36,7 +37,7 @@ export class Player {
 
     private userChat: string;
 
-    private dadosExtra: DadoExtra[];
+    private dadosExtra: any[];
 
     private protecao: number;
 
@@ -113,7 +114,7 @@ export class Player {
         return `${this.getAlinhamento()}_${this.cargo?.getNomeClasse()}`;
     }
 
-    public getDadosExtra(): DadoExtra[] {
+    public getDadosExtra(): any {
         return this.dadosExtra;
     }
 
@@ -157,11 +158,15 @@ export class Player {
         this.protecao = valor;
     }
 
-    public setStatus(novoStatus: string[]) { // Ou string JSON, dependendo de como você tipou
-        this.status = novoStatus;
+    public setDadosExtra(dados: any) {
+        this.dadosExtra = typeof dados === "string" ? JSON.parse(dados) : dados;
     }
 
-    public setDadosExtra(dados: DadoExtra[]) { // Ou string JSON
-        this.dadosExtra = dados;
+    public setStatus(novoStatus: any) {
+        this.status = typeof novoStatus === "string" ? JSON.parse(novoStatus) : novoStatus;
+    }
+
+    public setMarcas(novasMarcas: any) {
+        this.marcas = typeof novasMarcas === "string" ? JSON.parse(novasMarcas) : novasMarcas;
     }
 }
