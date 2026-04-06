@@ -144,6 +144,15 @@ export class HabilidadeDinamica extends Habilidade {
 
         variaveis["customId"] = idVariavel;
 
+        const regraInput = this.regras.inputs?.find(input => input.idVariavel === idVariavel);
+        if (regraInput?.validacao) {
+            const condicoesOk = await this.conditionEval.avaliar(game, regraInput.validacao, emissor!, alvo, variaveis);
+            if (!condicoesOk) {
+                await interaction.reply({ content: `❌ **Erro:** A validação do input ${regraInput.texto} falhou. Verifique os requisitos e tente novamente.` });
+                return;
+            }
+        }
+
         const gatilho = this.regras.gatilhos.find(g => g.evento === TipoGatilho.AoResolverInput);
         if (!gatilho) return;
 
@@ -304,5 +313,9 @@ export class HabilidadeDinamica extends Habilidade {
             console.error("[HabilidadeDinamica] Falha ao parsear parâmetros da action");
             return {};
         }
+    }
+
+    public getConditionEvaluator(): ConditionEvaluator {
+        return this.conditionEval;
     }
 }

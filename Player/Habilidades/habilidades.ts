@@ -112,7 +112,7 @@ export const regraEvangelho: DefinicaoHabilidade = {
                     parametros: { tipo: "ALVOS_RECUSADOS", alvoId: "VARIAVEL.alvo_principal" }
                 },
                 {
-                    acao: TipoAcao.EnviarAlerta,
+                    acao: TipoAcao.CriarAlerta,
                     alvo: TipoSujeito.Alvo,
                     parametros: { texto: "Você recusou a palavra e seus pecados pesam sobre você..." }
                 },
@@ -181,7 +181,7 @@ export const regraEvangelho: DefinicaoHabilidade = {
                     }
                 },
                 {
-                    acao: TipoAcao.EnviarAlerta,
+                    acao: TipoAcao.CriarAlerta,
                     alvo: TipoSujeito.Alvo,
                     parametros: { texto: "🚫 Sua habilidade ficará bloqueada até o Evangelista morrer." },
                     condicoes: [
@@ -243,9 +243,247 @@ export const regraMassacre: DefinicaoHabilidade = {
     ]
 }
 
+export const regraExecucaoPublica: DefinicaoHabilidade = {
+    nome: "Execução Pública",
+    tipo: "Instantanea",
+    etapa: "Dia",
+    usosMaximos: 1,
+    modificadores: ["Astral", "Instantânea", "Especial"],
+
+    inputs: [
+        {
+            idVariavel: "alvo_principal",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "Escolha um alvo para executar publicamente"
+        },
+        {
+            idVariavel: "adivinhar_classe",
+            tipoInput: TipoInput.SelecionarClasse,
+            texto: "Adivinhe a classe do alvo"
+        }
+    ],
+
+    gatilhos: [
+        {
+            evento: TipoGatilho.AoUsar,
+            efeitos: [
+                {
+                    acao: TipoAcao.Atacar,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { poderAtaque: PoderAtaqueProtecao.Obliteracao },
+                    condicoes: [
+                        {
+                            sujeito: TipoSujeito.Alvo,
+                            atributo: TipoAtributo.Classe,
+                            operador: TipoOperador.IgualA,
+                            valorEsperado: "VARIAVEL.adivinhar_classe_nome"
+                        }
+                    ],
+                    aoSuceder: [
+                        {
+                            acao: TipoAcao.EnviarAnuncio,
+                            alvo: TipoSujeito.TodosJogadores,
+                            parametros: { texto: "O ${alvo_principal} foi executado publicamente!" }
+                        }
+                    ]
+                },
+                {
+                    acao: TipoAcao.Atacar,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso },
+                    condicoes: [
+                        {
+                            sujeito: TipoSujeito.Alvo,
+                            atributo: TipoAtributo.Classe,
+                            operador: TipoOperador.DiferenteDe,
+                            valorEsperado: "VARIAVEL.adivinhar_classe_nome"
+                        }
+                    ],
+                    aoSuceder: [
+                        {
+                            acao: TipoAcao.EnviarAnuncio,
+                            alvo: TipoSujeito.TodosJogadores,
+                            parametros: { texto: "O ${alvo_principal} foi executado publicamente!" }
+                        }
+                    ]
+                },
+                {
+                    acao: TipoAcao.Atacar,
+                    alvo: TipoSujeito.Emissor,
+                    parametros: { poderAtaque: PoderAtaqueProtecao.Obliteracao },
+                    condicoes: [
+                        {
+                            sujeito: TipoSujeito.Alvo,
+                            atributo: TipoAtributo.Alinhamento,
+                            operador: TipoOperador.DiferenteDe,
+                            valorEsperado: "VARIAVEL.adivinhar_classe_alinhamento"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+
+export const regraProcessoDeEliminacao: DefinicaoHabilidade = {
+    nome: "Processo de Eliminação",
+    tipo: "Investigação",
+    etapa: "Noite",
+    usosMaximos: 10000,
+    modificadores: [],
+
+    inputs: [
+        {
+            idVariavel: "alvo_principal",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "Escolha um jogador para visitar"
+        }
+    ],
+
+    gatilhos: [
+        {
+            evento: TipoGatilho.AoAvancarEtapa,
+            efeitos: [
+                {
+                    acao: TipoAcao.DescobrirSetor,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { texto: "O ${alvo_principal} está no setor ${setor}" }
+                },
+                {
+                    acao: TipoAcao.AdicionarMarca,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { tipo: "Suspeito" }
+                }
+            ]
+        }
+    ]
+}
+
+export const regraInvestigacaoProfunda: DefinicaoHabilidade = {
+    nome: "Investigação Profunda",
+    tipo: "Investigação",
+    etapa: "Dia",
+    usosMaximos: 1,
+    modificadores: ["Instantânea"],
+
+    inputs: [
+        {
+            idVariavel: "alvo_principal",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "Escolha um jogador suspeito para investigar",
+            validacao: [
+                {
+                    sujeito: TipoSujeito.Alvo,
+                    atributo: TipoAtributo.Marcas,
+                    operador: TipoOperador.Contem,
+                    valorEsperado: "Suspeito"
+                }
+            ]
+        },
+        {
+            idVariavel: "cargo_alvo",
+            tipoInput: TipoInput.SelecionarCargo,
+            texto: "Escolha o cargo desse jogador"
+        }
+    ],
+
+    gatilhos: [
+        {
+            evento: TipoGatilho.AoAvancarEtapa,
+            efeitos: [
+                {
+                    acao: TipoAcao.DescobrirCargo,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { texto: "O cargo do ${alvo_principal} é ${cargo_alvo}" }
+                }
+            ]
+        
+        }
+    ]
+}
+
+export const regraArmaduraCorporal: DefinicaoHabilidade = {
+    nome: "Armadura Corporal",
+    tipo: "Passiva",
+    etapa: "Atemporal",
+    usosMaximos: 10000,
+    modificadores: ["Passiva"],
+
+    gatilhos: [
+        {
+            evento: TipoGatilho.AoSerAtacado,
+            efeitos: [
+                // nao sei como fazer isso por agora, nem se quero
+            ]
+        
+        }
+    ]
+}
+
+export const regraEscolta: DefinicaoHabilidade = {
+    nome: "Escolta",
+    tipo: "Rápida",
+    etapa: "Noite",
+    usosMaximos: 10000,
+    modificadores: ["Imparavel"],
+
+    inputs: [
+        {
+            idVariavel: "alvo_principal",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "A quem você deseja pregar o Evangelho?"
+        }
+    ],
+    gatilhos: [
+        {
+            evento: TipoGatilho.AoAvancarEtapa,
+            efeitos: [
+                {
+                    acao: TipoAcao.Atacar,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso }
+                }
+            ]
+        
+        }
+    ]
+}
+
+
+export const regraExemplo: DefinicaoHabilidade = {
+    nome: "Massacre",
+    tipo: "Comunicacao",
+    etapa: "Dia",
+    usosMaximos: 10000,
+    modificadores: [],
+
+    inputs: [
+        {
+            idVariavel: "alvo_principal",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "A quem você deseja pregar o Evangelho?"
+        }
+    ],
+    gatilhos: [
+        {
+            evento: TipoGatilho.AoAvancarEtapa,
+            efeitos: [
+                {
+                    acao: TipoAcao.Atacar,
+                    alvo: TipoSujeito.Alvo,
+                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso }
+                }
+            ]
+        
+        }
+    ]
+}
 
 export const RegrasHabilidades: Record<string, DefinicaoHabilidade> = {
     "EVANGELHO": regraEvangelho,
     "SNIPE":     regraSnipe,
-    "MASSACRE":  regraMassacre
+    "MASSACRE":  regraMassacre,
+    "EXECUCAO_PUBLICA": regraExecucaoPublica,
+    "PROCESSO_DE_ELIMINACAO": regraProcessoDeEliminacao,
+    "INVESTIGACAO_PROFUNDA": regraInvestigacaoProfunda
 };

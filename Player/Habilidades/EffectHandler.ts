@@ -77,8 +77,14 @@ const impedirHabilidadeHandler: EfeitoHandlerFn<TipoAcao.ImpedirHabilidade> = as
     await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(dadosExtra) });
 };
 
-const enviarAlertaHandler: EfeitoHandlerFn<TipoAcao.EnviarAlerta> = async ({ game, alvo, efeito }) => {
-    await game.getSkillManager().criarAlerta(alvo, efeito.parametros!.texto);
+const criarAlertaHandler: EfeitoHandlerFn<TipoAcao.CriarAlerta> = async ({ game, alvo, efeito, variaveis }) => {
+    const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
+    await game.getSkillManager().criarAlerta(alvo, textoDinamico);
+};
+
+const enviarAnuncioHandler: EfeitoHandlerFn<TipoAcao.EnviarAnuncio> = async ({ game, alvo, efeito, variaveis }) => {
+    const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
+    await game.sendAnuncio(textoDinamico);
 };
 
 const alterarUsoHandler: EfeitoHandlerFn<TipoAcao.AlterarUso> = async ({ game, alvo, efeito, habilidade }) => {
@@ -206,23 +212,67 @@ const enviarItemHandler: EfeitoHandlerFn<TipoAcao.EnviarItem> = async ({ game, a
     console.log(`[EffectHandler] Item ${efeito.parametros!.nomeItem} entregue para ${alvo.getUsername()}`);
 };
 
+const descobrirIdentidadeHandler: EfeitoHandlerFn<TipoAcao.DescobrirIdentidade> = async ({ game, alvo, emissor, efeito, variaveis }) => {
+    const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
+    await game.getSkillManager().criarAlerta(emissor, textoDinamico);
+};
+
+const descobrirCargoHandler: EfeitoHandlerFn<TipoAcao.DescobrirCargo> = async ({ game, alvo, emissor, efeito, variaveis }) => {
+    const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
+    await game.getSkillManager().criarAlerta(emissor, textoDinamico);
+};
+
+const descobrirClasseHandler: EfeitoHandlerFn<TipoAcao.DescobrirClasse> = async ({ game, alvo, emissor, efeito, variaveis }) => {
+    const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
+    await game.getSkillManager().criarAlerta(emissor, textoDinamico);
+};
+
+const descobrirSetorHandler: EfeitoHandlerFn<TipoAcao.DescobrirSetor> = async ({ game, alvo, emissor, efeito, variaveis }) => {
+    const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
+    await game.getSkillManager().criarAlerta(emissor, textoDinamico);
+};
+
+const descobrirQuantidadeHandler: EfeitoHandlerFn<TipoAcao.DescobrirQuantidade> = async ({ game, variaveis, efeito, habilidade, emissor }) => {
+    const condicoes = (efeito.parametros as any).condicoes as any[];
+    const jogadores = await game.getPlayerManager().getAllPlayers();
+    if (!jogadores) return;
+    let quantidade = 0;
+
+    for (const jogador of jogadores) {
+        const condicoesOk = await habilidade.getConditionEvaluator().avaliar(game, condicoes, emissor, jogador, variaveis);
+        if (!condicoesOk) continue;
+        quantidade++;
+    }
+
+    await game.getSkillManager().criarAlerta(emissor, `Descoberta quantidade de jogadores: **${quantidade}**`);
+};
+
 const HANDLERS: Record<TipoAcao, EfeitoHandlerFn<any>> = {
-    [TipoAcao.CriarOferta]:                 criarOfertaHandler,
     [TipoAcao.Atacar]:                      atacarHandler,
-    [TipoAcao.AlterarUso]:                  alterarUsoHandler,
     [TipoAcao.Proteger]:                    protegerHandler,
     [TipoAcao.Bloquear]:                    bloquearHandler,
-    [TipoAcao.AdicionarMarca]:              adicionarMarcaHandler,
-    [TipoAcao.AdicionarParametro]:          adicionarParametroHandler,
-    [TipoAcao.EnviarAlerta]:                enviarAlertaHandler,
-    [TipoAcao.RemoverMarca]:                removerMarcaHandler,
-    [TipoAcao.ImpedirHabilidade]:           impedirHabilidadeHandler,
-    [TipoAcao.RestaurarHabilidadeImpedida]: restaurarHabilidadeImpedidaHandler,
-    [TipoAcao.RemoverParametro]:            removerParametroHandler,
+
+    [TipoAcao.AlterarUso]:                  alterarUsoHandler,
+    [TipoAcao.CriarOferta]:                 criarOfertaHandler,
+    [TipoAcao.CriarAlerta]:                 criarAlertaHandler,
     [TipoAcao.CriarInput]:                  criarInputHandler,
-    [TipoAcao.AtualizarOferta]:             atualizarOfertaHandler,
+    [TipoAcao.EnviarAnuncio]:               enviarAnuncioHandler,
     [TipoAcao.EnviarHabilidade]:            enviarHabilidadeHandler,
     [TipoAcao.EnviarItem]:                  enviarItemHandler,
+    
+    [TipoAcao.AtualizarOferta]:             atualizarOfertaHandler,
+    [TipoAcao.AdicionarMarca]:              adicionarMarcaHandler,
+    [TipoAcao.AdicionarParametro]:          adicionarParametroHandler,
+    [TipoAcao.ImpedirHabilidade]:           impedirHabilidadeHandler,
+    [TipoAcao.RemoverMarca]:                removerMarcaHandler,
+    [TipoAcao.RemoverParametro]:            removerParametroHandler,
+    [TipoAcao.RestaurarHabilidadeImpedida]: restaurarHabilidadeImpedidaHandler,
+
+    [TipoAcao.DescobrirIdentidade]:         descobrirIdentidadeHandler,
+    [TipoAcao.DescobrirCargo]:              descobrirCargoHandler,
+    [TipoAcao.DescobrirClasse]:             descobrirClasseHandler,
+    [TipoAcao.DescobrirSetor]:              descobrirSetorHandler,
+    [TipoAcao.DescobrirQuantidade]:         descobrirQuantidadeHandler
 };
 
 export class EffectHandler {
@@ -237,4 +287,15 @@ export class EffectHandler {
         const resultado = await handler(ctx);
         return resultado || { foiSucedida: true };
     }
+}
+
+function processarTexto(texto: string, variaveis: Record<string, unknown>): string {
+    return texto.replace(/\$\{([^}]+)\}/g, (match, chave) => {
+        
+        if (chave in variaveis) {
+            return String(variaveis[chave]);
+        }
+        
+        return match; 
+    });
 }

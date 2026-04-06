@@ -14,8 +14,16 @@ export const CargosDoJogo: Record<string, DefinicaoCargo> = {
         nome: "Atirador de Elite",
         classe: "CIDADE_JUSTICEIRO",
         raridade: "COMUM",
-        habilidadesIniciais: ["SNIPE"],
+        habilidadesIniciais: ["SNIPE", "EXECUCAO_PUBLICA"],
         complexidade: 2,
+        protecaoInata: 0
+    },
+    "DETETIVE": {
+        nome: "Detetive",
+        classe: "CIDADE_INVESTIGACAO",
+        raridade: "COMUM",
+        habilidadesIniciais: ["PROCESSO_DE_ELIMINACAO", "INVESTIGACAO_PROFUNDA"],
+        complexidade: 1,
         protecaoInata: 0
     },
     "MAFIA_LIDER": {

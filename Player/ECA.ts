@@ -34,22 +34,35 @@ export enum TipoInput {
 }
  
 export enum TipoAcao {
-    CriarOferta                 = "CRIAR_OFERTA",
+    // Ações fisicas
     Atacar                      = "ATACAR",
-    AlterarUso                  = "ALTERAR_USO",
     Proteger                    = "PROTEGER",
     Bloquear                    = "BLOQUEAR",
-    AdicionarMarca              = "ADICIONAR_MARCA",
-    AdicionarParametro          = "ADICIONAR_PARAMETRO",
-    EnviarAlerta                = "ENVIAR_ALERTA",
-    RemoverMarca                = "REMOVER_MARCA",
-    ImpedirHabilidade           = "IMPEDIR_HABILIDADE",
-    RestaurarHabilidadeImpedida = "RESTAURAR_HABILIDADE_IMPEDIDA",
-    RemoverParametro            = "REMOVER_PARAMETRO",
+    
+    // Enviar/Criar
+    AlterarUso                  = "ALTERAR_USO",
+    CriarOferta                 = "CRIAR_OFERTA",
+    CriarAlerta                 = "CRIAR_ALERTA",
     CriarInput                  = "CRIAR_INPUT",
-    AtualizarOferta             = "ATUALIZAR_OFERTA",
+    EnviarAnuncio               = "ENVIAR_ANUNCIO",
     EnviarHabilidade            = "ENVIAR_HABILIDADE",
     EnviarItem                  = "ENVIAR_ITEM",
+    
+    // Adicionar, remover, atualizar
+    AtualizarOferta             = "ATUALIZAR_OFERTA",
+    AdicionarMarca              = "ADICIONAR_MARCA",
+    RemoverMarca                = "REMOVER_MARCA",
+    AdicionarParametro          = "ADICIONAR_PARAMETRO", // parametros sao mais pra condicoes posteriores, marcas mostra em jogo
+    RemoverParametro            = "REMOVER_PARAMETRO",
+    ImpedirHabilidade           = "IMPEDIR_HABILIDADE",
+    RestaurarHabilidadeImpedida = "RESTAURAR_HABILIDADE_IMPEDIDA",
+
+    // Descobrir informações
+    DescobrirIdentidade         = "DESCOBRIR_IDENTIDADE",
+    DescobrirCargo              = "DESCOBRIR_CARGO",
+    DescobrirClasse             = "DESCOBRIR_CLASSE",
+    DescobrirSetor              = "DESCOBRIR_SETOR",
+    DescobrirQuantidade         = "DESCOBRIR_QUANTIDADE", // vai descobrir a quantidade de player que se encaixam em uma certa condição. tipogatilho.todosJogadores obrigatorio
 }
 
 export enum TipoAtributo {
@@ -59,7 +72,9 @@ export enum TipoAtributo {
     Classe      = "CLASSE",
     Cargo       = "CARGO",
     FoiSucedida = "FOI_SUCEDIDA",
-    CustomId          = "CUSTOM_ID",
+    CustomId    = "CUSTOM_ID",
+    Marcas      = "MARCAS",
+    Efeitos     = "EFEITOS",
 }
  
 export enum TipoOperador {
@@ -67,6 +82,8 @@ export enum TipoOperador {
     DiferenteDe = "DIFERENTE_DE",
     MaiorQue   = "MAIOR_QUE",
     MenorQue   = "MENOR_QUE",
+    Contem      = "CONTEM", // para strings, arrays, etc
+    NaoContem   = "NAO_CONTEM"
 }
 
 export interface Condicao {
@@ -93,7 +110,8 @@ export interface Gatilho {
 export interface Input {
     idVariavel: string,
     tipoInput: TipoInput, // SELECIONAR_JOGADOR, SELECIONAR_CLASSE, SELECIONAR_CARGO, NUMERO, TEXTO, ...
-    texto: string
+    texto: string,
+    validacao?: Condicao[]
 }
 
 export interface DefinicaoHabilidade {
@@ -103,7 +121,7 @@ export interface DefinicaoHabilidade {
     usosMaximos: number;
     permiteAutoUso?: boolean;
     modificadores: string[];
-    inputs: Input[];
+    inputs?: Input[];
     gatilhos: Gatilho[];
 }
 
@@ -156,7 +174,10 @@ export interface MapaParametrosAcao {
     [TipoAcao.RemoverParametro]: {
         tipo: string;
     };
-    [TipoAcao.EnviarAlerta]: {
+    [TipoAcao.CriarAlerta]: {
+        texto: string;
+    };
+    [TipoAcao.EnviarAnuncio]: {
         texto: string;
     };
     [TipoAcao.ImpedirHabilidade]: {
@@ -177,4 +198,20 @@ export interface MapaParametrosAcao {
     [TipoAcao.EnviarItem]: {
         nomeItem: string;
     };
+    [TipoAcao.DescobrirQuantidade]: {
+        texto: string;
+        condicoes: Condicao[];
+    },
+    [TipoAcao.DescobrirCargo]: {
+        texto: string;
+    }
+    [TipoAcao.DescobrirClasse]: {
+        texto: string;
+    }
+    [TipoAcao.DescobrirIdentidade]: {
+        texto: string;
+    }
+    [TipoAcao.DescobrirSetor]: {
+        texto: string;
+    }
 }
