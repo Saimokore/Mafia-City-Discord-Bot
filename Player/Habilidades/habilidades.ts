@@ -107,9 +107,9 @@ export const regraEvangelho: DefinicaoHabilidade = {
             evento: TipoGatilho.AoOfertaRecusada,
             efeitos: [
                 {
-                    acao: TipoAcao.AdicionarParametro,
+                    acao: TipoAcao.AdicionarMarca,
                     alvo: TipoSujeito.Emissor,
-                    parametros: { tipo: "ALVOS_RECUSADOS", alvoId: "VARIAVEL.alvo_principal" }
+                    parametros: { nome: "ALVOS_RECUSADOS" }
                 },
                 {
                     acao: TipoAcao.CriarAlerta,
@@ -128,9 +128,9 @@ export const regraEvangelho: DefinicaoHabilidade = {
             evento: TipoGatilho.AoOfertaAceita,
             efeitos: [
                 {
-                    acao: TipoAcao.RemoverParametro,
+                    acao: TipoAcao.RemoverMarca,
                     alvo: TipoSujeito.Emissor,
-                    parametros: { tipo: "ALVOS_RECUSADOS" }
+                    parametros: { nome: "ALVOS_RECUSADOS" }
                 },
                 {
                     acao: TipoAcao.Bloquear,
@@ -276,7 +276,7 @@ export const regraExecucaoPublica: DefinicaoHabilidade = {
                             sujeito: TipoSujeito.Alvo,
                             atributo: TipoAtributo.Classe,
                             operador: TipoOperador.IgualA,
-                            valorEsperado: "VARIAVEL.adivinhar_classe_nome"
+                            valorEsperado: "VARIAVEL.adivinhar_classe"
                         }
                     ],
                     aoSuceder: [
@@ -352,7 +352,7 @@ export const regraProcessoDeEliminacao: DefinicaoHabilidade = {
                 {
                     acao: TipoAcao.AdicionarMarca,
                     alvo: TipoSujeito.Alvo,
-                    parametros: { tipo: "Suspeito" }
+                    parametros: { nome: "Suspeito" }
                 }
             ]
         }

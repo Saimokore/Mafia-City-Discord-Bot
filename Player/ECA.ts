@@ -10,7 +10,9 @@ export enum TipoSujeito {
     Alvo    = "ALVO",
     AcaoAnterior = "ACAO_ANTERIOR",
     TodosJogadores = "TODOS_JOGADORES",
-    Input = "INPUT"
+    Input = "INPUT",
+    AlinhamentoInimigo = "ALINHAMENTO_INIMIGO",
+    AlinhamentoAliado = "ALINHAMENTO_ALIADO"
 }
 
 export enum TipoGatilho {
@@ -21,6 +23,8 @@ export enum TipoGatilho {
     AoOfertaAceita    = "AO_OFERTA_ACEITA",
     AoOfertaRecusada  = "AO_OFERTA_RECUSADA",
     AoResolverInput   = "AO_RESOLVER_INPUT",
+    // ao ganhar
+    // ao ser enforcado
 }
 
 export enum TipoInput {
@@ -50,10 +54,10 @@ export enum TipoAcao {
     
     // Adicionar, remover, atualizar
     AtualizarOferta             = "ATUALIZAR_OFERTA",
-    AdicionarMarca              = "ADICIONAR_MARCA",
+    AdicionarEfeito             = "ADICIONAR_EFEITO",
+    RemoverEfeito               = "REMOVER_EFEITO",
+    AdicionarMarca              = "ADICIONAR_MARCA", // parametros sao mais pra condicoes posteriores, marcas mostra em jogo
     RemoverMarca                = "REMOVER_MARCA",
-    AdicionarParametro          = "ADICIONAR_PARAMETRO", // parametros sao mais pra condicoes posteriores, marcas mostra em jogo
-    RemoverParametro            = "REMOVER_PARAMETRO",
     ImpedirHabilidade           = "IMPEDIR_HABILIDADE",
     RestaurarHabilidadeImpedida = "RESTAURAR_HABILIDADE_IMPEDIDA",
 
@@ -75,6 +79,9 @@ export enum TipoAtributo {
     CustomId    = "CUSTOM_ID",
     Marcas      = "MARCAS",
     Efeitos     = "EFEITOS",
+    QuantVivos  = "QUANT_VIVOS",
+    QuantMortos = "QUANT_MORTOS",
+    CausaMorte   = "CAUSA_MORTE"
 }
  
 export enum TipoOperador {
@@ -132,7 +139,7 @@ export interface DefinicaoCargo {
     habilidadesIniciais: string[];
     complexidade: number;
     protecaoInata: number;
-    gatilhos?: Gatilho[];
+    condicoesVitoria?: Condicao[];
 }
 
 export interface DefinicaoClasse {
@@ -159,20 +166,17 @@ export interface MapaParametrosAcao {
         nivelProtecao?: number;
     };
     [TipoAcao.Bloquear]: undefined; // Sem parâmetros
+    [TipoAcao.AdicionarEfeito]: {
+        nome: string;
+    };
+    [TipoAcao.RemoverEfeito]: {
+        nome: string;
+    };
     [TipoAcao.AdicionarMarca]: {
-        tipo: string;
-        alvoId: string;
+        nome: string;
     };
     [TipoAcao.RemoverMarca]: {
-        tipo: string;
-        alvoId: string;
-    };
-    [TipoAcao.AdicionarParametro]: {
         nome: string;
-        alvoId: string;
-    };
-    [TipoAcao.RemoverParametro]: {
-        tipo: string;
     };
     [TipoAcao.CriarAlerta]: {
         texto: string;

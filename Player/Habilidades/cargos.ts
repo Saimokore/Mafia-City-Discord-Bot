@@ -37,3 +37,21 @@ export const CargosDoJogo: Record<string, DefinicaoCargo> = {
     // "Xerife": { ... },
     // "Bigode": { ... }
 };
+
+// "SERIAL_KILLER": {
+//     // ... dados do cargo ...
+//     condicoesVitoria: [
+//         {
+//             sujeito: TipoSujeito.TodosJogadores, // Olha para o jogo inteiro
+//             atributo: TipoAtributo.QuantidadeVivos,
+//             operador: TipoOperador.IgualA,
+//             valorEsperado: 1 // Só ganha se houver apenas 1 pessoa viva (ele mesmo)
+//         },
+//         {
+//             sujeito: TipoSujeito.Emissor, 
+//             atributo: TipoAtributo.EstaVivo,
+//             operador: TipoOperador.IgualA,
+//             valorEsperado: true // Ele tem que ser esse 1 sobrevivente!
+//         }
+//     ]
+// }

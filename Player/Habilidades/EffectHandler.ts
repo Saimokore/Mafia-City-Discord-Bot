@@ -42,16 +42,16 @@ const bloquearHandler: EfeitoHandlerFn<TipoAcao.Bloquear> = async ({ game, alvo 
     }
 };
 
-const adicionarMarcaHandler: EfeitoHandlerFn<TipoAcao.AdicionarMarca> = async ({ game, alvo, efeito }) => {
+const adicionarEfeitoHandler: EfeitoHandlerFn<TipoAcao.AdicionarMarca> = async ({ game, alvo, efeito }) => {
     const marcas = alvo.getMarcas();
-    if (!marcas.includes(efeito.parametros!.tipo)) {
-        marcas.push(efeito.parametros!.tipo);
+    if (!marcas.includes(efeito.parametros!.nome)) {
+        marcas.push(efeito.parametros!.nome);
         await game.getPlayerManager().updatePlayer(alvo, { marcas: JSON.stringify(marcas) });
     }
 };
 
-const removerMarcaHandler: EfeitoHandlerFn<TipoAcao.RemoverMarca> = async ({ game, alvo, efeito }) => {
-    const marcasFiltradas = (alvo.getMarcas() || []).filter(m => m !== efeito.parametros!.tipo);
+const removerEfeitoHandler: EfeitoHandlerFn<TipoAcao.RemoverMarca> = async ({ game, alvo, efeito }) => {
+    const marcasFiltradas = (alvo.getMarcas() || []).filter(m => m !== efeito.parametros!.nome);
     await game.getPlayerManager().updatePlayer(alvo, { marcas: JSON.stringify(marcasFiltradas) });
 };
 
@@ -108,15 +108,15 @@ const protegerHandler: EfeitoHandlerFn<TipoAcao.Proteger> = async ({ game, alvo,
     }
 };
 
-const adicionarParametroHandler: EfeitoHandlerFn<TipoAcao.AdicionarParametro> = async ({ game, alvo, efeito }) => {
+const adicionarMarcaHandler: EfeitoHandlerFn<TipoAcao.AdicionarMarca> = async ({ game, alvo, efeito }) => {
     const dadosExtra = alvo.getDadosExtra() ?? [];
-    dadosExtra.push(efeito.parametros);
+    dadosExtra.push(efeito.parametros!.nome);
     await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(dadosExtra) });
 };
 
-const removerParametroHandler: EfeitoHandlerFn<TipoAcao.RemoverParametro> = async ({ game, alvo, efeito }) => {
+const removerMarcaHandler: EfeitoHandlerFn<TipoAcao.RemoverMarca> = async ({ game, alvo, efeito }) => {
     const dadosExtra   = alvo.getDadosExtra() ?? [];
-    const dadosFiltrados = dadosExtra.filter((d: any) => d.tipo !== efeito.parametros!.tipo);
+    const dadosFiltrados = dadosExtra.filter((d: any) => d.tipo !== efeito.parametros!.nome);
     await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(dadosFiltrados) });
 };
 
@@ -262,10 +262,10 @@ const HANDLERS: Record<TipoAcao, EfeitoHandlerFn<any>> = {
     
     [TipoAcao.AtualizarOferta]:             atualizarOfertaHandler,
     [TipoAcao.AdicionarMarca]:              adicionarMarcaHandler,
-    [TipoAcao.AdicionarParametro]:          adicionarParametroHandler,
+    [TipoAcao.AdicionarEfeito]:             adicionarEfeitoHandler,
     [TipoAcao.ImpedirHabilidade]:           impedirHabilidadeHandler,
     [TipoAcao.RemoverMarca]:                removerMarcaHandler,
-    [TipoAcao.RemoverParametro]:            removerParametroHandler,
+    [TipoAcao.RemoverEfeito]:               removerEfeitoHandler,
     [TipoAcao.RestaurarHabilidadeImpedida]: restaurarHabilidadeImpedidaHandler,
 
     [TipoAcao.DescobrirIdentidade]:         descobrirIdentidadeHandler,

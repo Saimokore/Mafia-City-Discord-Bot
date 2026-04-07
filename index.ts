@@ -11,6 +11,7 @@ import { AlertaDAO } from './DAOs/AlertaDAO.js';
 import type { Player } from './Player/Player.js';
 import type { HabilidadeDinamica } from './Player/Habilidades/HabilidadeDinamica.js';
 import { Action } from './Player/Action.js';
+import { testes } from './testes.js';
 
 dotenv.config();
 
@@ -285,113 +286,7 @@ client.on('messageCreate', async (message: Message) => {
         console.log("🚀 INICIANDO BATERIA DE TESTES AUTOMATIZADOS");
         console.log("==================================================");
 
-        try {
-            // 1. LIGA O MODO DE TRANSIÇÃO (Para não tentar salvar no banco)
-            game.setTransicaoEtapa(true);
-            game.setTeste(true);
-
-            // 2. CRIANDO OS JOGADORES FANTASMAS (MOCK DO PRISMA)
-            const mockSniper: any = {
-                id: "uuid-sniper", userId: "discord-sniper", username: "Sniper (Cidade)", estaVivo: true, protecao: 0,
-                cargo: "Atirador_de_elite", status: "[]", marcas: "[]", dadosExtra: "[]",
-                habilidades: [{ id: "hab-snipe", nome: "Snipe", uso: 2, status: "DISPONIVEL" }]
-            };
-
-            const mockMafioso: any = {
-                id: "uuid-mafioso", userId: "discord-mafioso", username: "Chefe (Máfia)", estaVivo: true, protecao: 1,
-                cargo: "Mafia_lider", status: "[]", marcas: "[]", dadosExtra: "[]",
-                habilidades: [{ id: "hab-massacre", nome: "Massacre", uso: 1, status: "DISPONIVEL" }]
-            };
-
-            const mockEvangelista: any = {
-                id: "uuid-evangelista", userId: "discord-evangelista", username: "Padre (Cidade)", estaVivo: true, protecao: 0,
-                cargo: "Evangelista", status: "[]", marcas: "[]", dadosExtra: "[]",
-                habilidades: [{ id: "hab-evangelho", nome: "Evangelho", uso: 10, status: "DISPONIVEL" }]
-            };
-
-            // 3. INJETANDO NO CACHE
-            const sniper = await game.getPlayerManager().loadPlayer(mockSniper);
-            const mafioso = await game.getPlayerManager().loadPlayer(mockMafioso);
-            const evangelista = await game.getPlayerManager().loadPlayer(mockEvangelista);
-            
-            // Hackeando a RAM do PlayerManager
-            (game.getPlayerManager() as any).playersCache = [sniper, mafioso, evangelista];
-
-            console.log("\n🟢 --- TESTE 1: SNIPE ---");
-            const habSnipe = sniper!.getHabilidade("Snipe")!;
-            
-            // Criando uma Ação Falsa simulando o Modal (Acertando a Classe em cheio)
-            const fakeActionSnipe = new Action({
-                id: "act-1", userId: "uuid-sniper", habilidadeId: "hab-snipe", tipo: "Ofensiva", sucesso: "PENDENTE", etapa: 1,
-                alvos: [{ alvoId: "uuid-mafioso" }],
-                parametrosAcao: JSON.stringify({
-                    palpite_classe_alinhamento: "Mafia", 
-                    palpite_classe_nome: "Lider" // Note que no banco você botou "Mafia_Lider"
-                })
-            } as any);
-
-            await habSnipe.ativar(game, fakeActionSnipe, "AO_AVANCAR_ETAPA");
-
-            console.log(`💀 Mafioso morreu? ${!mafioso!.estaVivo() ? "✅ SIM" : "❌ NÃO"}`);
-            console.log(`🔫 Balas devolvidas? (Usos do Snipe): ${habSnipe.getUso() === 2 ? "✅ SIM (2)" : `❌ NÃO (${habSnipe.getUso()})`}`);
-            
-            
-            console.log("\n🟢 --- TESTE 2: EVANGELHO (A MÁQUINA DE ESTADOS) ---");
-            // Ressuscitando o mafioso para o próximo teste
-            mafioso!.setEstaVivo(true);
-            const habEvangelho = evangelista!.getHabilidade("Evangelho")!;
-
-            // PASSO A: Mafioso aceita a oferta. (A engine deve bloquear e pedir input)
-            console.log("👉 2A. O Mafioso (que não é da Cidade) aceita o Evangelho...");
-            const fakeActionAceitar = new Action({
-                id: "act-2", userId: "uuid-evangelista", habilidadeId: "hab-evangelho", tipo: "Comunicacao", sucesso: "PENDENTE", etapa: 1,
-                alvos: [{ alvoId: "uuid-mafioso" }], parametrosAcao: "{}"
-            } as any);
-
-            await habEvangelho.ativar(game, fakeActionAceitar, "AO_OFERTA_ACEITA");
-            // Testaremos se o CriarInput e EnviarAlerta não crasharam no console.
-
-            // PASSO B: Mafioso resolve o input (Escolhe sacrificar o Massacre)
-            console.log("👉 2B. O Mafioso escolhe sacrificar a habilidade 'Massacre'...");
-            const fakeActionInput = new Action({
-                id: "act-3", userId: "uuid-evangelista", habilidadeId: "hab-evangelho", tipo: "Comunicacao", sucesso: "PENDENTE", etapa: 1,
-                alvos: [{ alvoId: "uuid-mafioso" }],
-                // Aqui nós simulamos as "variaveisColetadas" geradas pelo HabilidadeDinamica.resolverInput()
-                parametrosAcao: JSON.stringify({
-                    customId: "habilidade_sacrificada",
-                    habilidade_sacrificada: "Massacre"
-                })
-            } as any);
-
-            await habEvangelho.ativar(game, fakeActionInput, "AO_RESOLVER_INPUT");
-            
-            const habMassacre = mafioso!.getHabilidade("Massacre")!;
-            console.log(`🚫 Massacre foi impedido? ${habMassacre.getStatus() === "IMPEDIDA" ? "✅ SIM" : "❌ NÃO"}`);
-            console.log(`📝 Dado Extra salvo no Mafioso? ${mafioso!.getDadosExtra().length > 0 ? "✅ SIM" : "❌ NÃO"}`);
-
-
-            // PASSO C: A Morte do Evangelista
-            console.log("👉 2C. O Evangelista morre. O gatilho global deve disparar...");
-            
-            // O gatilho AO_MORRER não tem action e usa o TODOS_JOGADORES, então passamos a action nula e o emissorOpcional
-            await habEvangelho.ativar(game, null, "AO_MORRER", evangelista!);
-
-            console.log(`✨ Massacre foi restaurado? ${habMassacre.getStatus() === "DISPONIVEL" ? "✅ SIM" : "❌ NÃO"}`);
-            console.log(`🧹 Dado Extra limpo do Mafioso? ${mafioso!.getDadosExtra().length === 0 ? "✅ SIM" : "❌ NÃO"}`);
-
-
-            // 4. LIMPANDO O CACHE
-            game.setTransicaoEtapa(false);
-            game.setTeste(false);
-            game.getPlayerManager().limparCache();
-
-            console.log("\n✅ BATERIA DE TESTES CONCLUÍDA!");
-
-        } catch (error) {
-            console.error("❌ Ocorreu um erro catastrófico durante os testes:", error);
-            game.setTransicaoEtapa(false);
-            game.setTeste(false);
-        }
+        await testes(game);
     }
 });
 
