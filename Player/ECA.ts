@@ -139,7 +139,10 @@ export interface DefinicaoCargo {
     habilidadesIniciais: string[];
     complexidade: number;
     protecaoInata: number;
-    condicoesVitoria?: Condicao[];
+    condicoesVitoria?: {
+        vitoriaContinua: boolean; // se verdade o jogo continua e apenas anuncia que o jogador venceu
+        condicoes: Condicao[];
+    }
 }
 
 export interface DefinicaoClasse {

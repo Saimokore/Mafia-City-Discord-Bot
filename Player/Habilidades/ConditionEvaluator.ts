@@ -17,6 +17,19 @@ export class ConditionEvaluator {
     }
 
     private async avaliarUma(game: Game, condicao: Condicao, emissor: Player, alvo: Player, variaveis: Record<string, unknown>, resultadoAnterior?: ResultadoAcaoAnterior): Promise<boolean> {
+        if ((condicao.atributo as string) === "QUANT_VIVOS" || (condicao.atributo as string) === "QuantVivos") {
+            let valorReal: unknown;
+            
+            if (condicao.sujeito === TipoSujeito.TodosJogadores) {
+                valorReal = variaveis["vivos_todos"];
+            } else if ((condicao.sujeito as string) === "AlinhamentoInimigo") {
+                valorReal = variaveis["vivos_inimigos"];
+            }
+            
+            const valorEsperado = this.resolverValorEsperado(condicao.valorEsperado, emissor, variaveis);
+            return this.comparar(condicao.operador as TipoOperador, valorReal, valorEsperado);
+        }
+
         if (condicao.sujeito === TipoSujeito.TodosJogadores) {
             const players = await game.getPlayerManager().getAllPlayers();
             if (!players) return false;
@@ -67,6 +80,7 @@ export class ConditionEvaluator {
             case TipoAtributo.Protecao:    return jogador.getProtecao();
             case TipoAtributo.Classe:      return jogador.getClasse();
             case TipoAtributo.Cargo:       return jogador.getCargo()?.getNome();
+            case TipoAtributo.Marcas:      return jogador.getMarcas();
             default:
                 console.warn(`[ConditionEvaluator] Atributo desconhecido: ${atributo}`);
                 return undefined;
@@ -126,7 +140,11 @@ export class ConditionEvaluator {
                     return false;
                 }
                 return real < esperado;
-
+            case TipoOperador.Contem:
+                if (Array.isArray(real)) {
+                    return real.some(v => String(v).toLowerCase() === String(esperado).toLowerCase());
+                }
+                return false;
             default:
                 console.warn(`[ConditionEvaluator] Operador desconhecido: ${operador}`);
                 return false;

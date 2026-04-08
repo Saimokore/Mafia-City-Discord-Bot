@@ -8,6 +8,8 @@ import { GuildConfigDAO } from "../DAOs/GuildConfigDAO.js";
 import { SkillManager } from "./SkillManager.js";
 import { Player } from "../Player/Player.js";
 import { OfertaDAO } from "../DAOs/OfertaDAO.js";
+import { TipoAtributo, TipoSujeito } from "../Player/ECA.js";
+import { ConditionEvaluator } from "../Player/Habilidades/ConditionEvaluator.js";
 
 export class Game {
     private guildId: string;
@@ -71,6 +73,69 @@ export class Game {
     public async terminarJogo(): Promise<void> {
         await PartidaDAO.updatePartida(this.guildId, { status: "FINALIZADA" });
         await this.sendAnuncio("A partida terminou! Obrigado por jogar! 🎉");
+    }
+
+    public async verificarVitoria(): Promise<boolean> {
+        const players = await this.playerManager.getAllPlayers();
+        if (!players || players.length === 0) return false;
+
+        let mafiaVivos = 0;
+        let cidadeVivos = 0;
+        let neutrosVivos = 0;
+
+        for (const p of players) {
+            if (!p.estaVivo()) continue;
+
+            const alinhamento = p.getAlinhamento?.() || "Neutro"; 
+            
+            if (alinhamento === "Mafia") mafiaVivos++;
+            else if (alinhamento === "Cidade") cidadeVivos++;
+            else if (alinhamento === "Neutro") neutrosVivos++;
+        }
+
+        const panoramaDoJogo: Record<string, unknown> = {
+            "vivos_mafia": mafiaVivos,
+            "vivos_cidade": cidadeVivos,
+            "vivos_neutros": neutrosVivos,
+            "vivos_todos": mafiaVivos + cidadeVivos + neutrosVivos,
+            "vivos_inimigos": mafiaVivos + cidadeVivos
+        };
+
+        const avaliador = new ConditionEvaluator();
+
+        for (const p of players) {
+            const cargo = p.getCargo();
+            if (cargo && p.getAlinhamento?.() === "Neutro") {
+                const condicoesVitoria = cargo.getCondicoesVitoria();
+                const condicoes = condicoesVitoria.condicoes || [];
+
+                const passou = await avaliador.avaliar(this, condicoes, p, p, panoramaDoJogo);
+                
+                if (passou) {
+                    return await this.processarVitoria(`🃏 **FIM DE JOGO!** O **${cargo.getNome()}** (${p.getUsername()}) atingiu seu objetivo e venceu o jogo sozinho!`, condicoesVitoria.vitoriaContinua);
+                }
+            }
+        }
+
+        if (mafiaVivos > 0 && mafiaVivos >= (cidadeVivos + neutrosVivos)) {
+            return await this.processarVitoria("🔪 **FIM DE JOGO!** A Máfia subjugou os últimos resistentes e tomou controle da cidade!", false);
+        }
+
+        if (mafiaVivos === 0 && cidadeVivos > 0) {
+            return await this.processarVitoria("🕊️ **FIM DE JOGO!** A Cidade eliminou todas a mafia!", false);
+        }
+
+        return false;
+    }
+
+    public async processarVitoria(mensagem: string, vitoriaContinua?: boolean): Promise<boolean> {
+        await this.sendAnuncio(mensagem);
+        if (vitoriaContinua) {
+            await this.sendAnuncio("O jogo continua, mas o vencedor já é conhecido! 🎉");
+            return true;
+        } else await this.terminarJogo();
+
+        return true;
     }
 
     public async deletarJogo() {
@@ -151,6 +216,8 @@ export class Game {
 
         await this.playerManager.commitBatch();
         await this.skillManager.commitBatch();
+
+        await this.verificarVitoria();
 
         this.setTransicaoEtapa(false);
         this.playerManager.limparCache();

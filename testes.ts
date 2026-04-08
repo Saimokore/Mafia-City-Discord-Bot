@@ -6,6 +6,7 @@ export async function testes(game: Game) {
         console.log("🚀 INICIANDO TESTES...")
         await testeSnipeDet(game);
         await testeExecDet(game);
+        await testeCondicoesVitoria(game);
     } catch (error) {
         console.error("❌ Ocorreu um erro catastrófico durante os testes:", error);
         game.setTransicaoEtapa(false);
@@ -200,4 +201,91 @@ async function testeExecDet(game: Game) {
     game.setTransicaoEtapa(false);
     game.getPlayerManager().limparCache();
     console.log("\n✅ BATERIA DE TESTES 2 CONCLUÍDA!");
+}
+
+async function testeCondicoesVitoria(game: Game) {
+    console.log("\n🟢 --- TESTE 3: CONDIÇÕES DE VITÓRIA (CIDADE x MÁFIA x NEUTROS) ---");
+    game.setTransicaoEtapa(true);
+    game.setTeste(true);
+
+    // 1. CRIANDO OS JOGADORES
+    const mockCidade: any = { id: "cid-1", userId: "discord-cid", username: "Cidadão de Bem", estaVivo: true, cargo: "EVANGELISTA", status: "[]", marcas: "[]", dadosExtra: "[]", habilidades: [] };
+    const mockMafia: any  = { id: "maf-1", userId: "discord-maf", username: "Poderoso Chefão", estaVivo: true, cargo: "MAFIA_LIDER", status: "[]", marcas: "[]", dadosExtra: "[]", habilidades: [] };
+    const mockSK: any     = { id: "sk-1", userId: "discord-sk", username: "Serial Killer", estaVivo: true, cargo: "SERIAL_KILLER", status: "[]", marcas: "[]", dadosExtra: "[]", habilidades: [] };
+
+    const cidadao = await game.getPlayerManager().loadPlayer(mockCidade);
+    const mafioso = await game.getPlayerManager().loadPlayer(mockMafia);
+    const sk      = await game.getPlayerManager().loadPlayer(mockSK);
+
+    // 2. HACKEANDO A RAM PARA ISOLAR O TESTE
+    // (Forçamos o alinhamento e as regras do SK para não depender do banco de dados)
+    cidadao!.getAlinhamento = () => "Cidade";
+    mafioso!.getAlinhamento = () => "Mafia";
+    sk!.getAlinhamento      = () => "Neutro";
+
+    sk!.getCargo = () => ({
+        getNome: () => "Serial Killer",
+        // A regra de Ouro: Só ganha se sobrar apenas ele vivo
+        getCondicoesVitoria: () => [
+            { sujeito: "TODOS_JOGADORES", atributo: "QUANT_VIVOS", operador: "IGUAL_A", valorEsperado: 1 },
+            { sujeito: "EMISSOR", atributo: "ESTA_VIVO", operador: "IGUAL_A", valorEsperado: true }
+        ]
+    } as any);
+
+    (game.getPlayerManager() as any).playersCache = [cidadao, mafioso, sk];
+
+    // 3. INTERCEPTANDO MÉTODOS REAIS PARA NÃO ENCERRAR O BOT
+    const sendAnuncioOriginal = game.sendAnuncio.bind(game);
+    const terminarJogoOriginal = game.terminarJogo.bind(game);
+    let ultimoAnuncio = "";
+    
+    // Fingimos enviar no Discord e guardamos a mensagem para conferir
+    game.sendAnuncio = async (msg: string) => { ultimoAnuncio = msg; console.log(`\n📢 [DISCORD MOCK]: ${msg}`); };
+    // Impede que o bot apague a partida real durante o teste
+    game.terminarJogo = async () => {}; 
+
+    // ==========================================================
+    console.log("\n👉 3A. Jogo rolando (1 Cidade, 1 Máfia, 1 SK)... Ninguém deve ganhar.");
+    let ganhou = await game.verificarVitoria();
+    console.log(`✅ O jogo continuou? ${!ganhou ? "SIM" : "NÃO"}`);
+
+    // ==========================================================
+    console.log("\n👉 3B. A Máfia atira e mata a Cidade e o SK à noite.");
+    cidadao!.setEstaVivo(false);
+    sk!.setEstaVivo(false);
+    
+    ganhou = await game.verificarVitoria();
+    console.log(`✅ Alguém ganhou? ${ganhou ? "SIM" : "NÃO"}`);
+    console.log(`✅ Foi a Máfia? ${ultimoAnuncio.includes("A Máfia subjugou") ? "SIM" : "NÃO"}`);
+
+    // ==========================================================
+    console.log("\n👉 3C. A Cidade vota e enforca o Mafioso de dia.");
+    // (Reset do cenário)
+    cidadao!.setEstaVivo(true); 
+    sk!.setEstaVivo(false);
+    mafioso!.setEstaVivo(false);
+
+    ganhou = await game.verificarVitoria();
+    console.log(`✅ Alguém ganhou? ${ganhou ? "SIM" : "NÃO"}`);
+    console.log(`✅ Foi a Cidade? ${ultimoAnuncio.includes("A Cidade eliminou") ? "SIM" : "NÃO"}`);
+
+    // ==========================================================
+    console.log("\n👉 3D. O Serial Killer faz um banho de sangue e mata todos.");
+    // (Reset do cenário)
+    cidadao!.setEstaVivo(false);
+    mafioso!.setEstaVivo(false);
+    sk!.setEstaVivo(true);
+
+    ganhou = await game.verificarVitoria();
+    console.log(`✅ Alguém ganhou? ${ganhou ? "SIM" : "NÃO"}`);
+    console.log(`✅ A Engine leu o ECA Dinâmico do SK? ${ultimoAnuncio.includes("Serial Killer") ? "SIM" : "NÃO"}`);
+
+
+    // ==========================================================
+    // LIMPEZA DA BAGUNÇA
+    game.sendAnuncio = sendAnuncioOriginal;
+    game.terminarJogo = terminarJogoOriginal;
+    game.setTransicaoEtapa(false);
+    game.getPlayerManager().limparCache();
+    console.log("\n✅ BATERIA DE TESTES 3 CONCLUÍDA!");
 }
