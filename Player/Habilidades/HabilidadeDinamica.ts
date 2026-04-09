@@ -220,7 +220,8 @@ export class HabilidadeDinamica extends Habilidade {
 
     public async atacarPlayer(game: Game, poderAtaque: PoderAtaqueProtecao, alvo: Player, assassino: Player, action?: Action): Promise<boolean> {
         console.log(`[HabilidadeDinamica] Poder de ataque: ${poderAtaque} e proteção do alvo: ${alvo.getProtecao()}`);
- 
+        alvo.triggerGatilho(game, TipoGatilho.AoSerAtacado);
+
         if (poderAtaque >= alvo.getProtecao()) {
             await game.getSkillManager().criarAlerta(assassino, "Você eliminou o alvo!");
             await game.processarMortePlayer(alvo, assassino);

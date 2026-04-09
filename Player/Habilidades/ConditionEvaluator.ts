@@ -141,8 +141,14 @@ export class ConditionEvaluator {
                 }
                 return real < esperado;
             case TipoOperador.Contem:
+                // talvez exista um erro aqui pelo fato de vir objetos
                 if (Array.isArray(real)) {
                     return real.some(v => String(v).toLowerCase() === String(esperado).toLowerCase());
+                }
+                return false;
+            case TipoOperador.NaoContem:
+                if (Array.isArray(real)) {
+                    return !real.some(v => String(v).toLowerCase() === String(esperado).toLowerCase());
                 }
                 return false;
             default:

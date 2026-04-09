@@ -1,3 +1,4 @@
+import type { PoderAtaqueProtecao } from "./Habilidades/HabilidadeDinamica.js";
 
 export enum Alinhamento {
     Cidade = "Cidade",
@@ -23,6 +24,8 @@ export enum TipoGatilho {
     AoOfertaAceita    = "AO_OFERTA_ACEITA",
     AoOfertaRecusada  = "AO_OFERTA_RECUSADA",
     AoResolverInput   = "AO_RESOLVER_INPUT",
+    AoSerVisitado         = "AO_SER_VISITADO",
+    AoMarcadoSerVisitado  = "AO_MARCADO_SER_VISITADO" // quando um jogador marcado por voce for visitado
     // ao ganhar
     // ao ser enforcado
 }
@@ -43,8 +46,11 @@ export enum TipoAcao {
     Proteger                    = "PROTEGER",
     Bloquear                    = "BLOQUEAR",
     
-    // Enviar/Criar
+    // Alterar dados
     AlterarUso                  = "ALTERAR_USO",
+    AlterarProtInata            = "ALTERAR_PROT_INATA",
+
+    // Criar/Enviar algo
     CriarOferta                 = "CRIAR_OFERTA",
     CriarAlerta                 = "CRIAR_ALERTA",
     CriarInput                  = "CRIAR_INPUT",
@@ -54,8 +60,8 @@ export enum TipoAcao {
     
     // Adicionar, remover, atualizar
     AtualizarOferta             = "ATUALIZAR_OFERTA",
-    AdicionarEfeito             = "ADICIONAR_EFEITO",
-    RemoverEfeito               = "REMOVER_EFEITO",
+    AdicionarStatus             = "ADICIONAR_STATUS",
+    RemoverStatus               = "REMOVER_STATUSs",
     AdicionarMarca              = "ADICIONAR_MARCA", // parametros sao mais pra condicoes posteriores, marcas mostra em jogo
     RemoverMarca                = "REMOVER_MARCA",
     ImpedirHabilidade           = "IMPEDIR_HABILIDADE",
@@ -169,10 +175,10 @@ export interface MapaParametrosAcao {
         nivelProtecao?: number;
     };
     [TipoAcao.Bloquear]: undefined; // Sem parâmetros
-    [TipoAcao.AdicionarEfeito]: {
+    [TipoAcao.AdicionarStatus]: {
         nome: string;
     };
-    [TipoAcao.RemoverEfeito]: {
+    [TipoAcao.RemoverStatus]: {
         nome: string;
     };
     [TipoAcao.AdicionarMarca]: {
@@ -220,5 +226,8 @@ export interface MapaParametrosAcao {
     }
     [TipoAcao.DescobrirSetor]: {
         texto: string;
+    },
+    [TipoAcao.AlterarProtInata]: {
+        quantidade: PoderAtaqueProtecao;
     }
 }

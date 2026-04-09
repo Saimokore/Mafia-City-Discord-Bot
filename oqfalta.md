@@ -1,4 +1,5 @@
 Basicamente depois que enviar um input de resolução de algo se ele não for
+- quando um jogador receber uma marca, ele deve guardar o id do emissor da marca
 
 Evangelista:
 - Descobrir se a habilidade Palavra de Deus só pode ser utilizada logo após a recusa da oferta ou se pode ser utilizada em qualquer etapa do jogo

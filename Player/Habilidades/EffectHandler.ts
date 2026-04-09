@@ -42,17 +42,17 @@ const bloquearHandler: EfeitoHandlerFn<TipoAcao.Bloquear> = async ({ game, alvo 
     }
 };
 
-const adicionarEfeitoHandler: EfeitoHandlerFn<TipoAcao.AdicionarMarca> = async ({ game, alvo, efeito }) => {
-    const marcas = alvo.getMarcas();
-    if (!marcas.includes(efeito.parametros!.nome)) {
-        marcas.push(efeito.parametros!.nome);
-        await game.getPlayerManager().updatePlayer(alvo, { marcas: JSON.stringify(marcas) });
+const adicionarStatusHandler: EfeitoHandlerFn<TipoAcao.AdicionarStatus> = async ({ game, alvo, efeito }) => {
+    const status = alvo.getStatus();
+    if (!status.includes(efeito.parametros!.nome)) {
+        status.push(efeito.parametros!.nome);
+        await game.getPlayerManager().updatePlayer(alvo, { status: JSON.stringify(status) });
     }
 };
 
-const removerEfeitoHandler: EfeitoHandlerFn<TipoAcao.RemoverMarca> = async ({ game, alvo, efeito }) => {
-    const marcasFiltradas = (alvo.getMarcas() || []).filter(m => m !== efeito.parametros!.nome);
-    await game.getPlayerManager().updatePlayer(alvo, { marcas: JSON.stringify(marcasFiltradas) });
+const removerStatusHandler: EfeitoHandlerFn<TipoAcao.RemoverStatus> = async ({ game, alvo, efeito }) => {
+    const statusFiltrado = (alvo.getStatus() || []).filter(s => s !== efeito.parametros!.nome);
+    await game.getPlayerManager().updatePlayer(alvo, { status: JSON.stringify(statusFiltrado) });
 };
 
 const impedirHabilidadeHandler: EfeitoHandlerFn<TipoAcao.ImpedirHabilidade> = async ({ habilidade, game, alvo, emissor, efeito, variaveis }) => {
@@ -108,16 +108,25 @@ const protegerHandler: EfeitoHandlerFn<TipoAcao.Proteger> = async ({ game, alvo,
     }
 };
 
-const adicionarMarcaHandler: EfeitoHandlerFn<TipoAcao.AdicionarMarca> = async ({ game, alvo, efeito }) => {
-    const dadosExtra = alvo.getDadosExtra() ?? [];
-    dadosExtra.push(efeito.parametros!.nome);
-    await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(dadosExtra) });
+const adicionarMarcaHandler: EfeitoHandlerFn<TipoAcao.AdicionarMarca> = async ({ game, alvo, emissor, efeito }) => {
+    const marcas = alvo.getMarcas() ?? [];
+    
+    const novaMarca = {
+        tipo: efeito.parametros!.nome, 
+        emissorId: emissor.getId()
+    };
+
+    marcas.push(novaMarca);
+    await game.getPlayerManager().updatePlayer(alvo, { marcas: JSON.stringify(marcas) });
 };
 
-const removerMarcaHandler: EfeitoHandlerFn<TipoAcao.RemoverMarca> = async ({ game, alvo, efeito }) => {
-    const dadosExtra   = alvo.getDadosExtra() ?? [];
-    const dadosFiltrados = dadosExtra.filter((d: any) => d.tipo !== efeito.parametros!.nome);
-    await game.getPlayerManager().updatePlayer(alvo, { dadosExtra: JSON.stringify(dadosFiltrados) });
+// a marca normalmente só pode ser removida pelo proprio emissor
+const removerMarcaHandler: EfeitoHandlerFn<TipoAcao.RemoverMarca> = async ({ game, emissor, alvo, efeito }) => {
+    const marcas = alvo.getMarcas() ?? [];
+    
+    const marcasFiltradas = marcas.filter((m: any) => m.tipo !== efeito.parametros!.nome && m.emissorId !== emissor.getId());
+    
+    await game.getPlayerManager().updatePlayer(alvo, { marcas: JSON.stringify(marcasFiltradas) });
 };
 
 const restaurarHabilidadeImpedidaHandler: EfeitoHandlerFn<TipoAcao.RestaurarHabilidadeImpedida> = async ({ game, alvo, emissor, efeito }) => {
@@ -247,6 +256,10 @@ const descobrirQuantidadeHandler: EfeitoHandlerFn<TipoAcao.DescobrirQuantidade> 
     await game.getSkillManager().criarAlerta(emissor, `Descoberta quantidade de jogadores: **${quantidade}**`);
 };
 
+const alterarProtInataHandler: EfeitoHandlerFn<TipoAcao.AlterarProtInata> = async ({ game }) => {
+    
+};
+
 const HANDLERS: Record<TipoAcao, EfeitoHandlerFn<any>> = {
     [TipoAcao.Atacar]:                      atacarHandler,
     [TipoAcao.Proteger]:                    protegerHandler,
@@ -262,17 +275,18 @@ const HANDLERS: Record<TipoAcao, EfeitoHandlerFn<any>> = {
     
     [TipoAcao.AtualizarOferta]:             atualizarOfertaHandler,
     [TipoAcao.AdicionarMarca]:              adicionarMarcaHandler,
-    [TipoAcao.AdicionarEfeito]:             adicionarEfeitoHandler,
+    [TipoAcao.AdicionarStatus]:             adicionarStatusHandler,
     [TipoAcao.ImpedirHabilidade]:           impedirHabilidadeHandler,
     [TipoAcao.RemoverMarca]:                removerMarcaHandler,
-    [TipoAcao.RemoverEfeito]:               removerEfeitoHandler,
+    [TipoAcao.RemoverStatus]:               removerStatusHandler,
     [TipoAcao.RestaurarHabilidadeImpedida]: restaurarHabilidadeImpedidaHandler,
 
     [TipoAcao.DescobrirIdentidade]:         descobrirIdentidadeHandler,
     [TipoAcao.DescobrirCargo]:              descobrirCargoHandler,
     [TipoAcao.DescobrirClasse]:             descobrirClasseHandler,
     [TipoAcao.DescobrirSetor]:              descobrirSetorHandler,
-    [TipoAcao.DescobrirQuantidade]:         descobrirQuantidadeHandler
+    [TipoAcao.DescobrirQuantidade]:         descobrirQuantidadeHandler,
+    [TipoAcao.AlterarProtInata]:            alterarProtInataHandler
 };
 
 export class EffectHandler {

@@ -479,6 +479,7 @@ export const regraExemplo: DefinicaoHabilidade = {
     ]
 }
 
+
 export const RegrasHabilidades: Record<string, DefinicaoHabilidade> = {
     "EVANGELHO": regraEvangelho,
     "SNIPE":     regraSnipe,

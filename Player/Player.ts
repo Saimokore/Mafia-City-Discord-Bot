@@ -6,7 +6,8 @@ import { Alerta } from "./Alerta.js";
 import { Prisma } from '@prisma/client';
 import type { DadoExtra } from "./Tipos.js";
 import type { HabilidadeDinamica } from './Habilidades/HabilidadeDinamica.js';
-import type { MapaParametrosAcao } from './ECA.js';
+import type { MapaParametrosAcao, TipoGatilho } from './ECA.js';
+import type { Action } from './Action.js';
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{
     include: {
@@ -30,8 +31,8 @@ export class Player {
     
     private cargo: Cargo | null;
 
-    private status: string[];
-    private marcas: string[];
+    private status: any[];
+    private marcas: any[];
     private items: HabilidadeDinamica[];
     private alertas: Alerta[];
 
@@ -75,12 +76,16 @@ export class Player {
         this.dadosExtra = JSON.parse(player.dadosExtra || "[]");
     }
 
+    public async triggerGatilho(game: Game, gatilho: TipoGatilho, emissor?: Player, action?: Action) {
+        this.getHabilidades()?.forEach(h => h.ativar(game, action || null, gatilho, emissor));
+    }
+
     public getAlinhamento(): string | undefined {
         if (!this.cargo) return;
         return this.cargo.getAlinhamento();
     }
 
-    public getStatus(): string[] {
+    public getStatus(): any[] {
         return this.status;
     }
 
@@ -98,7 +103,7 @@ export class Player {
         Alertas: ${this.alertas.map(a => a.getAlerta()).join(", ") || "Nenhum"}`;
     }
 
-    public getMarcas(): string[] {
+    public getMarcas(): any[] {
         return this.marcas;
     }
 
