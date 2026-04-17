@@ -1,4 +1,4 @@
-import type { PoderAtaqueProtecao } from "./Habilidades/HabilidadeDinamica.js";
+import type { NivelProtecao, PoderAtaque } from "./Habilidades/HabilidadeDinamica.js";
 
 export enum Alinhamento {
     Cidade = "Cidade",
@@ -41,6 +41,9 @@ export enum TipoInput {
 }
  
 export enum TipoAcao {
+    // Ação Dummy
+    Nenhuma                     = "NENHUMA", // retorna true sempre, serve pra por condições
+
     // Ações fisicas
     Atacar                      = "ATACAR",
     Proteger                    = "PROTEGER",
@@ -76,6 +79,7 @@ export enum TipoAcao {
 }
 
 export enum TipoAtributo {
+    ID          = "ID",
     Alinhamento = "ALINHAMENTO",
     EstaVivo    = "ESTA_VIVO",
     Protecao    = "PROTECAO",
@@ -100,7 +104,7 @@ export enum TipoOperador {
 }
 
 export interface Condicao {
-    sujeito: TipoSujeito;
+    sujeito: TipoSujeito | string; // poder ser uma referencia a variavel tbm ("VARIAVEL.algumaCoisa")
     atributo: TipoAtributo;
     operador: TipoOperador;
     valorEsperado: Alinhamento | string | number | boolean; // pode ser string, numero, ou referência a outro sujeito
@@ -108,8 +112,8 @@ export interface Condicao {
 
 export interface Efeito<A extends TipoAcao = TipoAcao> {
     acao: A;
-    alvo: TipoSujeito;
-    parametros?: A extends keyof MapaParametrosAcao ? MapaParametrosAcao[A] : never;
+    alvo: TipoSujeito | string; // pode ser uma referencia a variavel tbm ("VARIAVEL.algumaCoisa")
+    parametros?: A extends keyof MapaParametrosAcao ? MapaParametrosAcao[A] : undefined;
     condicoes?: Condicao[];
     aoSuceder?: Efeito[];
     aoFalhar?: Efeito[];
@@ -117,6 +121,8 @@ export interface Efeito<A extends TipoAcao = TipoAcao> {
 
 export interface Gatilho {
     evento: TipoGatilho;
+    condicoes?: Condicao[]; // condições para o gatilho ativar
+    aoFalhar?: Efeito[];
     efeitos: Efeito[];
 }
 
@@ -124,6 +130,7 @@ export interface Input {
     idVariavel: string,
     tipoInput: TipoInput, // SELECIONAR_JOGADOR, SELECIONAR_CLASSE, SELECIONAR_CARGO, NUMERO, TEXTO, ...
     texto: string,
+    opcional?: boolean; // se true, o jogador pode escolher não responder. Se false ou undefined, resposta obrigatória
     validacao?: Condicao[]
 }
 
@@ -166,7 +173,7 @@ export interface MapaParametrosAcao {
         valorOferta: boolean;
     };
     [TipoAcao.Atacar]: {
-        poderAtaque?: number;
+        poderAtaque?: PoderAtaque;
     };
     [TipoAcao.AlterarUso]: {
         quantidade?: number;
@@ -228,6 +235,6 @@ export interface MapaParametrosAcao {
         texto: string;
     },
     [TipoAcao.AlterarProtInata]: {
-        quantidade: PoderAtaqueProtecao;
+        nivel: NivelProtecao;
     }
 }

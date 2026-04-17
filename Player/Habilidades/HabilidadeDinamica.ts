@@ -10,12 +10,15 @@ import { ConditionEvaluator } from "./ConditionEvaluator.js";
 import { EffectHandler } from "./EffectHandler.js";
 import { SkillModalBuilder } from "./SkillModalBuilder.js";
 
-export enum PoderAtaqueProtecao {
+export enum PoderAtaque {
     AtaqueBasico = 1,
-    ProtecaoBasica = 2,
     AtaquePoderoso = 3,
-    ProtecaoPoderosa = 4,
     Obliteracao = 5,
+}
+
+export enum NivelProtecao {
+    ProtecaoBasica = 2,
+    ProtecaoPoderosa = 4,
     Invencibilidade = 6
 }
 
@@ -218,7 +221,7 @@ export class HabilidadeDinamica extends Habilidade {
         await game.getSkillManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
     }
 
-    public async atacarPlayer(game: Game, poderAtaque: PoderAtaqueProtecao, alvo: Player, assassino: Player, action?: Action): Promise<boolean> {
+    public async atacarPlayer(game: Game, poderAtaque: PoderAtaque, alvo: Player, assassino: Player, action?: Action): Promise<boolean> {
         console.log(`[HabilidadeDinamica] Poder de ataque: ${poderAtaque} e proteção do alvo: ${alvo.getProtecao()}`);
         alvo.triggerGatilho(game, TipoGatilho.AoSerAtacado);
 
@@ -227,8 +230,6 @@ export class HabilidadeDinamica extends Habilidade {
             await game.processarMortePlayer(alvo, assassino);
             return true;
         } else {
-            const protInata = alvo.getCargo()?.getProtecaoInata() ?? 0;
-            await game.getPlayerManager().updatePlayer(alvo, { protecao: protInata });
             await game.getSkillManager().criarAlerta(alvo, "Você sente que foi protegido!");
             return false;
         }

@@ -1,6 +1,8 @@
 Basicamente depois que enviar um input de resolução de algo se ele não for
 - quando um jogador receber uma marca, ele deve guardar o id do emissor da marca
 
+Fazer um metodo pra cuidar da proteção dos players e resetar ela certinho
+
 Evangelista:
 - Descobrir se a habilidade Palavra de Deus só pode ser utilizada logo após a recusa da oferta ou se pode ser utilizada em qualquer etapa do jogo
 - checar se devo realmente avisar o player que ele possui sua habilidade denovo quando evangelista morrer

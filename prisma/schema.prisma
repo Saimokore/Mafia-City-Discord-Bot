@@ -62,6 +62,8 @@ model Player {
   dadosExtra String @default("{}") // JSON string com dados específicos do cargo (ex: número de vezes que usou a habilidade) extremamente importante
 
   protecao    Int @default(0)
+  protecaoInata Int @default(0)
+  
   quantCartas Int @default(3)
   distrito    Int @default(0)
 

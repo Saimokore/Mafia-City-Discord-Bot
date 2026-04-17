@@ -26,12 +26,20 @@ export const CargosDoJogo: Record<string, DefinicaoCargo> = {
         complexidade: 1,
         protecaoInata: 0
     },
-    "MAFIA_LIDER": {
+    "BIGODE": {
         nome: "Chefe",
         classe: "MAFIA_LIDER",
         raridade: "COMUM",
         habilidadesIniciais: ["MASSACRE"],
         complexidade: 2,
+        protecaoInata: 0
+    },
+    "DOIDAO": {
+        nome: "Doidao",
+        classe: "MAFIA_ASSASSINO",
+        raridade: "RARA",
+        habilidadesIniciais: ["SNIPE", "MASSACRE"],
+        complexidade: 3,
         protecaoInata: 0
     }
     // "Xerife": { ... },

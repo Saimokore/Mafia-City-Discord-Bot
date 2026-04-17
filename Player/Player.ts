@@ -107,6 +107,10 @@ export class Player {
         return this.marcas;
     }
 
+    public getProtecaoInata(): number {
+        return this.cargo ? this.cargo.getProtecaoInata() : 0;
+    }
+
     public getHabilidade(nomeOuId: string): HabilidadeDinamica | undefined {
         return this.getHabilidades()?.find(h => h.getNome() === nomeOuId || h.getId() === nomeOuId);
     }

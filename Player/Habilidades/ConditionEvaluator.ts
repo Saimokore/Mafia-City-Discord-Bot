@@ -43,7 +43,7 @@ export class ConditionEvaluator {
                 }
             }
             return true;
-        } 
+        }
         
         if (condicao.sujeito === TipoSujeito.AcaoAnterior) {
             const valorReal = condicao.atributo === TipoAtributo.FoiSucedida ? (resultadoAnterior?.foiSucedida ?? false) : false;
@@ -63,7 +63,22 @@ export class ConditionEvaluator {
             return this.comparar(condicao.operador as TipoOperador, valorReal, valorEsperado);
         }
 
-        const sujeito = condicao.sujeito === TipoSujeito.Emissor ? emissor : alvo;
+        let sujeito = condicao.sujeito === TipoSujeito.Emissor ? emissor : alvo;
+
+        if (typeof condicao.sujeito === "string" && condicao.sujeito.startsWith("VARIAVEL.")) {
+            const nomeVar = condicao.sujeito.replace("VARIAVEL.", "");
+            const playerId = variaveis[nomeVar] as string;
+
+            // Se o alvo for opcional (ex: alvo_quatro) e o cara não preencheu, a condição passa direto!
+            if (!playerId) return true; 
+
+            const playerCarregado = await game.getPlayerManager().loadPlayer(playerId);
+            // Se o jogador desconectou ou sumiu, a condição falha
+            if (!playerCarregado) return false; 
+
+            sujeito = playerCarregado;
+        }
+
         const valorReal = this.resolverAtributo(sujeito, condicao.atributo as TipoAtributo);
         const valorEsperado = this.resolverValorEsperado(condicao.valorEsperado, emissor, variaveis);
 
@@ -75,6 +90,7 @@ export class ConditionEvaluator {
     private resolverAtributo(jogador: Player, atributo: TipoAtributo): unknown {
         console.log(`[ConditionEvaluator] Resolvendo atributo ${atributo} para jogador ${jogador.getUserId()}`);
         switch (atributo) {
+            case TipoAtributo.ID:          return jogador.getId();
             case TipoAtributo.Alinhamento: return jogador.getAlinhamento();
             case TipoAtributo.EstaVivo:    return jogador.estaVivo();
             case TipoAtributo.Protecao:    return jogador.getProtecao();

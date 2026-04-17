@@ -2,7 +2,7 @@ import { type Efeito, TipoAcao, TipoInput } from "../ECA.js";
 import { Game }        from "../../Managers/GameManager.js";
 import { Player }      from "../Player.js";
 import { Action }      from "../Action.js";
-import { HabilidadeDinamica, PoderAtaqueProtecao } from "./HabilidadeDinamica.js";
+import { HabilidadeDinamica, PoderAtaque, NivelProtecao } from "./HabilidadeDinamica.js";
 import { ActionRowBuilder, StringSelectMenuBuilder, TextChannel } from "discord.js";
 import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
 
@@ -28,8 +28,8 @@ const criarOfertaHandler: EfeitoHandlerFn<TipoAcao.CriarOferta> = async ({ habil
 };
 
 const atacarHandler: EfeitoHandlerFn<TipoAcao.Atacar> = async ({ habilidade, game, alvo, emissor, action, efeito }) => {
-    const poder = efeito.parametros?.poderAtaque ?? PoderAtaqueProtecao.AtaqueBasico;
-    const matou = await habilidade.atacarPlayer(game, poder, alvo, emissor, action); // Ajuste os parâmetros do atacarPlayer conforme a sua classe
+    const poder = efeito.parametros?.poderAtaque ?? PoderAtaque.AtaqueBasico;
+    const matou = await habilidade.atacarPlayer(game, poder, alvo, emissor, action);
     return { foiSucedida: matou };
 };
 
@@ -207,13 +207,13 @@ const atualizarOfertaHandler: EfeitoHandlerFn<TipoAcao.AtualizarOferta> = async 
 
 const enviarHabilidadeHandler: EfeitoHandlerFn<TipoAcao.EnviarHabilidade> = async ({ game, alvo, efeito }) => {
     const params = efeito.parametros!;
-    // Simulando a entrega da habilidade
+
     const novaHab = game.getSkillManager().getHabilidadeInstance(params.nomeHabilidade);
     if (!novaHab) {
         console.warn(`[EffectHandler/ENVIAR_HABILIDADE] Habilidade "${params.nomeHabilidade}" não encontrada no sistema.`);
         return;
     }
-    // Lógica para adicionar a habilidade ao banco de dados do alvo entraria aqui
+
     console.log(`[EffectHandler] Habilidade ${params.nomeHabilidade} entregue para ${alvo.getUsername()}`);
 };
 
@@ -223,22 +223,22 @@ const enviarItemHandler: EfeitoHandlerFn<TipoAcao.EnviarItem> = async ({ game, a
 
 const descobrirIdentidadeHandler: EfeitoHandlerFn<TipoAcao.DescobrirIdentidade> = async ({ game, alvo, emissor, efeito, variaveis }) => {
     const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
-    await game.getSkillManager().criarAlerta(emissor, textoDinamico);
+    console.log(`[EffectHandler] Identidade de ${alvo.getUsername()} descoberta por ${emissor.getUsername()}: Cargo - ${alvo.getCargo() ? alvo.getCargo()!.getNome() : "Sem cargo"}, Classe - ${alvo.getAlinhamento()}, Distrito - ${alvo.getDistrito()}`);
 };
 
 const descobrirCargoHandler: EfeitoHandlerFn<TipoAcao.DescobrirCargo> = async ({ game, alvo, emissor, efeito, variaveis }) => {
     const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
-    await game.getSkillManager().criarAlerta(emissor, textoDinamico);
+    console.log(`[EffectHandler] Cargo de ${alvo.getUsername()} descoberto: ${alvo.getCargo() ? alvo.getCargo()!.getNome() : "Sem cargo"}`);
 };
 
 const descobrirClasseHandler: EfeitoHandlerFn<TipoAcao.DescobrirClasse> = async ({ game, alvo, emissor, efeito, variaveis }) => {
     const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
-    await game.getSkillManager().criarAlerta(emissor, textoDinamico);
+    console.log(`[EffectHandler] Classe de ${alvo.getUsername()} descoberta: ${alvo.getAlinhamento()}`);
 };
 
 const descobrirSetorHandler: EfeitoHandlerFn<TipoAcao.DescobrirSetor> = async ({ game, alvo, emissor, efeito, variaveis }) => {
     const textoDinamico = processarTexto(efeito.parametros!.texto, variaveis);
-    await game.getSkillManager().criarAlerta(emissor, textoDinamico);
+    console.log(`[EffectHandler] Setor de ${alvo.getUsername()} descoberto: ${alvo.getDistrito()}`);
 };
 
 const descobrirQuantidadeHandler: EfeitoHandlerFn<TipoAcao.DescobrirQuantidade> = async ({ game, variaveis, efeito, habilidade, emissor }) => {
@@ -252,15 +252,25 @@ const descobrirQuantidadeHandler: EfeitoHandlerFn<TipoAcao.DescobrirQuantidade> 
         if (!condicoesOk) continue;
         quantidade++;
     }
-
-    await game.getSkillManager().criarAlerta(emissor, `Descoberta quantidade de jogadores: **${quantidade}**`);
+    console.log(`[EffectHandler] Quantidade descoberta: ${quantidade}`);
 };
 
-const alterarProtInataHandler: EfeitoHandlerFn<TipoAcao.AlterarProtInata> = async ({ game }) => {
-    
+// CHECAR SE ISSO TA FUNCIONANDO
+// PROVAVELMENTE NÃO
+const alterarProtInataHandler: EfeitoHandlerFn<TipoAcao.AlterarProtInata> = async ({ game, alvo, efeito }) => {
+    const quantidade = Number(efeito.parametros!.nivel ?? 0);
+
+    const protecaoAtual = alvo.getProtecaoInata();
+    const novaProtecao = Math.max(0, protecaoAtual + quantidade);
+
+    await game.getPlayerManager().updatePlayer(alvo, { protecaoInata: novaProtecao });
 };
+
+const
 
 const HANDLERS: Record<TipoAcao, EfeitoHandlerFn<any>> = {
+    [TipoAcao.Nenhuma]:     async () => ({ foiSucedida: true }), // handler vazio, serve pra checar condiçoes
+
     [TipoAcao.Atacar]:                      atacarHandler,
     [TipoAcao.Proteger]:                    protegerHandler,
     [TipoAcao.Bloquear]:                    bloquearHandler,

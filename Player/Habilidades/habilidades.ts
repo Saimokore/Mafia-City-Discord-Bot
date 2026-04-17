@@ -223,24 +223,67 @@ export const regraMassacre: DefinicaoHabilidade = {
 
     inputs: [
         {
-            idVariavel: "alvo_principal",
+            idVariavel: "alvo_um",
             tipoInput: TipoInput.SelecionarJogador,
-            texto: "A quem você deseja pregar o Evangelho?"
+            texto: "Escolha o primeiro alvo"
+        },
+        {
+            idVariavel: "alvo_dois",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "Escolha o segundo alvo"
+        },
+        {
+            idVariavel: "alvo_tres",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "Escolha o terceiro alvo"
+        },
+        {
+            idVariavel: "alvo_quatro",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "Escolha o quarto alvo (Opcional)",
+            opcional: true
+        },
+        {
+            idVariavel: "alvo_cinco",
+            tipoInput: TipoInput.SelecionarJogador,
+            texto: "Escolha o quinto alvo (Opcional)",
+            opcional: true
         }
     ],
     gatilhos: [
-        {
-            evento: TipoGatilho.AoAvancarEtapa,
-            efeitos: [
-                {
-                    acao: TipoAcao.Atacar,
-                    alvo: TipoSujeito.Alvo,
-                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso }
-                }
-            ]
-        
-        }
-    ]
+    {
+        evento: TipoGatilho.AoAvancarEtapa,
+        efeitos: [
+            {
+                acao: TipoAcao.Nenhuma,
+                alvo: TipoSujeito.TodosJogadores,
+                condicoes: [
+                    { sujeito: TipoSujeito.Alvo, atributo: TipoAtributo.ID, operador: TipoOperador.IgualA, valorEsperado: "VARIAVEL.alvo_um" },
+                    { sujeito: TipoSujeito.Alvo, atributo: TipoAtributo.Classe, operador: TipoOperador.IgualA, valorEsperado: "VARIAVEL.palpite_um" }
+                ],
+                aoSuceder: [
+                    {
+                        acao: TipoAcao.Nenhuma,
+                        alvo: TipoSujeito.TodosJogadores,
+                        condicoes: [
+                            { sujeito: TipoSujeito.Alvo, atributo: TipoAtributo.Id, operador: TipoOperador.IgualA, valorEsperado: "VARIAVEL.alvo_dois" },
+                            { sujeito: TipoSujeito.Alvo, atributo: TipoAtributo.Classe, operador: TipoOperador.IgualA, valorEsperado: "VARIAVEL.palpite_dois" }
+                        ],
+                        // Se todas as checagens passarem, o inferno é liberado:
+                        aoSuceder: [
+                            { acao: TipoAcao.Atacar, alvo: TipoSujeito.TodosJogadores /* mata o alvo_um */ },
+                            { acao: TipoAcao.Atacar, alvo: TipoSujeito.TodosJogadores /* mata o alvo_dois */ }
+                        ]
+                    }
+                ],
+                // Se QUALQUER checagem falhar em qualquer ponto da corrente, a arma trava!
+                aoFalhar: [
+                    { acao: TipoAcao.CriarAlerta, alvo: TipoSujeito.Emissor, parametros: { texto: "Você errou o ritual. Ninguém sofreu dano." } }
+                ]
+            }
+        ]
+    }
+]
 }
 
 export const regraExecucaoPublica: DefinicaoHabilidade = {

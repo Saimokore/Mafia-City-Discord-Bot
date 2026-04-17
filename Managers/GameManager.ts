@@ -31,7 +31,7 @@ export class Game {
         this.playerManager = new PlayerManager(this.guildId, this);
         this.skillManager = new SkillManager(this.guildId, this);
         
-        this.cargoList = ["Evangelista", "Atirador_de_elite", "Xerife", "Bigode"];
+        this.cargoList = ["EVANGELISTA", "ATIRADOR_DE_ELITE", "DETETIVE", "BIGODE", "DOIDAO"];
         this.transicaoEtapa = false;
     }
 
@@ -49,8 +49,8 @@ export class Game {
         for (const p of players) {
             await this.criarChatPlayer(p);
             
-            // const cargo = cargosDistribuidos.pop();
-            const cargo = "EVANGELISTA";
+            const cargo = cargosDistribuidos.pop();
+            // const cargo = "EVANGELISTA";
             if (!cargo) {
                 console.error("Cargo não encontrado (IniciarJogo)")
                 return;
