@@ -1,12 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { log } from 'node:console';
-
-const adapter = new PrismaBetterSqlite3({
-  url: "file:./dev.db",
-});
-
-export const prisma = new PrismaClient({ adapter });
+import { prisma } from "../prisma/prisma.js";
 
 export const OfertaDAO = {
     async createOferta(guildId: string, emissorId: string, alvoId: string, habilidadeId: string, etapa: number, nomeOferta: string, item?: string, parametros?: string) {

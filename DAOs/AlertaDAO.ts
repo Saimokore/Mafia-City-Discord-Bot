@@ -1,12 +1,4 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { log } from 'node:console';
-
-const adapter = new PrismaBetterSqlite3({
-  url: "file:./dev.db",
-});
-
-export const prisma = new PrismaClient({ adapter });
+import { prisma } from "../prisma/prisma.js";
 
 export const AlertaDAO = {
     async createAlerta(guildId: string, userId: string, etapa: number, alerta: string) {
@@ -21,7 +13,7 @@ export const AlertaDAO = {
             });
 
             if (!playerExists) {
-                console.error(`Falha ao criar alerta: Jogador com userId ${userId} não existe na guild ${guildId}.`);
+                console.error(`[AlertaDAO] Falha ao criar alerta: Jogador com userId ${userId} não existe na guild ${guildId}.`);
                 return null; 
             }
 
@@ -34,7 +26,7 @@ export const AlertaDAO = {
                 }
             });
         } catch (e) {
-            console.log("Erro ao criar alerta:", e);
+            console.log("[AlertaDAO] Erro ao criar alerta:", e);
         }
     },
 }

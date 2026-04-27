@@ -1,12 +1,5 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { log } from 'node:console';
-
-const adapter = new PrismaBetterSqlite3({
-  url: "file:./dev.db",
-});
-
-export const prisma = new PrismaClient({ adapter });
+import { Prisma } from '@prisma/client';
+import { prisma } from "../prisma/prisma.js";
 
 export const PartidaDAO = {
     async createPartida(guildId: string) {

@@ -1,12 +1,5 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { log } from 'node:console';
-
-const adapter = new PrismaBetterSqlite3({
-  url: "file:./dev.db",
-});
-
-export const prisma = new PrismaClient({ adapter });
+import { Prisma } from '@prisma/client';
+import { prisma } from "../prisma/prisma.js";
 
 export const HabilidadeDAO = {
     async createHabilidade(nome: string, userId: string, guildId: string, uso: number, tipo: string, etapa: string) {
@@ -22,7 +15,7 @@ export const HabilidadeDAO = {
                 }
             })
         } catch (error) {
-            console.log("Erro ao criar habilidade:", error);
+            console.log("[HabilidadeDAO] Erro ao criar habilidade:", error);
         }
     },
 
@@ -33,7 +26,7 @@ export const HabilidadeDAO = {
                 data: dados
             });
         } catch (e) {
-            console.log("Erro ao atualizar habilidade:", e);
+            console.log("[HabilidadeDAO] Erro ao atualizar habilidade:", e);
         }
     },
 
@@ -47,7 +40,7 @@ export const HabilidadeDAO = {
                 }
             });
         } catch (error) {
-            console.error(`Erro ao buscar habilidadeId para ${nome} do player ${userId} na guild ${guildId}: ${error}`);
+            console.error(`[HabilidadeDAO] Erro ao buscar habilidadeId para ${nome} do player ${userId} na guild ${guildId}: ${error}`);
         }
     },
 
@@ -57,7 +50,7 @@ export const HabilidadeDAO = {
                 where: { id }
             });
         } catch (error) {
-            console.error(`Erro ao buscar habilidadeId ${id}: ${error}`);
+            console.error(`[HabilidadeDAO] Erro ao buscar habilidadeId ${id}: ${error}`);
         }
     },
 }

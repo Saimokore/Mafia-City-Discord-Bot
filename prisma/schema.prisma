@@ -32,6 +32,8 @@ model Partida {
   finalizadoEm DateTime? // Preenchido quando o jogo acaba
 
   players Player[]
+  eventos Evento[]
+  gatilhosAtivos GatilhoAtivo[]
 
   @@unique([guildId])
 }
@@ -56,19 +58,21 @@ model Player {
   cartas      Carta[]
   ofertas     Oferta[]
 
-  actions     Action[] // acoes que o jogador usou
-  alvos       Alvo[] // vezes que o jogador foi o alvo de uma acao
+  gatilhosDono GatilhoAtivo[] @relation("GatilhosDono")
 
   dadosExtra String @default("{}") // JSON string com dados específicos do cargo (ex: número de vezes que usou a habilidade) extremamente importante
 
-  protecao    Int @default(0)
+  protecao      Int @default(0)
   protecaoInata Int @default(0)
-  
+
   quantCartas Int @default(3)
   distrito    Int @default(0)
 
   status String @default("{}") // JSON string - Obliterado vem aqui tbm
   marcas String @default("{}") // JSON string
+
+  eventosCausados Evento[]     @relation("EventosCausados")
+  eventosSofridos EventoAlvo[] @relation("EventosSofridos")
 
   @@unique([guildId, userId])
 }
@@ -100,36 +104,64 @@ model Carta {
   player Player @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
 }
 
-model Action {
-  id      String @id @default(uuid())
-  userId  String
-  guildId String
+model GatilhoAtivo {
+  id             String   @id @default(uuid())
+  partidaId      String
+  partida        Partida  @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+  donoId         String
+  dono           Player   @relation("GatilhosDono", fields: [donoId], references: [id], onDelete: Cascade)
+  
+  etapa          Int      // etapa em que o gatilho deve ser processado
+  prioridade     Int      // quais gatilhos são executados primeiro
+  
+  status         String   @default("ATIVO") // ATIVO, PROCESSADO, CANCELADO
+  tipoGatilho    String   // AO_AVANCAR_ETAPA, AO_MORRER...
+  
+  habilidadeId   String?  // se for atrelado a uma habilidade
+  habilidade     Habilidade? @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
+  
+  origemEventoId String?  // se ele foi criado por um evento
 
-  tipo    String @default("") // Ofensiva, Instantanea...
-  sucesso String @default("PENDENTE") // PENDENTE, SUCEDIDA, FALHA
+  payload        String   @default("{}") // JSON contendo as variaveis (alvo_um, palpite, etc)
+  criadoEm       DateTime @default(now())
 
-  etapa        Int
-  habilidadeId String
-  habilidade   Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
-  alvos        Alvo[]
-
-  parametrosAcao String? // JSON string com parâmetros específicos da ação (ex: número de vezes que usou a habilidade) mt importante
-
-  player Player @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
-
-  @@unique([guildId, userId, habilidadeId, etapa])
+  @@index([partidaId, etapa, status])
 }
 
-model Alvo {
-  id     String @id @default(uuid())
+model Evento {
+  id   String @id @default(uuid())
+  tipo String // AO_USAR, ATACAR, AO_MORRER..
+
+  partidaId String
+  partida   Partida @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+
+  etapa Int
+
+  fonteId String? // quem causou (null se for o sistema)
+  fonte   Player? @relation("EventosCausados", fields: [fonteId], references: [id], onDelete: Cascade)
+
+  payload String @default("{}") // parametros da acao em JSON
+
+  origemEventoId String?
+  origemEvento   Evento?  @relation("CadeiaCausal", fields: [origemEventoId], references: [id], onDelete: Cascade)
+  eventosFilhos  Evento[] @relation("CadeiaCausal")
+
+  alvos    EventoAlvo[]
+  criadoEm DateTime     @default(now())
+
+  @@index([partidaId, etapa])
+}
+
+model EventoAlvo {
+  id String @id @default(uuid())
+
+  eventoId String
+  evento   Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
 
   alvoId String
-  actionId String
+  alvo   Player @relation("EventosSofridos", fields: [alvoId], references: [id], onDelete: Cascade)
 
-  action   Action @relation(fields: [actionId], references: [id], onDelete: Cascade)
-  player   Player @relation(fields: [alvoId], references: [id], onDelete: Cascade)
-
-  @@unique([alvoId, actionId])
+  @@unique([eventoId, alvoId])
 }
 
 model Habilidade {
@@ -145,7 +177,7 @@ model Habilidade {
   guildId String
 
   player  Player   @relation(fields: [userId, guildId], references: [userId, guildId], onDelete: Cascade)
-  actions Action[]
+  gatilhos GatilhoAtivo[]
   ofertas Oferta[]
 
   @@unique([guildId, userId, nome, etapa])
@@ -184,9 +216,9 @@ model Oferta {
   etapa      Int
 
   criadoEm DateTime @default(now())
-  player   Player  @relation(fields: [emissorId], references: [id], onDelete: Cascade)
+  player   Player   @relation(fields: [emissorId], references: [id], onDelete: Cascade)
 
-  habilidade  Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
+  habilidade Habilidade @relation(fields: [habilidadeId], references: [id], onDelete: Cascade)
 
   @@unique([guildId, emissorId, alvoId, etapa, nomeOferta])
 }

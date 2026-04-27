@@ -8,9 +8,7 @@ import { PlayerDAO } from './DAOs/PlayerDAO.js';
 import { OfertaDAO } from './DAOs/OfertaDAO.js';
 import { HabilidadeDAO } from './DAOs/HabilidadeDAO.js';
 import { AlertaDAO } from './DAOs/AlertaDAO.js';
-import type { Player } from './Player/Player.js';
 import type { HabilidadeDinamica } from './Player/Habilidades/HabilidadeDinamica.js';
-import { Action } from './Player/Action.js';
 import { testes } from './testes.js';
 
 dotenv.config();

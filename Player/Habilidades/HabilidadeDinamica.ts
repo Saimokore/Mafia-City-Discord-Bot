@@ -164,7 +164,7 @@ export class HabilidadeDinamica extends Habilidade {
         }
     }
 
-    public async ativar(game: Game, action: Action | null, gatilhoDisparo: string = TipoGatilho.AoAvancarEtapa, emissorOpcional?: Player): Promise<boolean> {
+    public async ativar(game: Game, gatilho: any | null, eventoDisparo: string): Promise<boolean> {
         
         const gatilho = this.regras.gatilhos.find(g => g.evento === gatilhoDisparo);
         if (!gatilho) return true;

@@ -5,6 +5,7 @@ import { Action }      from "../Action.js";
 import { HabilidadeDinamica, PoderAtaque, NivelProtecao } from "./HabilidadeDinamica.js";
 import { ActionRowBuilder, StringSelectMenuBuilder, TextChannel } from "discord.js";
 import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
+import { EventoDAO } from "../../DAOs/EventoDAO.js";
 
 export interface ResultadoAcaoAnterior {
     foiSucedida: boolean;
@@ -18,6 +19,7 @@ interface EfeitoContext<A extends TipoAcao = TipoAcao> {
     variaveis: Record<string, unknown>;
     action?:   Action | undefined;
     habilidade: HabilidadeDinamica;
+    origemEventoId?: string;
 }
 
 type EfeitoHandlerFn<A extends TipoAcao> = (ctx: EfeitoContext<A>) => Promise<ResultadoAcaoAnterior | void>;
@@ -266,8 +268,6 @@ const alterarProtInataHandler: EfeitoHandlerFn<TipoAcao.AlterarProtInata> = asyn
     await game.getPlayerManager().updatePlayer(alvo, { protecaoInata: novaProtecao });
 };
 
-const
-
 const HANDLERS: Record<TipoAcao, EfeitoHandlerFn<any>> = {
     [TipoAcao.Nenhuma]:     async () => ({ foiSucedida: true }), // handler vazio, serve pra checar condiçoes
 
@@ -306,6 +306,23 @@ export class EffectHandler {
         if (!handler) {
             console.warn(`[EffectHandler] Handler não implementado para a ação: ${ctx.efeito.acao}`);
             return { foiSucedida: false };
+        }
+
+        if (!ctx.game.getIsTeste() && !ctx.game.isTransicaoEtapa()) {
+            const etapaAtual = await ctx.game.getEtapaAtual();
+            const eventoSalvo = await EventoDAO.registrar(
+                ctx.game.getGuildId(),
+                etapaAtual,
+                ctx.efeito.acao, // ATACAR, PROTEGER, BLOQUEAR, etc
+                ctx.emissor.getId(),
+                [ctx.alvo.getId()],
+                ctx.efeito.parametros || {},
+                ctx.origemEventoId // null é evento pai, ID é evento filho
+            );
+
+            if (eventoSalvo) {
+                ctx.origemEventoId = eventoSalvo.id;
+            }
         }
 
         const resultado = await handler(ctx);

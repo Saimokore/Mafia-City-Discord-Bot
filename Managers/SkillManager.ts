@@ -1,7 +1,7 @@
 import { Game } from "./GameManager.js";
 import { Cargo } from "../Player/Cargo.js";
 import { PartidaDAO } from "../DAOs/PartidaDAO.js";
-import { ActionDAO } from "../DAOs/ActionDAO.js";
+import { GatilhoAtivoDAO } from "../DAOs/GatilhoAtivoDAO.js";
 import { OfertaDAO } from "../DAOs/OfertaDAO.js";
 import { AlertaDAO } from "../DAOs/AlertaDAO.js";
 import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
@@ -32,37 +32,37 @@ export class SkillManager {
         
         await this.checkOfertas();
         
-        const actions = await ActionDAO.getActionsByEtapa(this.guildId, partida.etapaAtual);
-        if (!actions || actions.length === 0) {
+        const gatilhos = await GatilhoAtivoDAO.getGatilhosPendentes(partida.id, partida.etapaAtual);
+        if (!gatilhos || gatilhos.length === 0) {
             console.log(`Nenhuma ação registrada para a etapa ${partida.etapaAtual}.`);
             return;
         }
         
-        actions.sort((a, b) => {
-            const habA = this.getHabilidadeInstance(a.habilidade.nome, a.habilidade.id)?.getPrioridade() || 0;
-            const habB = this.getHabilidadeInstance(b.habilidade.nome, b.habilidade.id)?.getPrioridade() || 0;
-            return habB - habA;
-        });
-        
-        for (const action of actions) {
-            const player = await this.game.getPlayerManager().loadPlayer(action.userId);
-            const habilidade = player?.getHabilidades()?.find(h => h.getId() === action.habilidadeId);
-            if (!player || !habilidade) {
-                console.error(`Player/Habilidade não encontrado ${action.userId}`);
-                continue;
+        for (const gatilho of gatilhos) {
+            const player = await this.game.getPlayerManager().loadPlayer(gatilho.donoId);
+            if (!player) continue;
+
+            let habilidade: HabilidadeDinamica | undefined;
+            if (gatilho.habilidadeId) {
+                habilidade = player?.getHabilidades()?.find(h => h.getId() === gatilho.habilidadeId);
             }
 
-            if (habilidade.getTipo() === "Instantanea") {
-                continue;
+            if (habilidade) {
+                if (habilidade.getTipo() === "Instantanea") continue;
+                
+                if (habilidade.getStatus() === "IMPEDIDA") {
+                    console.log(`Habilidade ${habilidade.getNome()} bloqueada. Cancelando gatilho.`);
+                    await GatilhoAtivoDAO.marcarComoProcessado(gatilho.id);
+                    continue;
+                }
+                
+                // Passamos o gatilho inteiro e deixamos a habilidade se virar
+                await habilidade.ativar(this.game, gatilho, gatilho.tipoGatilho);
+            } else {
+                // gatilho de sistema
             }
-            
-            if (habilidade.getStatus() === "IMPEDIDA") {
-                console.log(`Habilidade ${habilidade.getNome()} do jogador ${player.getUserId()} foi impedida e não pode ser usada.`);
-                continue;
-            }
-            
-            const sucesso = await habilidade.ativarHabilidade(this.game, new Action(action))
-            await ActionDAO.updateAction(action.id, { sucesso: sucesso ? "SUCEDIDA" : "FALHA"});
+
+            await GatilhoAtivoDAO.marcarComoProcessado(gatilho.id);
         }
     }
 
@@ -117,13 +117,21 @@ export class SkillManager {
         await AlertaDAO.createAlerta(this.guildId, user.getUserId(), await this.game.getEtapaAtual(), alerta)
     }
 
-    public async criarAction(userId: string, habilidadeId: string, tipo: string, alvos?: Player[], parametros?: string): Promise<Action> {
-        const alvosIds = alvos?.map(a => a.getId());
+    public async criarGatilho(donoId: string, tipoGatilho: string, habilidadeId?: string, payload?: any, prioridade: number = 0) {
+        const partida = await PartidaDAO.getPartida(this.guildId);
+        if (!partida) return null;
 
-        console.log(`Criando action: User ${userId}, Habilidade ${habilidadeId}, Tipo ${tipo}, Alvos ${alvosIds}, Parametros ${parametros}`);
-        const action = await ActionDAO.createAction(userId, this.guildId, tipo, await this.game.getEtapaAtual(), habilidadeId, alvosIds || [], parametros);
-
-        return new Action(action!);
+        console.log(`Criando Gatilho: Dono ${donoId}, Hab ${habilidadeId}, Tipo ${tipoGatilho}`);
+        
+        return await GatilhoAtivoDAO.criarGatilho(
+            partida.id,
+            donoId,
+            await this.game.getEtapaAtual(),
+            tipoGatilho,
+            prioridade,
+            payload || {},
+            habilidadeId
+        );
     }
 
     public async criarOferta(emissorId: string, alvo: Player, habilidade: HabilidadeDinamica, nomeOferta: string, item?: string, parametros?: string): Promise<void> {

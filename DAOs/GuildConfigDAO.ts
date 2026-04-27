@@ -1,12 +1,5 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { log } from 'node:console';
-
-const adapter = new PrismaBetterSqlite3({
-  url: "file:./dev.db",
-});
-
-export const prisma = new PrismaClient({ adapter });
+import { Prisma } from '@prisma/client';
+import { prisma } from "../prisma/prisma.js";
 
 export const GuildConfigDAO = {
 
@@ -18,7 +11,7 @@ export const GuildConfigDAO = {
                 create: { guildId }
             });
         } catch (error) {
-            console.log("Erro ao buscar guild config:", error);
+            console.log("[GuildConfigDAO] Erro ao buscar guild config:", error);
         }
     },
     
@@ -30,7 +23,7 @@ export const GuildConfigDAO = {
                 create: { guildId }
             });
         } catch (error) {
-            console.log("Erro ao atualizar guild config:", error);
+            console.log("[GuildConfigDAO] Erro ao atualizar guild config:", error);
         }
     },
 }
