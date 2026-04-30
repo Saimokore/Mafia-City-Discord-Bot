@@ -49,7 +49,7 @@ export const PlayerDAO = {
                         guildId
                     }
                 },
-                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, actions: true }
+                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, gatilhosDono: true }
             });
         } catch (error) {
             console.log("Erro ao procurar jogador:", error);
@@ -60,7 +60,7 @@ export const PlayerDAO = {
         try {
             return await prisma.player.findUnique({
                 where: { id },
-                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, actions: true }
+                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, gatilhosDono: true }
             });
         } catch (error) {
             console.log("Erro ao procurar jogador:", error);
@@ -89,7 +89,7 @@ export const PlayerDAO = {
                 where: {
                     guildId
                 },
-                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, actions: true }
+                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, gatilhosDono: true }
             });
         } catch (error) {
             console.log("Erro ao procurar jogadores:", error);

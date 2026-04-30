@@ -17,9 +17,9 @@ interface EfeitoContext<A extends TipoAcao = TipoAcao> {
     emissor:   Player;
     alvo:      Player;
     variaveis: Record<string, unknown>;
-    action?:   Action | undefined;
+    gatilho?:  Action | null | undefined; 
     habilidade: HabilidadeDinamica;
-    origemEventoId?: string;
+    origemEventoId?: string | undefined;
 }
 
 type EfeitoHandlerFn<A extends TipoAcao> = (ctx: EfeitoContext<A>) => Promise<ResultadoAcaoAnterior | void>;
@@ -29,9 +29,9 @@ const criarOfertaHandler: EfeitoHandlerFn<TipoAcao.CriarOferta> = async ({ habil
     await habilidade.ofertarPlayer(game, emissor.getId(), alvo, efeito.parametros!.nomeOferta);
 };
 
-const atacarHandler: EfeitoHandlerFn<TipoAcao.Atacar> = async ({ habilidade, game, alvo, emissor, action, efeito }) => {
+const atacarHandler: EfeitoHandlerFn<TipoAcao.Atacar> = async ({ habilidade, game, alvo, emissor, gatilho, efeito }) => {
     const poder = efeito.parametros?.poderAtaque ?? PoderAtaque.AtaqueBasico;
-    const matou = await habilidade.atacarPlayer(game, poder, alvo, emissor, action);
+    const matou = await habilidade.atacarPlayer(game, poder, alvo, emissor);
     return { foiSucedida: matou };
 };
 

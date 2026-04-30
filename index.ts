@@ -9,7 +9,6 @@ import { OfertaDAO } from './DAOs/OfertaDAO.js';
 import { HabilidadeDAO } from './DAOs/HabilidadeDAO.js';
 import { AlertaDAO } from './DAOs/AlertaDAO.js';
 import type { HabilidadeDinamica } from './Player/Habilidades/HabilidadeDinamica.js';
-import { testes } from './testes.js';
 
 dotenv.config();
 
@@ -275,16 +274,13 @@ client.on('messageCreate', async (message: Message) => {
         }
     }
 
-    // =================================================================
-    // 🧪 MOCK DE TESTE AUTOMATIZADO DA ENGINE ECA
-    // =================================================================
     if (message.content === prefix + 'testengine') {
-        message.reply("🧪 **Iniciando Teste Automatizado da Engine ECA...** Verifique o terminal!");
-        console.log("\n==================================================");
-        console.log("🚀 INICIANDO BATERIA DE TESTES AUTOMATIZADOS");
-        console.log("==================================================");
+        // message.reply("🧪 **Iniciando Teste Automatizado da Engine ECA...** Verifique o terminal!");
+        // console.log("\n==================================================");
+        // console.log("🚀 INICIANDO BATERIA DE TESTES AUTOMATIZADOS");
+        // console.log("==================================================");
 
-        await testes(game);
+        // await testes(game);
     }
 });
 
@@ -532,7 +528,7 @@ client.on('interactionCreate', async interaction => {
 
         const habilidade = emissorPlayer.getHabilidade(nomeHabilidade!);
         if (habilidade) {
-            await (habilidade as HabilidadeDinamica).resolverInput(game, interaction as any, alvoPlayer, emissorPlayer);
+            await (habilidade as HabilidadeDinamica).resolverInput(game, interaction as any, emissorPlayer);
             
             await interaction.editReply({ content: "✅ Resposta registrada!", components: [] });
         }

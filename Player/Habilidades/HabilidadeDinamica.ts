@@ -1,13 +1,12 @@
-import { ActionRowBuilder, UserSelectMenuBuilder, StringSelectMenuBuilder, ModalBuilder, ModalSubmitInteraction, LabelBuilder, StringSelectMenuInteraction, TextInputBuilder } from "discord.js";
-import { type DefinicaoHabilidade, type Efeito, type Condicao, type Gatilho, TipoGatilho, TipoSujeito, TipoInput } from "../ECA.js";
+import { ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
+import { type DefinicaoHabilidade, type Efeito, TipoGatilho, TipoSujeito, TipoInput } from "../ECA.js";
 import { Game } from "../../Managers/GameManager.js";
 import { Habilidade } from "../Habilidade.js";
 import { Player } from "../Player.js";
 import { Action } from "../Action.js";
-import { access } from "node:fs";
 import { OfertaDAO } from "../../DAOs/OfertaDAO.js";
 import { ConditionEvaluator } from "./ConditionEvaluator.js";
-import { EffectHandler } from "./EffectHandler.js";
+import { EffectHandler, type ResultadoAcaoAnterior } from "./EffectHandler.js";
 import { SkillModalBuilder } from "./SkillModalBuilder.js";
 
 export enum PoderAtaque {
@@ -36,8 +35,8 @@ export class HabilidadeDinamica extends Habilidade {
         this.skillModalBuilder = new SkillModalBuilder();
     }
 
-    public async ativarHabilidade(game: Game, action: Action): Promise<boolean> {
-        return await this.ativar(game, action);
+    public async ativarHabilidade(game: Game, gatilhoAtivo: Action, eventoDisparo: string): Promise<boolean> {
+        return await this.ativar(game, gatilhoAtivo, eventoDisparo);
     }
 
     public async buildModal(interaction: StringSelectMenuInteraction, game: Game, quemUsouId: string) {
@@ -117,9 +116,8 @@ export class HabilidadeDinamica extends Habilidade {
         const oferta = await OfertaDAO.getOfertaById(ofertaId);
         if (!oferta) return;
 
-        const playerAlvo = await game.getPlayerManager().loadPlayer(oferta.alvoId);
         const emissor = await game.getPlayerManager().loadPlayer(oferta.emissorId);
-        if (!emissor || !playerAlvo) return;
+        if (!emissor) return;
 
         const variaveis = oferta.parametros ? JSON.parse(oferta.parametros) : {};
 
@@ -128,11 +126,11 @@ export class HabilidadeDinamica extends Habilidade {
         const gatilho = this.regras.gatilhos.find(g => g.evento === gatilhoEsperado);
         if (!gatilho) return;
 
-        await this.executarEfeitos(game, gatilho.efeitos, emissor, playerAlvo, variaveis);
+        await this.executarEfeitos(game, gatilho.efeitos, emissor, variaveis, null);
     }
 
     // vai ser pra resolver todos os inputs provenientes dos players, tipo selecionar alvo, classe, cargo, ou responder texto/numero
-    public async resolverInput(game: Game, interaction: StringSelectMenuInteraction | ModalSubmitInteraction, alvo: Player, emissor?: Player): Promise<void> {
+    public async resolverInput(game: Game, interaction: StringSelectMenuInteraction | ModalSubmitInteraction, emissor?: Player): Promise<void> {
         const variaveis: Record<string, unknown> = {};
         
         // skill_input_Evangelho_1234_habilidade_sacrificada
@@ -147,64 +145,91 @@ export class HabilidadeDinamica extends Habilidade {
 
         variaveis["customId"] = idVariavel;
 
-        const regraInput = this.regras.inputs?.find(input => input.idVariavel === idVariavel);
-        if (regraInput?.validacao) {
-            const condicoesOk = await this.conditionEval.avaliar(game, regraInput.validacao, emissor!, alvo, variaveis);
-            if (!condicoesOk) {
-                await interaction.reply({ content: `❌ **Erro:** A validação do input ${regraInput.texto} falhou. Verifique os requisitos e tente novamente.` });
-                return;
-            }
-        }
-
         const gatilho = this.regras.gatilhos.find(g => g.evento === TipoGatilho.AoResolverInput);
         if (!gatilho) return;
 
         if (emissor) {
-            await this.executarEfeitos(game, gatilho.efeitos, emissor, alvo, variaveis);
+            await this.executarEfeitos(game, gatilho.efeitos, emissor, variaveis, null);
         }
     }
 
-    public async ativar(game: Game, gatilho: any | null, eventoDisparo: string): Promise<boolean> {
+    public async ativar(game: Game, gatilhoAtivo: Action | null, eventoDisparo: string, emissorOpcional?: Player): Promise<boolean> {
         
-        const gatilho = this.regras.gatilhos.find(g => g.evento === gatilhoDisparo);
-        if (!gatilho) return true;
+        const defGatilho = this.regras.gatilhos?.find(g => g.evento === eventoDisparo);
+        if (!defGatilho) return false;
 
-        const emissor = action ? await game.getPlayerManager().loadPlayer(action.getEmissorUserId()) : emissorOpcional;
+        const variaveis = gatilhoAtivo ? gatilhoAtivo.getPayload() : {};
+
+        let emissor = emissorOpcional || null;
+        if (gatilhoAtivo && !emissor) {
+            emissor = await game.getPlayerManager().loadPlayer(gatilhoAtivo.getDonoId());
+        }
         if (!emissor) return false;
 
-        const alvos = await this.resolverAlvos(game, gatilho.efeitos, action);
-
-        if (alvos.length === 0) {
-            const variaveis = this.parseParametros(action);
-            await this.executarEfeitos(game, gatilho.efeitos, emissor, emissor, variaveis, action ?? undefined);
-            return true;
+        const avaliador = new ConditionEvaluator();
+        if (defGatilho.condicoes && defGatilho.condicoes.length > 0) {
+            const passouGlobais = await avaliador.avaliar(game, defGatilho.condicoes, emissor, emissor, variaveis);
+            
+            if (!passouGlobais) {
+                if (defGatilho.aoFalhar) {
+                    await this.executarEfeitos(game, defGatilho.aoFalhar, emissor, variaveis, gatilhoAtivo);
+                }
+                return false;
+            }
         }
 
-        const variaveis = this.parseParametros(action);
-
-        for (const alvo of alvos) {
-            await this.executarEfeitos(game, gatilho.efeitos, emissor, alvo, variaveis, action ?? undefined);
-        }
-
+        await this.executarEfeitos(game, defGatilho.efeitos, emissor, variaveis, gatilhoAtivo);
         return true;
     }
 
-    public async executarEfeitos(game: Game, efeitos: Efeito[], emissor: Player, alvo: Player, variaveis: Record<string, unknown>, action?: Action) {
-        let resultadoAnterior = { foiSucedida: false };
+    private async executarEfeitos(game: Game, efeitos: Efeito[], emissor: Player, variaveis: Record<string, unknown>, gatilhoAtivo: Action | null, resultadoAnterior?: ResultadoAcaoAnterior) {
+        const avaliador = new ConditionEvaluator();
 
         for (const efeito of efeitos) {
-            const condicoesOk = await this.conditionEval.avaliar(game, efeito.condicoes, emissor, alvo, variaveis, resultadoAnterior);
-            if (!condicoesOk) continue;
- 
-            resultadoAnterior = await this.effectHandler.executar({
-                game, efeito, emissor, alvo, variaveis, action,
-                habilidade: this,
-            });
+            let alvosDoEfeito: Player[] = [];
 
-            if (efeito.aoSuceder && resultadoAnterior.foiSucedida) {
-                await this.executarEfeitos(game, efeito.aoSuceder, emissor, alvo, variaveis, action);
-            } else if (efeito.aoFalhar && !resultadoAnterior.foiSucedida) {
-                await this.executarEfeitos(game, efeito.aoFalhar, emissor, alvo, variaveis, action);
+            if (efeito.alvo === TipoSujeito.Emissor) {
+                alvosDoEfeito.push(emissor);
+            } else if (efeito.alvo === TipoSujeito.TodosJogadores) {
+                const todos = await game.getPlayerManager().getAllPlayers();
+                if (todos) alvosDoEfeito = todos;
+            } else if (typeof efeito.alvo === "string" && efeito.alvo.startsWith("VARIAVEL.")) {
+                const nomeVar = (efeito.alvo as string).replace("VARIAVEL.", "");
+                const idAlvo = variaveis[nomeVar] as string;
+                
+                if (idAlvo) {
+                    const playerAlvo = await game.getPlayerManager().loadPlayer(idAlvo);
+                    if (playerAlvo) alvosDoEfeito.push(playerAlvo);
+                }
+            }
+
+            if (alvosDoEfeito.length === 0) continue;
+
+            for (const alvo of alvosDoEfeito) {
+                const passou = await avaliador.avaliar(game, efeito.condicoes, emissor, alvo, variaveis, resultadoAnterior);
+                
+                if (passou) {
+                    const ctx = {
+                        game, 
+                        efeito, 
+                        emissor, 
+                        alvo, 
+                        variaveis,
+                        gatilho: gatilhoAtivo,
+                        habilidade: this,
+                        origemEventoId: gatilhoAtivo?.getOrigemEventoId()
+                    };
+
+                    const resultado = await this.effectHandler.executar(ctx);
+                    
+                    if (efeito.aoSuceder) {
+                        await this.executarEfeitos(game, efeito.aoSuceder, emissor, variaveis, gatilhoAtivo, resultado);
+                    }
+                } else {
+                    if (efeito.aoFalhar) {
+                        await this.executarEfeitos(game, efeito.aoFalhar, emissor, variaveis, gatilhoAtivo, { foiSucedida: false });
+                    }
+                }
             }
         }
     }
@@ -221,7 +246,7 @@ export class HabilidadeDinamica extends Habilidade {
         await game.getSkillManager().criarAlerta(alvo, `Você recebeu a oferta: ${nomeOferta}! Digite /offer para responder.`)
     }
 
-    public async atacarPlayer(game: Game, poderAtaque: PoderAtaque, alvo: Player, assassino: Player, action?: Action): Promise<boolean> {
+    public async atacarPlayer(game: Game, poderAtaque: PoderAtaque, alvo: Player, assassino: Player): Promise<boolean> {
         console.log(`[HabilidadeDinamica] Poder de ataque: ${poderAtaque} e proteção do alvo: ${alvo.getProtecao()}`);
         alvo.triggerGatilho(game, TipoGatilho.AoSerAtacado);
 
@@ -277,44 +302,18 @@ export class HabilidadeDinamica extends Habilidade {
         }
  
 
-        const action = await game.getSkillManager().criarAction(
-            emissor.getUserId(),
+        await game.getSkillManager().criarGatilho(
+            emissor.getId(),
+            this.getTipo() === "Instantanea" ? TipoGatilho.AoUsar : TipoGatilho.AoAvancarEtapa,
             this.getId()!,
-            this.getTipo(),
-            alvos,
-            JSON.stringify(variaveis),
+            variaveis
         );
  
         if (this.getTipo() === "Instantanea") {
-            await this.ativar(game, action, TipoGatilho.AoUsar);
+            await this.ativar(game, null, TipoGatilho.AoUsar, emissor);
         }
  
         return interaction.reply({ content: `Habilidade **${this.getNome()}** armada com sucesso!` });
-    }
- 
-    private async resolverAlvos(game: Game, efeitos: Efeito[], action: Action | null): Promise<Player[]> {
-        if (efeitos.some(e => e.alvo === TipoSujeito.TodosJogadores)) {
-            return (await game.getPlayerManager().getAllPlayers()) ?? [];
-        }
- 
-        if (!action) return [];
- 
-        const alvos: Player[] = [];
-        for (const alvoId of action.getAlvos()) {
-            const player = await game.getPlayerManager().loadPlayer(alvoId);
-            if (player) alvos.push(player);
-            else console.error(`[HabilidadeDinamica] Não carregou player com ID ${alvoId}`);
-        }
-        return alvos;
-    }
- 
-    private parseParametros(action: Action | null): Record<string, unknown> {
-        try {
-            return action?.getParametros() ? JSON.parse(action.getParametros()) : {};
-        } catch {
-            console.error("[HabilidadeDinamica] Falha ao parsear parâmetros da action");
-            return {};
-        }
     }
 
     public getConditionEvaluator(): ConditionEvaluator {

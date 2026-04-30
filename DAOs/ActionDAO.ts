@@ -1,23 +1,23 @@
 import { prisma } from "../prisma/prisma.js";
 
-export const GatilhoAtivoDAO = {
+export const ActionDAO = {
     async criarGatilho(
         partidaId: string,
         donoId: string,
         etapa: number,
-        tipoGatilho: string,
+        tipo: string,
         prioridade: number = 0,
         payload: any = {},
         habilidadeId?: string,
         origemEventoId?: string
     ) {
         try {
-            return await prisma.gatilhoAtivo.create({
+            return await prisma.action.create({
                 data: {
                     partidaId,
                     donoId,
                     etapa,
-                    tipoGatilho,
+                    tipo,
                     prioridade,
                     payload: JSON.stringify(payload),
                     habilidadeId: habilidadeId || null,
@@ -25,14 +25,14 @@ export const GatilhoAtivoDAO = {
                 }
             });
         } catch (error) {
-            console.error(`[GatilhoAtivoDAO] Erro ao criar gatilho ${tipoGatilho}:`, error);
+            console.error(`[ActionDAO] Erro ao criar action ${tipo}:`, error);
             return null;
         }
     },
 
     async getGatilhosPendentes(partidaId: string, etapa: number) {
         try {
-            return await prisma.gatilhoAtivo.findMany({
+            return await prisma.action.findMany({
                 where: {
                     partidaId,
                     etapa,
@@ -46,19 +46,19 @@ export const GatilhoAtivoDAO = {
                 }
             });
         } catch (error) {
-            console.error(`[GatilhoAtivoDAO] Erro ao buscar gatilhos pendentes na etapa ${etapa}:`, error);
+            console.error(`[ActionDAO] Erro ao buscar actions pendentes na etapa ${etapa}:`, error);
             return null;
         }
     },
 
     async marcarComoProcessado(id: string) {
         try {
-            return await prisma.gatilhoAtivo.update({
+            return await prisma.action.update({
                 where: { id },
                 data: { status: "PROCESSADO" }
             });
         } catch (error) {
-            console.error(`[GatilhoAtivoDAO] Erro ao marcar gatilho ${id} como processado:`, error);
+            console.error(`[ActionDAO] Erro ao marcar action ${id} como processado:`, error);
             return null;
         }
     }

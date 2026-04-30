@@ -49,7 +49,7 @@ export class Game {
         for (const p of players) {
             await this.criarChatPlayer(p);
             
-            const cargo = cargosDistribuidos.pop();
+            const cargo = "ATIRADOR_DE_ELITE"; //cargosDistribuidos.pop();
             // const cargo = "EVANGELISTA";
             if (!cargo) {
                 console.error("Cargo não encontrado (IniciarJogo)")
@@ -212,12 +212,12 @@ export class Game {
         this.setTransicaoEtapa(true);
         await this.playerManager.carregarCache();
 
-        await this.skillManager.executarActions();
+        await this.skillManager.executarGatilhos();
 
         await this.playerManager.commitBatch();
         await this.skillManager.commitBatch();
 
-        await this.verificarVitoria();
+        // await this.verificarVitoria();
 
         this.setTransicaoEtapa(false);
         this.playerManager.limparCache();

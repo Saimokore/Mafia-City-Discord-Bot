@@ -1,7 +1,7 @@
 import { Game } from "./GameManager.js";
 import { Cargo } from "../Player/Cargo.js";
 import { PartidaDAO } from "../DAOs/PartidaDAO.js";
-import { GatilhoAtivoDAO } from "../DAOs/GatilhoAtivoDAO.js";
+import { ActionDAO } from "../DAOs/ActionDAO.js";
 import { OfertaDAO } from "../DAOs/OfertaDAO.js";
 import { AlertaDAO } from "../DAOs/AlertaDAO.js";
 import { HabilidadeDAO } from "../DAOs/HabilidadeDAO.js";
@@ -23,46 +23,46 @@ export class SkillManager {
         this.batchHabilidades = new Map();
     }
 
-    public async executarActions() {
+    public async executarGatilhos() {
         const partida = await PartidaDAO.getPartida(this.guildId);
-        if (!partida) {
-            console.error(`Partida não encontrada para guildId ${this.guildId}`);
-            return;
-        }
+        if (!partida) return;
         
         await this.checkOfertas();
         
-        const gatilhos = await GatilhoAtivoDAO.getGatilhosPendentes(partida.id, partida.etapaAtual);
-        if (!gatilhos || gatilhos.length === 0) {
-            console.log(`Nenhuma ação registrada para a etapa ${partida.etapaAtual}.`);
+        const rawGatilhos = await ActionDAO.getGatilhosPendentes(partida.id, partida.etapaAtual);
+        if (!rawGatilhos || rawGatilhos.length === 0) {
+            console.log(`Nenhum gatilho registrado para a etapa ${partida.etapaAtual}.`);
             return;
         }
         
-        for (const gatilho of gatilhos) {
-            const player = await this.game.getPlayerManager().loadPlayer(gatilho.donoId);
-            if (!player) continue;
+        for (const rawGatilho of rawGatilhos) {
+            
+            const gatilhoObj = new Action(rawGatilho);
 
+            const player = await this.game.getPlayerManager().loadPlayer(gatilhoObj.getDonoId());
+            
             let habilidade: HabilidadeDinamica | undefined;
-            if (gatilho.habilidadeId) {
-                habilidade = player?.getHabilidades()?.find(h => h.getId() === gatilho.habilidadeId);
+            if (gatilhoObj.getHabilidadeId()) {
+                habilidade = player?.getHabilidades()?.find(h => h.getId() === gatilhoObj.getHabilidadeId());
             }
+
+            if (!player) continue;
 
             if (habilidade) {
                 if (habilidade.getTipo() === "Instantanea") continue;
                 
                 if (habilidade.getStatus() === "IMPEDIDA") {
                     console.log(`Habilidade ${habilidade.getNome()} bloqueada. Cancelando gatilho.`);
-                    await GatilhoAtivoDAO.marcarComoProcessado(gatilho.id);
+                    await ActionDAO.marcarComoProcessado(gatilhoObj.getId());
                     continue;
                 }
                 
-                // Passamos o gatilho inteiro e deixamos a habilidade se virar
-                await habilidade.ativar(this.game, gatilho, gatilho.tipoGatilho);
+                await habilidade.ativar(this.game, gatilhoObj, gatilhoObj.getTipo());
             } else {
-                // gatilho de sistema
+                // é gatilho de sistema
             }
 
-            await GatilhoAtivoDAO.marcarComoProcessado(gatilho.id);
+            await ActionDAO.marcarComoProcessado(gatilhoObj.getId());
         }
     }
 
@@ -123,7 +123,7 @@ export class SkillManager {
 
         console.log(`Criando Gatilho: Dono ${donoId}, Hab ${habilidadeId}, Tipo ${tipoGatilho}`);
         
-        return await GatilhoAtivoDAO.criarGatilho(
+        return await ActionDAO.criarGatilho(
             partida.id,
             donoId,
             await this.game.getEtapaAtual(),

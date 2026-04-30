@@ -4,7 +4,7 @@ import {
     TipoAcao, TipoAtributo, TipoOperador,
     Alinhamento,
 } from "../ECA.js";
-import { PoderAtaqueProtecao } from "./HabilidadeDinamica.js";
+import { NivelProtecao, PoderAtaque } from "./HabilidadeDinamica.js";
 
 export const regraSnipe: DefinicaoHabilidade = {
     nome: "Snipe",
@@ -33,7 +33,7 @@ export const regraSnipe: DefinicaoHabilidade = {
                 {
                     acao: TipoAcao.Atacar,
                     alvo: TipoSujeito.Alvo,
-                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso },
+                    parametros: { poderAtaque: PoderAtaque.AtaquePoderoso },
                     condicoes: [
                         {
                             sujeito: TipoSujeito.Alvo,
@@ -61,7 +61,7 @@ export const regraSnipe: DefinicaoHabilidade = {
                 {
                     acao: TipoAcao.Atacar,
                     alvo: TipoSujeito.Alvo,
-                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaqueBasico },
+                    parametros: { poderAtaque: PoderAtaque.AtaqueBasico },
                     condicoes: [
                         {
                             sujeito: TipoSujeito.Alvo,
@@ -266,7 +266,7 @@ export const regraMassacre: DefinicaoHabilidade = {
                         acao: TipoAcao.Nenhuma,
                         alvo: TipoSujeito.TodosJogadores,
                         condicoes: [
-                            { sujeito: TipoSujeito.Alvo, atributo: TipoAtributo.Id, operador: TipoOperador.IgualA, valorEsperado: "VARIAVEL.alvo_dois" },
+                            { sujeito: TipoSujeito.Alvo, atributo: TipoAtributo.ID, operador: TipoOperador.IgualA, valorEsperado: "VARIAVEL.alvo_dois" },
                             { sujeito: TipoSujeito.Alvo, atributo: TipoAtributo.Classe, operador: TipoOperador.IgualA, valorEsperado: "VARIAVEL.palpite_dois" }
                         ],
                         // Se todas as checagens passarem, o inferno é liberado:
@@ -313,7 +313,7 @@ export const regraExecucaoPublica: DefinicaoHabilidade = {
                 {
                     acao: TipoAcao.Atacar,
                     alvo: TipoSujeito.Alvo,
-                    parametros: { poderAtaque: PoderAtaqueProtecao.Obliteracao },
+                    parametros: { poderAtaque: PoderAtaque.Obliteracao },
                     condicoes: [
                         {
                             sujeito: TipoSujeito.Alvo,
@@ -333,7 +333,7 @@ export const regraExecucaoPublica: DefinicaoHabilidade = {
                 {
                     acao: TipoAcao.Atacar,
                     alvo: TipoSujeito.Alvo,
-                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso },
+                    parametros: { poderAtaque: PoderAtaque.AtaquePoderoso },
                     condicoes: [
                         {
                             sujeito: TipoSujeito.Alvo,
@@ -353,7 +353,7 @@ export const regraExecucaoPublica: DefinicaoHabilidade = {
                 {
                     acao: TipoAcao.Atacar,
                     alvo: TipoSujeito.Emissor,
-                    parametros: { poderAtaque: PoderAtaqueProtecao.Obliteracao },
+                    parametros: { poderAtaque: PoderAtaque.Obliteracao },
                     condicoes: [
                         {
                             sujeito: TipoSujeito.Alvo,
@@ -484,7 +484,7 @@ export const regraEscolta: DefinicaoHabilidade = {
                 {
                     acao: TipoAcao.Atacar,
                     alvo: TipoSujeito.Alvo,
-                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso }
+                    parametros: { poderAtaque: PoderAtaque.AtaquePoderoso }
                 }
             ]
         
@@ -514,7 +514,7 @@ export const regraExemplo: DefinicaoHabilidade = {
                 {
                     acao: TipoAcao.Atacar,
                     alvo: TipoSujeito.Alvo,
-                    parametros: { poderAtaque: PoderAtaqueProtecao.AtaquePoderoso }
+                    parametros: { poderAtaque: PoderAtaque.AtaquePoderoso }
                 }
             ]
         
