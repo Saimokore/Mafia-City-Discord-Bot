@@ -1,0 +1,137 @@
+import { Prisma } from '@prisma/client';
+import { prisma } from "../../prisma/prisma.js";
+import type { Habilidade } from '../domain/entities/Habilidade.js';
+
+export const PlayerDAO = {
+    
+    async createPlayer(guildId: string, userId: string, username: string, dadosExtra?: string) {
+        try {
+            return await prisma.player.create({
+                data: {
+                    guildId,
+                    userId,
+                    username,
+                    dadosExtra: dadosExtra || "{}"
+                }
+            });
+        } catch (error) {
+            console.log("Erro ao criar jogador:", error);
+        }
+    },
+
+    async updatePlayer(id: string, dados: Prisma.PlayerUpdateInput) {
+        try {
+            return await prisma.player.update({
+                where: { id },
+                data: dados
+            });
+        } catch (e) {
+            console.log("Erro ao atualizar jogador:", e);
+        }
+    },
+
+    async updatePlayerByUserId(userId: string, guildId: string, dados: Prisma.PlayerUpdateInput) {
+        try {
+            return await prisma.player.update({
+                where: { guildId_userId: { userId, guildId } },
+                data: dados
+            });
+        } catch (e) {
+            console.log("Erro ao atualizar jogador:", e);
+        }
+    },
+
+    async atribuirCargoComHabilidades(
+        playerId: string,
+        userId: string,
+        guildId: string,
+        cargoNome: string,
+        habilidades: Habilidade[]
+    ) {
+        return await prisma.$transaction(async (tx) => {
+            await tx.player.update({
+                where: { id: playerId },
+                data: { cargo: cargoNome }
+            });
+
+            if (habilidades.length > 0) {
+                await tx.habilidade.createMany({
+                    data: habilidades.map(hab => ({
+                        nome: hab.getNome(),
+                        userId: userId,
+                        guildId: guildId,
+                        uso: hab.getUso(),
+                        tipo: hab.getTipo(),
+                        etapa: hab.getEtapa()
+                    }))
+                });
+            }
+        });
+    },
+
+    async getPlayerByUserId(userId: string, guildId: string) {
+        try {
+            return await prisma.player.findUnique({
+                where: {
+                    guildId_userId: {
+                        userId,
+                        guildId
+                    }
+                },
+                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, gatilhosDono: true }
+            });
+        } catch (error) {
+            console.log("Erro ao procurar jogador:", error);
+        }
+    },
+
+    async getPlayerById(id: string) {
+        try {
+            return await prisma.player.findUnique({
+                where: { id },
+                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, gatilhosDono: true }
+            });
+        } catch (error) {
+            console.log("Erro ao procurar jogador:", error);
+        }
+    },
+
+    async findPlayerWithUserIdOrId(user: string, guildId: string) {
+        try {
+            return await prisma.player.findFirst({
+                where: {
+                    OR: [
+                        { id: user },
+                        { AND: [{ userId: user }, { guildId }] }
+                    ]
+                },
+                include: { cartas: true, alertas: true, habilidades: true, itens: true }
+            });
+        } catch (error) {
+            console.log("Erro ao procurar jogador:", error);
+        }
+    },
+
+    async getPlayers(guildId: string) {
+        try {
+            return await prisma.player.findMany({
+                where: {
+                    guildId
+                },
+                include: { cartas: true, habilidades: true, itens: true, ofertas: true, alertas: true, gatilhosDono: true }
+            });
+        } catch (error) {
+            console.log("Erro ao procurar jogadores:", error);
+        }
+    },
+
+    async deletePlayer(id: string) {
+        try {
+            return await prisma.player.delete({
+                where: { id }
+            });
+        } catch (e) {
+            console.log("Erro ao remover jogador:", e);
+        }
+    },    
+}

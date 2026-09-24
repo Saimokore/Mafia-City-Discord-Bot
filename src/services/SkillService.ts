@@ -1,17 +1,17 @@
 import { Game } from "./GameManager.js";
 import { Cargo } from "../Player/Cargo.js";
-import { PartidaDAO } from "../src/daos/PartidaDAO.js";
-import { ActionDAO } from "../src/daos/ActionDAO.js";
-import { OfertaDAO } from "../src/daos/OfertaDAO.js";
-import { AlertaDAO } from "../src/daos/AlertaDAO.js";
-import { HabilidadeDAO } from "../src/daos/HabilidadeDAO.js";
+import { PartidaDAO } from "../daos/PartidaDAO.js";
+import { ActionDAO } from "../daos/ActionDAO.js";
+import { OfertaDAO } from "../daos/OfertaDAO.js";
+import { AlertaDAO } from "../daos/AlertaDAO.js";
+import { HabilidadeDAO } from "../daos/HabilidadeDAO.js";
 import { Player } from "../Player/Player.js";
 import { Action } from "../Player/Action.js";
 import { RegrasHabilidades } from "../Player/Habilidades/habilidades.js";
 import { HabilidadeDinamica } from "../domain/skills/HabilidadeDinamica.js";
 import { CargosDoJogo } from "../Player/Habilidades/cargos.js";
 
-export class SkillManager {
+export class SkillService {
     private guildId: string;
     private game: Game;
 

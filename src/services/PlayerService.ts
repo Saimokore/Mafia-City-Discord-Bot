@@ -1,11 +1,9 @@
 import { ButtonStyle, ActionRowBuilder, ButtonBuilder, EmbedBuilder } from "discord.js";
 import { Game } from "./GameManager.js";
 import { Player } from "../Player/Player.js";
-import { PlayerDAO } from "../src/daos/PlayerDAO.js";
+import { PlayerDAO } from "../daos/PlayerDAO.js";
 import type { Prisma } from "@prisma/client";
-import { platform } from "node:os";
 import type { DadoExtra } from "../domain/types/Tipos.js";
-import type { Habilidade } from "../Player/Habilidade.js";
 import type { HabilidadeDinamica } from "../domain/skills/HabilidadeDinamica.js";
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{
@@ -17,7 +15,7 @@ export type PrismaPlayer = Prisma.PlayerGetPayload<{
     }
 }>;
 
-export class PlayerManager {
+export class PlayerService {
     private guildId: string;
     private game: Game;
 
@@ -31,64 +29,7 @@ export class PlayerManager {
         this.playersCache = [];
         this.batchUpdates = new Map();
     }
-
-    public async buildOferta(ofertaId: string, emissorId: string, nomeOferta: string) {
-        const player = await this.loadPlayer(emissorId);
-        const embed = new EmbedBuilder()
-            .setTitle(`Uma Oferta foi feita para você!`)
-            .setDescription(`**${player!.getCargo()!.getNome()}** está te oferecendo **${nomeOferta}**.`)
-            .setColor('#2b2d31')
-            .setFooter({ text: 'Escolha com sabedoria. Esta decisão é talvez permanente para esta etapa.' });
-
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`offer_button_accept_${nomeOferta}_${ofertaId}`)
-                .setLabel('Aceitar')
-                .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId(`offer_button_deny_${nomeOferta}_${ofertaId}`)
-                .setLabel('Recusar')
-                .setStyle(ButtonStyle.Danger)
-        );
-
-        return {
-            embeds: [embed],
-            components: [row]
-        };
-    }
-
-    public async updatePlayer(player: Player, updates: any) {
-        
-        if (updates.estaVivo !== undefined) player.setEstaVivo(updates.estaVivo);
-        if (updates.protecao !== undefined) player.setProtecao(updates.protecao);
-        if (updates.status !== undefined) player.setStatus(updates.status);
-        if (updates.dadosExtra !== undefined) player.setDadosExtra(updates.dadosExtra);
-
-        // 2. Se for de dia (Instantânea), salva no banco na hora!
-        if (!this.game.isTransicaoEtapa()) {
-            await PlayerDAO.updatePlayer(player.getId(), updates);
-            return;
-        }
-
-        // 3. Se for de noite (Transição), guarda a alteração no "carrinho"
-        const id = player.getId();
-        const atual = this.batchUpdates.get(id) || {};
-        this.batchUpdates.set(id, { ...atual, ...updates });
-    }
-
-    public async commitBatch() {
-        if (this.batchUpdates.size === 0) return;
-        
-        console.log(`[DB] Salvando ${this.batchUpdates.size} jogadores simultaneamente...`);
-        
-        const promises = Array.from(this.batchUpdates.entries()).map(([id, updates]) => {
-            return PlayerDAO.updatePlayer(id, updates);
-        });
-
-        await Promise.all(promises);
-        this.batchUpdates.clear();
-    }
-
+    
     public async carregarCache(): Promise<void> {
         const players = await PlayerDAO.getPlayers(this.guildId);
         
@@ -108,7 +49,7 @@ export class PlayerManager {
         if (!players) return null;
         return players.map(p => new Player(this.game, p));
     }
-
+    
     public async loadPlayer(user: string | PrismaPlayer): Promise<Player | null> {
         if (typeof user === "string") {
             // Aqui ele pega do cache, isso é no avanço de etapa
@@ -124,9 +65,41 @@ export class PlayerManager {
         }
     }
 
-    public async sendPlayersStatus(): Promise<void> {
+    public async updatePlayer(player: Player, updates: any) {
+        
+        if (updates.estaVivo !== undefined) player.setEstaVivo(updates.estaVivo);
+        if (updates.protecao !== undefined) player.setProtecao(updates.protecao);
+        if (updates.status !== undefined) player.setStatus(updates.status);
+        if (updates.dadosExtra !== undefined) player.setDadosExtra(updates.dadosExtra);
+
+        if (!this.game.isTransicaoEtapa()) {
+            await PlayerDAO.updatePlayer(player.getId(), updates);
+            return;
+        }
+
+        const id = player.getId();
+        const atual = this.batchUpdates.get(id) || {};
+        this.batchUpdates.set(id, { ...atual, ...updates });
+    }
+
+    public async commitBatch() {
+        if (this.batchUpdates.size === 0) return;
+        
+        console.log(`[DB] Salvando ${this.batchUpdates.size} jogadores simultaneamente...`);
+        
+        const promises = Array.from(this.batchUpdates.entries()).map(([id, updates]) => {
+            return PlayerDAO.updatePlayer(id, updates);
+        });
+
+        await Promise.all(promises);
+        this.batchUpdates.clear();
+    }
+
+    public async enviarStatusPlayers(): Promise<void> {
         const players = await this.getAllPlayers();
-        players?.forEach(p => this.game.sendMensagemPlayer(p, p.getInfo()));
+        for (const player of players) {
+            await this.game.getChannelService().enviarMensagemPrivada(player, player.getInfo());
+        }
     }
 
     public async bloquearPlayer(alvo: Player) {

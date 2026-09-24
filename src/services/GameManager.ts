@@ -1,13 +1,15 @@
 import { ChannelType, Client, PermissionFlagsBits, TextChannel, User } from "discord.js";
-import { PlayerManager } from "./PlayerManager.js";
+import { PlayerManager, PlayerService } from "./PlayerService.js";
 import { Partida } from "../Player/Partida.js";
-import { PartidaDAO } from "../src/daos/PartidaDAO.js";
-import { PlayerDAO } from "../src/daos/PlayerDAO.js";
-import { HabilidadeDAO } from "../src/daos/HabilidadeDAO.js";
-import { GuildConfigDAO } from "../src/daos/GuildConfigDAO.js";
-import { SkillManager } from "./SkillManager.js";
+import { PartidaDAO } from "../daos/PartidaDAO.js";
+import { PlayerDAO } from "../daos/PlayerDAO.js";
+import { HabilidadeDAO } from "../daos/HabilidadeDAO.js";
+import { GuildConfigDAO } from "../daos/GuildConfigDAO.js";
+import { SkillManager, SkillService } from "./SkillService.js";
 import { Player } from "../Player/Player.js";
 import { ConditionEvaluator } from "../Player/Habilidades/ConditionEvaluator.js";
+import { DiscordChannelService } from "../infrastructure/discord/DiscordChannelService.js";
+import { PlayerEmbeds } from "../views/embeds/PlayerEmbeds.js";
 
 export class Game {
     private guildId: string;
@@ -15,8 +17,9 @@ export class Game {
     private cargoList: string[];
     private etapaAtual: number;
 
-    private playerManager: PlayerManager;
-    private skillManager: SkillManager;
+    private playerService: PlayerService;
+    private skillService: SkillService;
+    private channelService: DiscordChannelService;
 
     private transicaoEtapa: boolean;
     private isTeste: boolean = false;
@@ -26,8 +29,9 @@ export class Game {
         this.client = client;
         this.etapaAtual = 1;
 
-        this.playerManager = new PlayerManager(this.guildId, this);
-        this.skillManager = new SkillManager(this.guildId, this);
+        this.playerService = new PlayerService(this.guildId, this);
+        this.skillService = new SkillService(this.guildId, this);
+        this.channelService = new DiscordChannelService(this.client.guilds.cache.get(this.guildId)!, this.client);
         
         this.cargoList = ["EVANGELISTA", "ATIRADOR_DE_ELITE", "DETETIVE", "BIGODE", "DOIDAO"];
         this.transicaoEtapa = false;
@@ -35,13 +39,13 @@ export class Game {
 
     public async iniciarJogo(): Promise<void> {
         await PartidaDAO.updatePartida(this.guildId, { status: "ATIVA" });
-        await this.sendAnuncio("A partida começou! O lobby está fechado. Que a cidade esteja com vocês! 🌆");
+        await this.channelService.enviarAnuncio("A partida começou! O lobby está fechado. Que a cidade esteja com vocês! 🌆");
 
         try {
             await this.giveCargoPlayers();
         } catch (error) {
             console.error("Erro ao iniciar o jogo:", error);
-            await this.sendAnuncio("Ocorreu um erro ao iniciar o jogo. Por favor, tente novamente mais tarde.");
+            await this.channelService.enviarAnuncio("Ocorreu um erro ao iniciar o jogo. Por favor, tente novamente mais tarde.");
             return;
         }
 
@@ -51,47 +55,27 @@ export class Game {
     public async giveCargoPlayers() {
         // const cargosDistribuidos = [...this.cargoList].sort(() => Math.random() - 0.5);
         
-        const players = await this.playerManager.getAllPlayers();
+        const players = await this.playerService.getAllPlayers();
         if (!players || players.length === 0) {
             throw new Error("Players não encontrados");
         } 
 
-        for (const p of players) {
+        for (const player of players) {
             try {
-                await this.criarChatPlayer(p);
-            } catch (error) {
-                console.error(`Erro ao criar chat para o jogador ${p.getUsername()}:`, error);
-                await this.sendMensagemPlayer(p, "Ocorreu um erro ao criar seu chat privado. Por favor, contate o administrador do jogo.");
-                continue;
-            }
-            
-            const cargo = "ATIRADOR_DE_ELITE"; //cargosDistribuidos.pop();
-            // const cargo = "EVANGELISTA";
-            if (!cargo) {
-                throw new Error("Cargo não encontrado (IniciarJogo)");
-            }
-            
-            const cargoObj = await this.skillManager.getCargoInstance(cargo);
-            if (cargoObj === null) {
-                throw new Error(`Cargo ${cargo} não encontrado (IniciarJogo)`);
-            }
+                const canal = await this.channelService.criarChatPrivado(player);
+                player.setUserChat(canal.id);
+                await PlayerDAO.updatePlayer(player.getId(), { userChat: canal.id });
 
-            const habilidades = cargoObj.getHabilidades();
-            
-            try {
-                await PlayerDAO.updatePlayer(p.getId(), { cargo: `${cargo}` });
-            } catch (error) {
-                console.error(`Erro ao atualizar o jogador ${p.getUsername()}:`, error);
-                await this.sendAnuncio("Ocorreu um erro ao iniciar o jogo.");
-                throw new Error(`Erro ao atualizar o jogador ${p.getUsername()}: ${error}`);
-            }
-            
-            try {
+                const cargoNome = "ATIRADOR_DE_ELITE";
+                const cargoObj = this.skillService.getCargoInstance(cargoNome);
+                if (!cargoObj) throw new Error(`Cargo ${cargoNome} não encontrado.`);
+
+                await PlayerDAO.updatePlayer(player.getId(), { cargo: cargoNome });
                 await Promise.all(
-                    habilidades.map(hab =>
+                    cargoObj.getHabilidades().map(hab =>
                         HabilidadeDAO.createHabilidade(
                             hab.getNome(),
-                            p.getUserId(),
+                            player.getUserId(),
                             this.guildId,
                             hab.getUso(),
                             hab.getTipo(),
@@ -99,13 +83,15 @@ export class Game {
                         )
                     )
                 );
-            } catch (error) {
-                console.error(`Erro ao criar habilidades para o jogador ${p.getUsername()}:`, error);
-                await this.sendAnuncio("Ocorreu um erro ao iniciar o jogo.");
-                throw new Error(`Erro ao criar habilidades para o jogador ${p.getUsername()}: ${error}`);
-            }
 
-            await this.sendMensagemPlayer(p, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
+                await this.channelService.enviarMensagemPrivada(
+                    player,
+                    { embeds: [PlayerEmbeds.boasVindasPlayer(cargoObj)] }
+                );
+
+            } catch (error) {
+                console.error(`Erro ao distribuir cargo para ${player.getUsername()}:`, error);
+            }
         }
     }
 
@@ -184,15 +170,8 @@ export class Game {
             if (!players) throw new Error("Players não encontrados");
             for (const player of players) {
                 const userChat = player.getUserChat();
-                if (userChat) {
-                    try {
-                        const channel = await this.client.channels.fetch(userChat) as TextChannel;
-                        await channel.delete("Partida finalizada, limpando canais privados.");
-                    } catch (error) {
-                        console.warn(`Não consegui deletar o canal do jogador ${player.getUsername()}:`, error);
-                        await PlayerDAO.updatePlayer(player.getId(), { userChat: null })
-                    }
-                }
+                
+                await this.discordChannelService.deletarCanal(userChat);                
                 await PlayerDAO.deletePlayer(player.getId());
             }
         } catch (error) {
@@ -201,49 +180,6 @@ export class Game {
 
         //deleto a partida em si
         await PartidaDAO.deletePartida(this.guildId);
-    }
-
-    public async criarChatPlayer(player: Player): Promise<void> {
-        const nome = `chat-${player.getUsername()}`;
-        const userId = player.getUserId(); 
-        const guild = await this.client.guilds.fetch(this.guildId);
-
-        const permissoes = [
-            {
-                id: guild.id, // @everyone
-                deny: [PermissionFlagsBits.ViewChannel],
-            },
-            {
-                id: userId,
-                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
-            }
-        ];
-
-        const canal = await guild.channels.create({
-            name: nome,
-            type: ChannelType.GuildText,
-            // permissionOverwrites: permissoes,
-            reason: 'Novo chat privado para o jogo'
-        });
-
-        const canalId = canal.id;
-        await PlayerDAO.updatePlayer(player.getId(), { userChat: canalId });
-
-        console.log(`Canal ${canal.name} criado com sucesso!`);
-    }
-
-    public async sendAnuncio(mensagem: string): Promise<void> {
-        const config = await GuildConfigDAO.getConfig(this.guildId);
-        if (!config || !config.canalAnuncioId) return;
-
-        try {
-            const canal = await this.client.channels.fetch(config.canalAnuncioId) as TextChannel;
-            if (canal) {
-                await canal.send(`📢 **ANÚNCIO DA CIDADE:**\n${mensagem}`);
-            }
-        } catch (error) {
-            console.error("Erro ao enviar anúncio. O canal ainda existe?", error);
-        }
     }
 
     public async avancarEtapa(): Promise<void> {
@@ -271,20 +207,6 @@ export class Game {
             await this.iniciarDia();
         } else {
             await this.iniciarNoite();
-        }
-    }
-    
-    public async sendMensagemPlayer(user: Player, mensagem: string): Promise<void> {
-        try {
-            const userChat = user.getUserChat();
-            if (userChat) {
-                const channel = await this.client.channels.fetch(userChat) as TextChannel;
-                await channel.send(mensagem);
-            } else {
-                console.warn(`O jogador ${user.getUsername()} não tem um canal de chat registrado.`);
-            }
-        } catch (error) {
-            console.log(`Não consegui mandar mensagem para o user ${user.getUsername()}`);
         }
     }
     

@@ -104,7 +104,7 @@ export class Game {
                 await this.sendAnuncio("Ocorreu um erro ao iniciar o jogo.");
                 throw new Error(`Erro ao criar habilidades para o jogador ${p.getUsername()}: ${error}`);
             }
-
+            
             await this.sendMensagemPlayer(p, "Bem-vindo à cidade! Sua jornada começa agora. Prepare-se para enfrentar os desafios que virão! 🏙️");
         }
     }
