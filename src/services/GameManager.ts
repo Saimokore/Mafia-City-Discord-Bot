@@ -1,13 +1,13 @@
 import { ChannelType, Client, PermissionFlagsBits, TextChannel, User } from "discord.js";
 import { PlayerManager, PlayerService } from "./PlayerService.js";
-import { Partida } from "../Player/Partida.js";
+import { Partida } from "../domain/entities/Partida.js";
 import { PartidaDAO } from "../daos/PartidaDAO.js";
 import { PlayerDAO } from "../daos/PlayerDAO.js";
 import { HabilidadeDAO } from "../daos/HabilidadeDAO.js";
 import { GuildConfigDAO } from "../daos/GuildConfigDAO.js";
 import { SkillManager, SkillService } from "./SkillService.js";
-import { Player } from "../Player/Player.js";
-import { ConditionEvaluator } from "../Player/Habilidades/ConditionEvaluator.js";
+import { Player } from "../domain/entities/Player.js";
+import { ConditionEvaluator } from "../domain/skills/ConditionEvaluator.js";
 import { DiscordChannelService } from "../infrastructure/discord/DiscordChannelService.js";
 import { PlayerEmbeds } from "../views/embeds/PlayerEmbeds.js";
 

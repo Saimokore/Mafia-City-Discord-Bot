@@ -1,6 +1,6 @@
 import { ButtonStyle, ActionRowBuilder, ButtonBuilder, EmbedBuilder } from "discord.js";
 import { Game } from "./GameManager.js";
-import { Player } from "../Player/Player.js";
+import { Player } from "../domain/entities/Player.js";
 import { PlayerDAO } from "../daos/PlayerDAO.js";
 import type { Prisma } from "@prisma/client";
 import type { DadoExtra } from "../domain/types/Tipos.js";

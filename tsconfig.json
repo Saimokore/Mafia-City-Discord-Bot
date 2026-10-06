@@ -44,6 +44,19 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "outDir": "./dist",
-  }
+    "outDir": "./dist"
+  },
+  "include": [
+    "src/**/*.ts",
+    "prisma/**/*.ts",
+    "deploy-commands.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "Managers",
+    "domain",
+    "services",
+    "Player"
+  ]
 }

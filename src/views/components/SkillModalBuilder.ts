@@ -8,9 +8,9 @@ import {
     StringSelectMenuInteraction,
 } from "discord.js";
 
-import { type DefinicaoHabilidade, type Input, TipoInput } from "../ECA.js";
-import { ClassesDoJogo } from "./classes.js";
-import { CargosDoJogo } from "./cargos.js";
+import { type DefinicaoHabilidade, type Input, TipoInput } from "../../Player/ECA.js";
+import { ClassesDoJogo } from "../../Player/Habilidades/classes.js";
+import { CargosDoJogo } from "../../Player/Habilidades/cargos.js";
 
 export class SkillModalBuilder {
 
