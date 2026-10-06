@@ -1,6 +1,6 @@
 import type { Game } from "../../services/GameService.js";
-import { TipoAtributo, TipoSujeito, type Condicao, TipoOperador } from "../ECA.js";
-import { Player } from "../Player.js";
+import { TipoAtributo, TipoSujeito, type Condicao, TipoOperador } from "./ECA.js";
+import { Player } from "../entities/Player.js";
 import type { ResultadoAcaoAnterior } from "./EffectHandler.js";
 
 export class ConditionEvaluator {

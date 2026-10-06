@@ -1,13 +1,13 @@
 import { ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
-import { type DefinicaoHabilidade, type Efeito, TipoGatilho, TipoSujeito, TipoInput } from "../../infrastructure/ECA.js";
+import { type DefinicaoHabilidade, type Efeito, TipoGatilho, TipoSujeito, TipoInput } from "./ECA.js";
 import { Game } from "../../services/GameService.js";
-import { Habilidade } from "../../Player/Habilidade.js";
-import { Player } from "../../Player/Player.js";
-import { Action } from "../../Player/Action.js";
+import { Habilidade } from "../entities/Habilidade.js";
+import { Player } from "../entities/Player.js";
+import { Action } from "../entities/Action.js";
 import { OfertaDAO } from "../../daos/OfertaDAO.js";
 import { ConditionEvaluator } from "./ConditionEvaluator.js";
-import { EffectHandler, type ResultadoAcaoAnterior } from "../../Player/Habilidades/EffectHandler.js";
-import { SkillModalBuilder } from "../../Player/Habilidades/SkillModalBuilder.js";
+import { EffectHandler, type ResultadoAcaoAnterior } from "./EffectHandler.js";
+import { SkillModalBuilder } from "../../views/components/SkillModalBuilder.js";
 
 export enum PoderAtaque {
     AtaqueBasico = 1,

@@ -1,12 +1,12 @@
-import { Game } from '../Managers/GameManager.js';
+import { Game } from '../../services/GameService.js';
 import { Cargo } from "./Cargo.js";
 import { Habilidade } from "./Habilidade.js";
 import { Carta } from "./Carta.js";
 import { Alerta } from "./Alerta.js";
 import { Prisma } from '@prisma/client';
-import type { DadoExtra } from "../domain/types/Tipos.js";
-import type { HabilidadeDinamica } from '../domain/skills/HabilidadeDinamica.js';
-import type { MapaParametrosAcao, TipoGatilho } from './ECA.js';
+import type { DadoExtra } from "../types/Tipos.js";
+import type { HabilidadeDinamica } from '../skills/HabilidadeDinamica.js';
+import type { MapaParametrosAcao, TipoGatilho } from '../skills/ECA.js';
 import type { Action } from './Action.js';
 
 export type PrismaPlayer = Prisma.PlayerGetPayload<{

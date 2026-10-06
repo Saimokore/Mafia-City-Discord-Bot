@@ -1,5 +1,5 @@
 import { Client, Collection, GatewayIntentBits, Message, StringSelectMenuBuilder, ActionRowBuilder, MessageFlags, ButtonBuilder, EmbedBuilder } from 'discord.js';
-import { Game } from '../services/GameManager.js';
+import { Game } from './services/GameService.js';
 import * as dotenv from 'dotenv';
 import { channel } from 'node:diagnostics_channel';
 import { GuildConfigDAO } from './daos/GuildConfigDAO.js';
@@ -8,7 +8,7 @@ import { PlayerDAO } from './daos/PlayerDAO.js';
 import { OfertaDAO } from './daos/OfertaDAO.js';
 import { HabilidadeDAO } from './daos/HabilidadeDAO.js';
 import { AlertaDAO } from './daos/AlertaDAO.js';
-import type { HabilidadeDinamica } from '../domain/skills/HabilidadeDinamica.js';
+import type { HabilidadeDinamica } from './domain/skills/HabilidadeDinamica.js';
 
 dotenv.config();
 

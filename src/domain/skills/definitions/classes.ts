@@ -1,4 +1,4 @@
-import type { DefinicaoClasse } from "ECA.js";
+import type { DefinicaoClasse } from "../ECA.js";
 
 export const ClassesDoJogo: Record<string, DefinicaoClasse> = {
     "CIDADE_JUSTICEIRO": { alinhamento: "Cidade", nome: "Justiceiro" },

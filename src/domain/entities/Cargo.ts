@@ -1,6 +1,6 @@
-import type { Condicao, DefinicaoCargo } from './ECA.js';
-import { ClassesDoJogo } from './Habilidades/classes.js';
-import type { HabilidadeDinamica } from '../domain/skills/HabilidadeDinamica.js';
+import type { Condicao, DefinicaoCargo } from '../skills/ECA.js';
+import { ClassesDoJogo } from '../skills/definitions/classes.js';
+import type { HabilidadeDinamica } from '../skills/HabilidadeDinamica.js';
 
 export class Cargo {
     private definicao: DefinicaoCargo;

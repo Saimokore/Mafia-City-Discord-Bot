@@ -1,4 +1,4 @@
-import type { DefinicaoCargo } from "./ECA.js";
+import type { DefinicaoCargo } from "../ECA.js";
 
 
 export const CargosDoJogo: Record<string, DefinicaoCargo> = {

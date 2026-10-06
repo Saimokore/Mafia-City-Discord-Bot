@@ -1,4 +1,4 @@
-import type { NivelProtecao, PoderAtaque } from "../domain/skills/HabilidadeDinamica.js";
+import type { NivelProtecao, PoderAtaque } from "./HabilidadeDinamica.js";
 
 export enum Alinhamento {
     Cidade = "Cidade",

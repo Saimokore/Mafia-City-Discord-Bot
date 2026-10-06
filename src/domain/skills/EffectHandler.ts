@@ -1,8 +1,8 @@
-import { type Efeito, TipoAcao, TipoInput } from "../ECA.js";
+import { type Efeito, TipoAcao, TipoInput } from "./ECA.js";
 import { Game }        from "../../services/GameService.js";
-import { Player }      from "../Player.js";
-import { Action }      from "../Action.js";
-import { HabilidadeDinamica, PoderAtaque, NivelProtecao } from "../../domain/skills/HabilidadeDinamica.js";
+import { Player }      from "../entities/Player.js";
+import { Action }      from "../entities/Action.js";
+import { HabilidadeDinamica, PoderAtaque, NivelProtecao } from "./HabilidadeDinamica.js";
 import { ActionRowBuilder, StringSelectMenuBuilder, TextChannel } from "discord.js";
 import { OfertaDAO } from "../../daos/OfertaDAO.js";
 import { EventoDAO } from "../../daos/EventoDAO.js";

@@ -1,12 +1,12 @@
 import { Game } from "./GameService.js";
-import { Cargo } from "../Player/Cargo.js";
+import { Cargo } from "../domain/entities/Cargo.js";
 import { PartidaDAO } from "../daos/PartidaDAO.js";
 import { ActionDAO } from "../daos/ActionDAO.js";
 import { OfertaDAO } from "../daos/OfertaDAO.js";
 import { AlertaDAO } from "../daos/AlertaDAO.js";
 import { HabilidadeDAO } from "../daos/HabilidadeDAO.js";
-import { Player } from "../Player/Player.js";
-import { Action } from "../Player/Action.js";
+import { Player } from "../domain/entities/Player.js";
+import { Action } from "../domain/entities/Action.js";
 import { RegrasHabilidades } from "../domain/skills/definitions/habilidades.js";
 import { HabilidadeDinamica } from "../domain/skills/HabilidadeDinamica.js";
 import { CargosDoJogo } from "../domain/skills/definitions/cargos.js";
