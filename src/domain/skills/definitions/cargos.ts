@@ -1,5 +1,5 @@
-import type { DefinicaoCargo } from "../ECA.js";
-import { regraEvangelho, regraSnipe } from "./habilidades.js";
+import type { DefinicaoCargo } from "./ECA.js";
+
 
 export const CargosDoJogo: Record<string, DefinicaoCargo> = {
     "EVANGELISTA": {

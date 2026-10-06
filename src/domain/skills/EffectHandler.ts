@@ -1,5 +1,5 @@
 import { type Efeito, TipoAcao, TipoInput } from "../ECA.js";
-import { Game }        from "../../services/GameManager.js";
+import { Game }        from "../../services/GameService.js";
 import { Player }      from "../Player.js";
 import { Action }      from "../Action.js";
 import { HabilidadeDinamica, PoderAtaque, NivelProtecao } from "../../domain/skills/HabilidadeDinamica.js";

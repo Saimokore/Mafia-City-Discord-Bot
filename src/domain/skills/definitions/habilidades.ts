@@ -4,7 +4,7 @@ import {
     TipoAcao, TipoAtributo, TipoOperador,
     Alinhamento,
 } from "../ECA.js";
-import { NivelProtecao, PoderAtaque } from "../../domain/skills/HabilidadeDinamica.js";
+import { NivelProtecao, PoderAtaque } from "../HabilidadeDinamica.js";
 
 export const regraSnipe: DefinicaoHabilidade = {
     nome: "Snipe",

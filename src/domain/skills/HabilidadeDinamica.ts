@@ -1,6 +1,6 @@
 import { ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
-import { type DefinicaoHabilidade, type Efeito, TipoGatilho, TipoSujeito, TipoInput } from "../../Player/ECA.js";
-import { Game } from "../../services/GameManager.js";
+import { type DefinicaoHabilidade, type Efeito, TipoGatilho, TipoSujeito, TipoInput } from "../../infrastructure/ECA.js";
+import { Game } from "../../services/GameService.js";
 import { Habilidade } from "../../Player/Habilidade.js";
 import { Player } from "../../Player/Player.js";
 import { Action } from "../../Player/Action.js";
