@@ -14,7 +14,10 @@ const comandos = [
     ,
     new SlashCommandBuilder()
         .setName('offer')
-        .setDescription('Permite aceitar ou recusar uma oferta [accept/refuse]')
+        .setDescription('Permite aceitar ou recusar uma oferta [accept/refuse]'),
+    new SlashCommandBuilder()
+        .setName('startgame')
+        .setDescription('Inicia a partida criada neste servidor.')
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);

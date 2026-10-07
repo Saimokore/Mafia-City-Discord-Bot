@@ -1,37 +1,30 @@
-import { ChatInputCommandInteraction } from "discord.js";
-import { PlayerService } from "../../services/PlayerService.js";
-import { SkillService } from "../../services/SkillService.js";
-import { DiscordChannelService } from "../../infrastructure/discord/DiscordChannelService.js";
-import { PlayerDAO } from "../../daos/PlayerDAO.js";
-import { PlayerEmbeds } from "../../views/embeds/PlayerEmbeds.js";
+import { MessageFlags, type ChatInputCommandInteraction } from "discord.js";
+import { Game } from "../../services/GameService.js";
 
 export class IniciarJogoCommand {
-    public static async execute(interaction: ChatInputCommandInteraction) {
-        await interaction.deferReply({ ephemeral: true });
+    public static async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
-            const guild = interaction.guild!;
-            const channelService = new DiscordChannelService(guild);
-            const skillService = new SkillService();
-            const playerService = new PlayerService(skillService, channelService, guild.id);
+            const guild = interaction.guild;
+            if (!guild) {
+                await interaction.editReply({ content: "❌ Este comando só pode ser usado em um servidor." });
+                return;
+            }
 
-            // Busca os jogadores da partida
-            const players = await PlayerDAO.getAllPlayers(guild.id);
+            const game = new Game(guild.id, interaction.client);
+            const partida = await game.getPartida();
+            if (!partida || partida.getStatus() === "FINALIZADA") {
+                await interaction.editReply({ content: "❌ Nenhuma partida foi criada neste servidor." });
+                return;
+            }
 
-            // Chama a Service (Regra de Negócio)
-            const resultado = await playerService.distribuirCargos(players);
-
-            // Usa a View para responder ao moderador/admin
-            const embedResposta = PlayerEmbeds.relatorioDistribuicao(
-                resultado.sucessos,
-                resultado.falhas.length
-            );
-
-            await interaction.editReply({ embeds: [embedResposta] });
+            await game.iniciarJogo();
+            await interaction.editReply({ content: "✅ Partida iniciada." });
 
         } catch (error) {
             await interaction.editReply({
-                content: `❌ Falha ao iniciar distribuição: ${(error as Error).message}`
+                content: `❌ Falha ao iniciar a partida: ${error instanceof Error ? error.message : String(error)}`
             });
         }
     }

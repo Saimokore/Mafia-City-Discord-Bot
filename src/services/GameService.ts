@@ -63,7 +63,6 @@ export class Game {
         for (const player of players) {
             try {
                 const canal = await this.channelService.criarChatPrivado(player);
-                player.setUserChat(canal.id);
                 await PlayerDAO.updatePlayer(player.getId(), { userChat: canal.id });
 
                 const cargoNome = "ATIRADOR_DE_ELITE";
@@ -97,11 +96,11 @@ export class Game {
 
     public async terminarJogo(): Promise<void> {
         await PartidaDAO.updatePartida(this.guildId, { status: "FINALIZADA" });
-        await this.sendAnuncio("A partida terminou! Obrigado por jogar! 🎉");
+        await this.channelService.enviarAnuncio("A partida terminou! Obrigado por jogar! 🎉");
     }
 
     public async verificarVitoria(): Promise<boolean> {
-        const players = await this.playerManager.getAllPlayers();
+        const players = await this.playerService.getAllPlayers();
         if (!players || players.length === 0) return false;
 
         let mafiaVivos = 0;
@@ -154,9 +153,9 @@ export class Game {
     }
 
     public async processarVitoria(mensagem: string, vitoriaContinua?: boolean): Promise<boolean> {
-        await this.sendAnuncio(mensagem);
+        await this.channelService.enviarAnuncio(mensagem);
         if (vitoriaContinua) {
-            await this.sendAnuncio("O jogo continua, mas o vencedor já é conhecido! 🎉");
+            await this.channelService.enviarAnuncio("O jogo continua, mas o vencedor já é conhecido! 🎉");
             return true;
         } else await this.terminarJogo();
 
@@ -166,12 +165,12 @@ export class Game {
     public async deletarJogo() {
         // deleto os chats privados
         try {
-            const players = await this.playerManager.getAllPlayers();
+            const players = await this.playerService.getAllPlayers();
             if (!players) throw new Error("Players não encontrados");
             for (const player of players) {
                 const userChat = player.getUserChat();
                 
-                await this.discordChannelService.deletarCanal(userChat);                
+                await this.channelService.deletarCanal(userChat);                
                 await PlayerDAO.deletePlayer(player.getId());
             }
         } catch (error) {
@@ -185,19 +184,19 @@ export class Game {
     public async avancarEtapa(): Promise<void> {
         
         this.setTransicaoEtapa(true);
-        await this.playerManager.carregarCache();
+        await this.playerService.carregarCache();
 
-        await this.skillManager.executarGatilhos();
+        await this.skillService.executarGatilhos();
 
-        await this.playerManager.commitBatch();
-        await this.skillManager.commitBatch();
+        await this.playerService.commitBatch();
+        await this.skillService.commitBatch();
 
         // await this.verificarVitoria();
 
         this.setTransicaoEtapa(false);
-        this.playerManager.limparCache();
+        this.playerService.limparCache();
         
-        await this.playerManager.sendPlayersStatus();
+        await this.playerService.enviarStatusPlayers();
 
         this.etapaAtual = await PartidaDAO.getPartida(this.guildId).then(p => p!.etapaAtual);
         this.etapaAtual++;
@@ -221,24 +220,28 @@ export class Game {
     }
     
     public async processarMortePlayer(jogadorMorto: Player, jogadorAssassino: Player): Promise<boolean> {
-        await this.playerManager.updatePlayer(jogadorMorto, { estaVivo: false });
+        await this.playerService.updatePlayer(jogadorMorto, { estaVivo: false });
 
         const habilidadesDoMorto = jogadorMorto.getHabilidades() || [];
         for (const hab of habilidadesDoMorto) {
             await hab.ativar(this, null, "AO_MORRER"); 
         }
 
-        await this.getSkillManager().criarAlerta(jogadorMorto, "Você morreu!");
+        await this.getSkillService().criarAlerta(jogadorMorto, "Você morreu!");
 
         return true;
     }
     
-    public getPlayerManager(): PlayerService {
-        return this.playerManager;
+    public getPlayerService(): PlayerService {
+        return this.playerService;
     }
 
-    public getSkillManager(): SkillService {
-        return this.skillManager;
+    public getSkillService(): SkillService {
+        return this.skillService;
+    }
+
+    public getChannelService(): DiscordChannelService {
+        return this.channelService;
     }
     
     public getGuildId(): string {
@@ -257,7 +260,7 @@ export class Game {
     public getCargos() {
         const cargos = [];
         for (const cargo of this.cargoList) {
-            cargos.push(this.skillManager.getCargoInstance(cargo))
+            cargos.push(this.skillService.getCargoInstance(cargo))
         }
         return cargos;
     }
@@ -271,12 +274,12 @@ export class Game {
     }
 
     public async iniciarNoite(): Promise<void> {
-        await this.sendAnuncio(`Noite [${Math.floor(this.etapaAtual / 2)}]. O sol se põe... A cidade vai dormir. Nenhuma mensagem a mais será ouvida aqui.`);
+        await this.channelService.enviarAnuncio(`Noite [${Math.floor(this.etapaAtual / 2)}]. O sol se põe... A cidade vai dormir. Nenhuma mensagem a mais será ouvida aqui.`);
         // await trancarCanal();
     }
 
     public async iniciarDia(): Promise<void> {
-        await this.sendAnuncio(`Dia amanhece [${Math.floor(this.etapaAtual / 2)}]`);
+        await this.channelService.enviarAnuncio(`Dia amanhece [${Math.floor(this.etapaAtual / 2)}]`);
         // await destrancarCanal();
     }
 

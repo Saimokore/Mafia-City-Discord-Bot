@@ -42,11 +42,11 @@ export class PlayerService {
         this.playersCache = [];
     }
 
-    public async getAllPlayers(): Promise<Player[] | null> {
+    public async getAllPlayers(): Promise<Player[]> {
         if (this.playersCache.length > 0) return this.playersCache;
 
         const players = await PlayerDAO.getPlayers(this.guildId);
-        if (!players) return null;
+        if (!players) return [];
         return players.map(p => new Player(this.game, p));
     }
     
@@ -103,7 +103,7 @@ export class PlayerService {
     }
 
     public async bloquearPlayer(alvo: Player) {
-        await this.game.getSkillManager().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
+        await this.game.getSkillService().criarAlerta(alvo, `Você foi bloqueado essa noite!`)
         return await PlayerDAO.updatePlayer(alvo.getId(), { status: "BLOQUEADO" });
     }
 

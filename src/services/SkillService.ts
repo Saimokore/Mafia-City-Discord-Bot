@@ -39,7 +39,7 @@ export class SkillService {
             
             const gatilhoObj = new Action(rawGatilho);
 
-            const player = await this.game.getPlayerManager().loadPlayer(gatilhoObj.getDonoId());
+            const player = await this.game.getPlayerService().loadPlayer(gatilhoObj.getDonoId());
             
             let habilidade: HabilidadeDinamica | undefined;
             if (gatilhoObj.getHabilidadeId()) {
@@ -103,7 +103,7 @@ export class SkillService {
         }
         for (const oferta of ofertas) {
             if (oferta.etapa == await this.game.getEtapaAtual() - 1) {
-                const habilidade = await this.game.getPlayerManager().getHabilidadePlayer(oferta.emissorId, oferta.habilidadeId);
+                const habilidade = await this.game.getPlayerService().getHabilidadePlayer(oferta.emissorId, oferta.habilidadeId);
                 if (!habilidade) continue;
                 
                 await habilidade.resolverOferta(this.game, oferta.id, oferta.status === "ACEITA" ? "ACEITA" : "RECUSADA");
