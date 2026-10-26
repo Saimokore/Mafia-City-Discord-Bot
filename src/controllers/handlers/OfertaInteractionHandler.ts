@@ -8,9 +8,19 @@ import {
 import { OfertaDAO } from "../../daos/OfertaDAO.js";
 import type { Game } from "../../services/GameService.js";
 import { OfertaView } from "../../views/components/OfertaView.js";
+import type { IInteractionHandler } from "./IInteractionHandler.js";
 
-export class OfertaInteractionHandler {
-    public static async execute(interaction: Interaction, game: Game): Promise<void> {
+export class OfertaInteractionHandler implements IInteractionHandler {
+    public canHandle(interaction: Interaction): boolean {
+        return (
+            (interaction.isButton() && interaction.customId.startsWith("offer_button")) ||
+            (interaction.isStringSelectMenu() &&
+                (interaction.customId.startsWith("offer_choose_loss_") ||
+                    interaction.customId.startsWith("offer_select")))
+        );
+    }
+
+    public async execute(interaction: Interaction, game: Game): Promise<void> {
         if (interaction.isButton() && interaction.customId.startsWith("offer_button")) {
             const partes = interaction.customId.split("_");
             const accept = partes[2] === "accept";

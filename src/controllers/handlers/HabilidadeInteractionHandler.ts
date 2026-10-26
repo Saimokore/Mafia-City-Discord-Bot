@@ -5,10 +5,21 @@ import {
 import { HabilidadeDAO } from "../../daos/HabilidadeDAO.js";
 import type { HabilidadeDinamica } from "../../domain/skills/HabilidadeDinamica.js";
 import type { Game } from "../../services/GameService.js";
+import type { IInteractionHandler } from "./IInteractionHandler.js";
 
-export class HabilidadeInteractionHandler {
-    public static async execute(interaction: Interaction, game: Game): Promise<void> {
-        if (interaction.isStringSelectMenu() && interaction.customId === "select_habilidade_inicial") {
+export class HabilidadeInteractionHandler implements IInteractionHandler {
+
+    public canHandle(interaction: Interaction): boolean {
+        return (
+            (interaction.isStringSelectMenu() &&
+                (interaction.customId === "skill_select" || interaction.customId.startsWith("skill_input_"))) ||
+            (interaction.isModalSubmit() &&
+                (interaction.customId.startsWith("skill_modal_") || interaction.customId.startsWith("skill_input_")))
+        );
+    }
+
+    public async execute(interaction: Interaction, game: Game): Promise<void> {
+        if (interaction.isStringSelectMenu() && interaction.customId === "skill_select") {
             const nomeHabilidade = interaction.values[0];
             const userId = interaction.user.id;
             if (!nomeHabilidade) {

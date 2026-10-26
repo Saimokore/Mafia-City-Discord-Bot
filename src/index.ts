@@ -15,6 +15,8 @@ const client = new Client({
     ]
 });
 
+InteractionCommandHandler.register();
+
 client.once("clientReady", c => {
     console.log(`✅ Logado com sucesso como ${c.user.tag}!`);
 });

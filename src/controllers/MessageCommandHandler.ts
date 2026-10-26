@@ -29,6 +29,7 @@ import { GuildConfigDAO } from "../daos/GuildConfigDAO.js";
 import { Game } from "../services/GameService.js";
 
 export class MessageCommandHandler {
+    
     public static async execute(message: Message, client: Client): Promise<void> {
         if (!message.guild || message.author.bot) return;
 

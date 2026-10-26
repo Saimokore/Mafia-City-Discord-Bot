@@ -1,8 +1,26 @@
-import type { Message } from "discord.js";
+import { MessageFlags, type ChatInputCommandInteraction, type Message } from "discord.js";
 import { PlayerDAO } from "../../daos/PlayerDAO.js";
 import type { Game } from "../../services/GameService.js";
+import type { ICommand } from "./ICommand.js";
 
-export class SetProtecaoCommand {
+export class SetProtecaoCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
+    public readonly name = "setprot";
+
+    public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        const targetId = interaction.options.getString("player_id", true);
+        const protection = interaction.options.getInteger("value", true);
+
+        try {
+            await PlayerDAO.updatePlayerByUserId(targetId, interaction.guildId!, { protecao: protection });
+            await interaction.reply({
+                content: `🛡️ Proteção de **${targetId}** alterada para **${protection}**.`,
+                flags: MessageFlags.Ephemeral
+            });
+        } catch {
+            await interaction.reply({ content: "❌ Jogador não encontrado no banco de dados.", flags: MessageFlags.Ephemeral });
+        }
+    }
+
     public static async execute(message: Message, args: string[]): Promise<void> {
         const serverId = message.guild!.id;
         const alvoId = args[0];
@@ -26,7 +44,19 @@ export class SetProtecaoCommand {
     }
 }
 
-export class MatarJogadorCommand {
+export class MatarJogadorCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
+    public readonly name = "kill";
+
+    public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        const targetId = interaction.options.getString("player_id", true);
+        try {
+            await PlayerDAO.updatePlayerByUserId(targetId, interaction.guildId!, { estaVivo: false });
+            await interaction.reply({ content: `💀 Jogador **${targetId}** foi abatido pelos deuses do Debug.` });
+        } catch {
+            await interaction.reply({ content: "❌ Erro ao matar jogador.", flags: MessageFlags.Ephemeral });
+        }
+    }
+
     public static async execute(message: Message, args: string[]): Promise<void> {
         const alvoId = args[0];
         if (!alvoId) {
@@ -43,7 +73,19 @@ export class MatarJogadorCommand {
     }
 }
 
-export class ReviverJogadorCommand {
+export class ReviverJogadorCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
+    public readonly name = "revive";
+
+    public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        const targetId = interaction.options.getString("player_id", true);
+        try {
+            await PlayerDAO.updatePlayerByUserId(targetId, interaction.guildId!, { estaVivo: true });
+            await interaction.reply({ content: `👼 Jogador **${targetId}** ressuscitou!` });
+        } catch {
+            await interaction.reply({ content: "❌ Erro ao reviver jogador.", flags: MessageFlags.Ephemeral });
+        }
+    }
+
     public static async execute(message: Message, args: string[]): Promise<void> {
         const alvoId = args[0];
         if (!alvoId) {
@@ -60,7 +102,22 @@ export class ReviverJogadorCommand {
     }
 }
 
-export class SetCargoCommand {
+export class SetCargoCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
+    public readonly name = "setcargo";
+
+    public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+        const targetId = interaction.options.getString("player_id", true);
+        const cargo = interaction.options.getString("cargo", true);
+        try {
+            await PlayerDAO.updatePlayerByUserId(targetId, interaction.guildId!, { cargo });
+            await interaction.reply({
+                content: `🎭 Cargo de **${targetId}** alterado para **${cargo}**. (Nota: As habilidades precisam ser recarregadas)`
+            });
+        } catch {
+            await interaction.reply({ content: "❌ Erro ao alterar cargo.", flags: MessageFlags.Ephemeral });
+        }
+    }
+
     public static async execute(message: Message, args: string[]): Promise<void> {
         const alvoId = args[0];
         const nomeCargo = args.slice(1).join(" ");
@@ -78,7 +135,21 @@ export class SetCargoCommand {
     }
 }
 
-export class ForcarEtapaCommand {
+export class ForcarEtapaCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
+    public readonly name = "forceetapa";
+
+    public async execute(interaction: ChatInputCommandInteraction, game: Game): Promise<void> {
+        await interaction.deferReply();
+        try {
+            await game.avancarEtapa();
+            const etapaAtual = await game.getEtapaAtual();
+            await interaction.editReply(`⏩ O tempo foi acelerado! O jogo agora está na etapa **${etapaAtual}**.`);
+        } catch (error) {
+            console.error(error);
+            await interaction.editReply("❌ Erro ao forçar o avanço da etapa. O Game instanciado existe?");
+        }
+    }
+
     public static async execute(message: Message, game: Game): Promise<void> {
         try {
             await game.avancarEtapa();

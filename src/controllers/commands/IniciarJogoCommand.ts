@@ -1,8 +1,11 @@
 import { MessageFlags, type ChatInputCommandInteraction } from "discord.js";
-import { Game } from "../../services/GameService.js";
+import type { Game } from "../../services/GameService.js";
+import type { ICommand } from "./ICommand.js";
 
-export class IniciarJogoCommand {
-    public static async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+export class IniciarJogoCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
+    public readonly name = "startgame";
+
+    public async execute(interaction: ChatInputCommandInteraction, game: Game): Promise<void> {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
@@ -12,7 +15,6 @@ export class IniciarJogoCommand {
                 return;
             }
 
-            const game = new Game(guild.id, interaction.client);
             const partida = await game.getPartida();
             if (!partida || partida.getStatus() === "FINALIZADA") {
                 await interaction.editReply({ content: "❌ Nenhuma partida foi criada neste servidor." });

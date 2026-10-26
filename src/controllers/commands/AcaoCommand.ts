@@ -5,9 +5,12 @@ import {
     type ChatInputCommandInteraction
 } from "discord.js";
 import type { Game } from "../../services/GameService.js";
+import type { ICommand } from "./ICommand.js";
 
-export class AcaoCommand {
-    public static async execute(interaction: ChatInputCommandInteraction, game: Game): Promise<void> {
+export class AcaoCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
+    public readonly name = "action";
+
+    public async execute(interaction: ChatInputCommandInteraction, game: Game): Promise<void> {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const player = await game.getPlayerService().loadPlayer(interaction.user.id);
@@ -39,7 +42,7 @@ export class AcaoCommand {
         );
 
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId("select_habilidade_inicial")
+            .setCustomId("skill_select")
             .setPlaceholder("Escolha uma habilidade para usar hoje")
             .addOptions(habilidadesFiltradas.map(hab => ({
                 label: hab.getNome(),

@@ -7,9 +7,12 @@ import {
 import { OfertaDAO } from "../../daos/OfertaDAO.js";
 import type { Game } from "../../services/GameService.js";
 import { OfertaView } from "../../views/components/OfertaView.js";
+import type { ICommand } from "./ICommand.js";
 
-export class OfertaCommand {
-    public static async execute(interaction: ChatInputCommandInteraction, game: Game): Promise<void> {
+export class OfertaCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
+    public readonly name = "offer";
+
+    public async execute(interaction: ChatInputCommandInteraction, game: Game): Promise<void> {
         const player = await game.getPlayerService().loadPlayer(interaction.user.id);
         const partida = await game.getPartida();
         if (!partida) {
