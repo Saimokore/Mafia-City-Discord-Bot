@@ -17,6 +17,8 @@ export class Game {
     private cargoList: string[];
     private etapaAtual: number;
 
+    private players: Player[];
+
     private playerService: PlayerService;
     private skillService: SkillService;
     private channelService: DiscordChannelService;
@@ -31,13 +33,17 @@ export class Game {
 
         this.playerService = new PlayerService(this.guildId, this);
         this.skillService = new SkillService(this.guildId, this);
-        this.channelService = new DiscordChannelService(this.client.guilds.cache.get(this.guildId)!, this.client);
+        this.channelService = new DiscordChannelService(this.guildId, this.client);
+
+        this.players = [];
         
         this.cargoList = ["EVANGELISTA", "ATIRADOR_DE_ELITE", "DETETIVE", "BIGODE", "DOIDAO"];
         this.transicaoEtapa = false;
     }
 
     public async iniciarJogo(): Promise<void> {
+        this.players = await this.playerService.getAllPlayers();
+
         await PartidaDAO.updatePartida(this.guildId, { status: "ATIVA" });
         await this.channelService.enviarAnuncio("A partida começou! O lobby está fechado. Que a cidade esteja com vocês! 🌆");
 
@@ -54,22 +60,22 @@ export class Game {
 
     public async giveCargoPlayers() {
         // const cargosDistribuidos = [...this.cargoList].sort(() => Math.random() - 0.5);
-        
-        const players = await this.playerService.getAllPlayers();
-        if (!players || players.length === 0) {
+        await this.updateOrCheckPlayers();
+
+        if (!this.players || this.players.length === 0) {
             throw new Error("Players não encontrados");
         } 
 
-        for (const player of players) {
+        for (const player of this.players) {
             try {
                 const canal = await this.channelService.criarChatPrivado(player);
-                await PlayerDAO.updatePlayer(player.getId(), { userChat: canal.id });
+                await this.playerService.updatePlayer(player, { userChat: canal.id });
 
                 const cargoNome = "ATIRADOR_DE_ELITE";
                 const cargoObj = this.skillService.getCargoInstance(cargoNome);
                 if (!cargoObj) throw new Error(`Cargo ${cargoNome} não encontrado.`);
 
-                await PlayerDAO.updatePlayer(player.getId(), { cargo: cargoNome });
+                await this.playerService.updatePlayer(player, { cargo: cargoNome });
                 await Promise.all(
                     cargoObj.getHabilidades().map(hab =>
                         HabilidadeDAO.createHabilidade(
@@ -100,14 +106,15 @@ export class Game {
     }
 
     public async verificarVitoria(): Promise<boolean> {
-        const players = await this.playerService.getAllPlayers();
-        if (!players || players.length === 0) return false;
+        await this.updateOrCheckPlayers();
+        
+        if (!this.players || this.players.length === 0) return false;
 
         let mafiaVivos = 0;
         let cidadeVivos = 0;
         let neutrosVivos = 0;
 
-        for (const p of players) {
+        for (const p of this.players) {
             if (!p.estaVivo()) continue;
 
             const alinhamento = p.getAlinhamento?.() || "Neutro"; 
@@ -127,7 +134,7 @@ export class Game {
 
         const avaliador = new ConditionEvaluator();
 
-        for (const p of players) {
+        for (const p of this.players) {
             const cargo = p.getCargo();
             if (cargo && p.getAlinhamento?.() === "Neutro") {
                 const condicoesVitoria = cargo.getCondicoesVitoria();
@@ -165,13 +172,14 @@ export class Game {
     public async deletarJogo() {
         // deleto os chats privados
         try {
-            const players = await this.playerService.getAllPlayers();
-            if (!players) throw new Error("Players não encontrados");
-            for (const player of players) {
+            await this.updateOrCheckPlayers();
+
+            if (!this.players) throw new Error("Players não encontrados");
+            for (const player of this.players) {
                 const userChat = player.getUserChat();
                 
                 await this.channelService.deletarCanal(userChat);                
-                await PlayerDAO.deletePlayer(player.getId());
+                await this.playerService.deletePlayer(player);
             }
         } catch (error) {
             console.error("Players não encontrados: " + error);
@@ -190,7 +198,8 @@ export class Game {
 
         await this.playerService.commitBatch();
         await this.skillService.commitBatch();
-
+        
+        await this.updateOrCheckPlayers();
         // await this.verificarVitoria();
 
         this.setTransicaoEtapa(false);
@@ -289,6 +298,13 @@ export class Game {
 
     public getIsTeste(): boolean {
         return this.isTeste;
+    }
+
+    public async updateOrCheckPlayers(): Promise<Player[]> {
+        if (!this.players || this.players.length === 0) {
+            this.players = await this.playerService.getAllPlayers();
+        }
+        return this.players;
     }
 
 }

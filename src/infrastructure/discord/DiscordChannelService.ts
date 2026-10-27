@@ -3,15 +3,17 @@ import type { Player } from "../../domain/entities/Player.js";
 import { GuildConfigDAO } from "../../daos/GuildConfigDAO.js";
 
 export class DiscordChannelService {
-    constructor(private guild: Guild, private client: Client) {}
+    constructor(private guildId: string, private client: Client) {}
 
     public async criarChatPrivado(player: Player, categoriaId?: string): Promise<TextChannel> {
         try {
+            const guild = await this.client.guilds.fetch(this.guildId);
+
             const nome = `chat-${player.getUsername().toLowerCase().replace(/\s+/g, "-")}`;
 
             const permissoes = [
                 {
-                    id: this.guild.roles.everyone.id, // @everyone
+                    id: guild.roles.everyone.id, // @everyone
                     deny: [PermissionFlagsBits.ViewChannel],
                 },
                 {
@@ -20,10 +22,10 @@ export class DiscordChannelService {
                 }
             ];
 
-            return await this.guild.channels.create({
+            return await guild.channels.create({
                 name: nome,
                 type: ChannelType.GuildText,
-                permissionOverwrites: permissoes
+                //permissionOverwrites: permissoes
             });
             
         } catch (error) {
@@ -61,7 +63,7 @@ export class DiscordChannelService {
     }
 
     public async enviarAnuncio(mensagem: string): Promise<void> {
-        const config = await GuildConfigDAO.getConfig(this.guild.id);
+        const config = await GuildConfigDAO.getConfig(this.guildId);
         if (!config || !config.canalAnuncioId) return;
 
         try {

@@ -82,6 +82,11 @@ export class PlayerService {
         this.batchUpdates.set(id, { ...atual, ...updates });
     }
 
+    public async deletePlayer(player: Player) {
+        await PlayerDAO.deletePlayer(player.getId());
+        this.playersCache = this.playersCache.filter(p => p.getId() !== player.getId());
+    }
+
     public async commitBatch() {
         if (this.batchUpdates.size === 0) return;
         

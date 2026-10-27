@@ -16,8 +16,11 @@ export class IniciarJogoCommand implements ICommand<ChatInputCommandInteraction,
             }
 
             const partida = await game.getPartida();
-            if (!partida || partida.getStatus() === "FINALIZADA") {
+            if (!partida) {
                 await interaction.editReply({ content: "❌ Nenhuma partida foi criada neste servidor." });
+                return;
+            } else if (partida.getStatus() === "FINALIZADA") {
+                await interaction.reply({ content: "Existe uma partida finalizada neste servidor. Use `/deletegame` para deletar a partida finalizada antes de criar uma nova.", flags: MessageFlags.Ephemeral });
                 return;
             }
 

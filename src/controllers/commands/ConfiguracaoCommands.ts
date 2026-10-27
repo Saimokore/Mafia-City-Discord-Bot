@@ -11,6 +11,12 @@ export class SetDiurnoCommand implements ICommand<ChatInputCommandInteraction, [
             await interaction.reply({ content: "❌ Apenas administradores podem definir os canais do jogo.", flags: MessageFlags.Ephemeral });
             return;
         }
+        const channel = interaction.guild?.channels.cache.get(interaction.channelId);
+
+        if (channel?.name.startsWith("chat-")) {
+            await interaction.reply({ content: "❌ Canais de privados de jogadores não podem ser definidos como canais de anúncios.", flags: MessageFlags.Ephemeral });
+            return;
+        }
 
         try {
             await GuildConfigDAO.updateGuildConfig(interaction.guildId!, { canalDiurnoId: interaction.channelId });
@@ -18,22 +24,6 @@ export class SetDiurnoCommand implements ICommand<ChatInputCommandInteraction, [
         } catch (error) {
             console.error("Erro ao salvar configuração:", error);
             await interaction.reply({ content: "❌ Erro interno ao tentar salvar no banco de dados.", flags: MessageFlags.Ephemeral });
-        }
-    }
-
-    public static async execute(message: Message): Promise<void> {
-        const serverId = message.guild!.id;
-        if (!message.member?.permissions.has("Administrator")) {
-            await message.reply("❌ Apenas administradores podem definir os canais do jogo.");
-            return;
-        }
-
-        try {
-            await GuildConfigDAO.updateGuildConfig(serverId, { canalDiurnoId: message.channel.id });
-            await message.reply(`✅ Feito! O canal <#${message.channel.id}> foi registrado no banco de dados como a praça da Cidade! ☀️`);
-        } catch (error) {
-            console.error("Erro ao salvar configuração:", error);
-            await message.reply("❌ Erro interno ao tentar salvar no banco de dados.");
         }
     }
 }
@@ -47,28 +37,19 @@ export class SetAnuncioCommand implements ICommand<ChatInputCommandInteraction, 
             return;
         }
 
+        const channel = interaction.guild?.channels.cache.get(interaction.channelId);
+
+        if (channel?.name.startsWith("chat-")) {
+            await interaction.reply({ content: "❌ Canais de privados de jogadores não podem ser definidos como canais de anúncios.", flags: MessageFlags.Ephemeral });
+            return;
+        }
+
         try {
             await GuildConfigDAO.updateGuildConfig(interaction.guildId!, { canalAnuncioId: interaction.channelId });
             await interaction.reply(`✅ Feito! O canal <#${interaction.channelId}> foi registrado no banco de dados como o canal de anúncios! 📢`);
         } catch (error) {
             console.error("Erro ao salvar configuração:", error);
             await interaction.reply({ content: "❌ Erro interno ao tentar salvar no banco de dados.", flags: MessageFlags.Ephemeral });
-        }
-    }
-
-    public static async execute(message: Message): Promise<void> {
-        const serverId = message.guild!.id;
-        if (!message.member?.permissions.has("Administrator")) {
-            await message.reply("❌ Apenas administradores podem definir os canais do jogo.");
-            return;
-        }
-
-        try {
-            await GuildConfigDAO.updateGuildConfig(serverId, { canalAnuncioId: message.channel.id });
-            await message.reply(`✅ Feito! O canal <#${message.channel.id}> foi registrado no banco de dados como o canal de anúncios! 📢`);
-        } catch (error) {
-            console.error("Erro ao salvar configuração:", error);
-            await message.reply("❌ Erro interno ao tentar salvar no banco de dados.");
         }
     }
 }

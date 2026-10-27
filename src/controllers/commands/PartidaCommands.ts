@@ -1,4 +1,4 @@
-import { MessageFlags, type ChatInputCommandInteraction, type Message } from "discord.js";
+import { InteractionResponse, MessageFlags, type ChatInputCommandInteraction, type Message } from "discord.js";
 import { GuildConfigDAO } from "../../daos/GuildConfigDAO.js";
 import { PartidaDAO } from "../../daos/PartidaDAO.js";
 import { PlayerDAO } from "../../daos/PlayerDAO.js";
@@ -10,54 +10,51 @@ export class CriarPartidaCommand implements ICommand<ChatInputCommandInteraction
 
     public async execute(interaction: ChatInputCommandInteraction): Promise<void> {
         const serverId = interaction.guildId!;
-        const partidaExistente = await PartidaDAO.getPartida(serverId);
-        if (partidaExistente && partidaExistente.status !== "FINALIZADA") {
-            await interaction.reply({ content: "Já existe uma partida criada neste servidor. Use `/endgame` para finalizar a partida atual antes de criar uma nova.", flags: MessageFlags.Ephemeral });
-            return;
-        }
-        if (partidaExistente?.status === "FINALIZADA") {
-            await interaction.reply({ content: "Existe uma partida finalizada neste servidor. Use `/deletegame` para deletar a partida finalizada antes de criar uma nova.", flags: MessageFlags.Ephemeral });
-            return;
-        }
 
-        const config = await GuildConfigDAO.getConfig(serverId);
-        if (!config?.canalDiurnoId) {
-            await interaction.reply({ content: "❌ Antes de criar uma partida, defina o canal diurno usando `/setdiurno` no canal desejado.", flags: MessageFlags.Ephemeral });
-            return;
-        }
-        if (!config.canalAnuncioId) {
-            await interaction.reply({ content: "❌ Antes de criar uma partida, defina o canal de anúncios usando `/setanuncio` no canal desejado.", flags: MessageFlags.Ephemeral });
-            return;
-        }
+        // checa se a partida existe ou se ta finalizada
+        if (!await this.checkStatusPartida(interaction, serverId)) return;
+
+        // checa se os canais de diurno e anúncio tao configurados
+        if (!await this.checkCanaisConfig(interaction, serverId)) return;
 
         await PartidaDAO.createPartida(serverId);
         await interaction.reply("Uma nova partida foi criada! O lobby está aberto. Digitem `/join` para entrar!");
     }
 
-    public static async execute(message: Message): Promise<void> {
-        const serverId = message.guild!.id;
+    public async checkStatusPartida(interaction: ChatInputCommandInteraction, serverId: string): Promise<boolean> {
         const partidaExistente = await PartidaDAO.getPartida(serverId);
+
         if (partidaExistente && partidaExistente.status !== "FINALIZADA") {
-            await message.reply("Já existe uma partida criada neste servidor. Use `!endGame` para finalizar a partida atual antes de criar uma nova.");
-            return;
+            await interaction.reply({ content: "Já existe uma partida criada neste servidor. Use `/endgame` para finalizar a partida atual antes de criar uma nova.", flags: MessageFlags.Ephemeral });
+            return false;
         }
         if (partidaExistente?.status === "FINALIZADA") {
-            await message.reply("Existe uma partida finalizada neste servidor. Use `!deleteGame` para deletar a partida finalizada antes de criar uma nova.");
-            return;
+            await interaction.reply({ content: "Existe uma partida finalizada neste servidor. Use `/deletegame` para deletar a partida finalizada antes de criar uma nova.", flags: MessageFlags.Ephemeral });
+            return false;
         }
 
+        return true;
+    }
+
+    public async checkCanaisConfig(interaction: ChatInputCommandInteraction, serverId: string): Promise<boolean> {
         const config = await GuildConfigDAO.getConfig(serverId);
         if (!config?.canalDiurnoId) {
-            await message.reply("❌ Antes de criar uma partida, defina o canal diurno usando `!setdiurno` no canal desejado.");
-            return;
-        }
-        if (!config.canalAnuncioId) {
-            await message.reply("❌ Antes de criar uma partida, defina o canal de anúncios usando `!setanuncio` no canal desejado.");
-            return;
+            await interaction.reply({
+                content: "❌ Antes de continuar, defina o canal diurno usando `/setdiurno` no canal desejado.",
+                flags: MessageFlags.Ephemeral
+            });
+            return false;
         }
 
-        await PartidaDAO.createPartida(serverId);
-        await message.reply("Uma nova partida foi criada! O lobby está aberto. Digitem `!join` para entrar!");
+        if (!config.canalAnuncioId) {
+            await interaction.reply({
+                content: "❌ Antes de continuar, defina o canal de anúncios usando `/setanuncio` no canal desejado.",
+                flags: MessageFlags.Ephemeral
+            });
+            return false;
+        }
+
+        return true;
     }
 }
 
@@ -75,18 +72,6 @@ export class EntrarPartidaCommand implements ICommand<ChatInputCommandInteractio
         await PlayerDAO.createPlayer(serverId, interaction.user.id, interaction.user.username);
         await interaction.reply("Você entrou no jogo!");
     }
-
-    public static async execute(message: Message): Promise<void> {
-        const serverId = message.guild!.id;
-        const existingPlayer = await PlayerDAO.getPlayerByUserId(message.author.id, serverId);
-        if (existingPlayer) {
-            await message.reply("Você já está no jogo!");
-            return;
-        }
-
-        await PlayerDAO.createPlayer(serverId, message.author.id, message.author.username);
-        await message.reply("Você entrou no jogo!");
-    }
 }
 
 export class SairPartidaCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
@@ -100,15 +85,6 @@ export class SairPartidaCommand implements ICommand<ChatInputCommandInteraction,
         }
         await interaction.reply("Você saiu do jogo!");
     }
-
-    public static async execute(message: Message): Promise<void> {
-        const removedPlayer = await PlayerDAO.deletePlayer(message.author.id);
-        if (!removedPlayer) {
-            await message.reply("Você não está no jogo!");
-            return;
-        }
-        await message.reply("Você saiu do jogo!");
-    }
 }
 
 export class AvancarEtapaCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
@@ -117,14 +93,6 @@ export class AvancarEtapaCommand implements ICommand<ChatInputCommandInteraction
     public async execute(interaction: ChatInputCommandInteraction, game: Game): Promise<void> {
         await game.avancarEtapa();
         await interaction.reply("⏩ Etapa avançada.");
-    }
-
-    public static async execute(message: Message, game: Game): Promise<void> {
-        if (game) {
-            void game.avancarEtapa();
-        } else {
-            await message.reply("Nenhuma partida ativa neste servidor.");
-        }
     }
 }
 
@@ -142,21 +110,6 @@ export class EncerrarPartidaCommand implements ICommand<ChatInputCommandInteract
         await game.terminarJogo();
         await interaction.reply("Jogo terminado neste servidor!");
     }
-
-    public static async execute(message: Message, game: Game): Promise<void> {
-        const serverId = message.guild!.id;
-        if (!game) {
-            await message.reply("Nenhuma partida ativa neste servidor.");
-            return;
-        }
-        if (await PartidaDAO.getPartida(serverId).then(partida => partida?.status) === "FINALIZADA") {
-            await message.reply("A partida já foi finalizada. Use `!deletegame` para deletar a partida finalizada.");
-            return;
-        }
-
-        void game.terminarJogo();
-        await message.reply("Jogo terminado neste servidor!");
-    }
 }
 
 export class DeletarPartidaCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
@@ -173,22 +126,6 @@ export class DeletarPartidaCommand implements ICommand<ChatInputCommandInteracti
         await game.deletarJogo();
         await interaction.reply("Jogo deletado neste servidor!");
     }
-
-    public static async execute(message: Message, game: Game): Promise<void> {
-        const serverId = message.guild!.id;
-        if (!game) {
-            await message.reply("Nenhuma partida ativa neste servidor.");
-            return;
-        }
-        const status = await PartidaDAO.getPartida(serverId).then(partida => partida?.status);
-        if (status !== "FINALIZADA") {
-            await message.reply("Você só pode deletar uma partida que foi finalizada. Finalize a partida primeiro usando `!endGame`.");
-            return;
-        }
-
-        void game.deletarJogo();
-        await message.reply("Jogo deletado neste servidor!");
-    }
 }
 
 export class ReiniciarPartidaCommand implements ICommand<ChatInputCommandInteraction, [game: Game]> {
@@ -199,12 +136,5 @@ export class ReiniciarPartidaCommand implements ICommand<ChatInputCommandInterac
         await game.deletarJogo();
         await PartidaDAO.createPartida(interaction.guildId!);
         await interaction.reply("Jogo reiniciado neste servidor! O lobby está aberto. Digitem `/join` para entrar!");
-    }
-
-    public static async execute(message: Message, game: Game): Promise<void> {
-        await game.terminarJogo();
-        await game.deletarJogo();
-        await PartidaDAO.createPartida(message.guild!.id);
-        await message.reply("Jogo reiniciado neste servidor! O lobby está aberto. Digitem `!join` para entrar!");
     }
 }

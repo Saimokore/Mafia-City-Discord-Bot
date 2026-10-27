@@ -1,4 +1,4 @@
-import type { ChatInputCommandInteraction, Client, Interaction } from "discord.js";
+import { type ChatInputCommandInteraction, type Client, type Interaction } from "discord.js";
 import { AcaoCommand } from "./commands/AcaoCommand.js";
 import {
     ForcarEtapaCommand,
